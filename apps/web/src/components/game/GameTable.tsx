@@ -69,16 +69,16 @@ export function GameTable() {
           )}
         </div>
 
-        {/* Strategy hint — floats on the felt, bottom-right */}
-        {lastHandInfo && (
-          <div style={{ position: 'absolute', bottom: '1rem', right: '1rem' }}>
-            <StrategyHint info={lastHandInfo} />
-          </div>
-        )}
       </div>
 
       {/* Controls area */}
       <div className="controls-area">
+        {lastHandInfo && !isBetting && (
+          <div className="controls-hint">
+            <StrategyHint info={lastHandInfo} />
+          </div>
+        )}
+
         {isBetting && <BetPanel bankroll={bankroll} pendingBet={pendingBet} />}
 
         {phase === 'PLAYER_TURN' && <ActionBar />}

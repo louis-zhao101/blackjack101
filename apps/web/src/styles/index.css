@@ -365,9 +365,14 @@ body {
 .controls-area {
   background: rgba(0,0,0,0.25);
   border-top: 1px solid var(--felt-border);
-  padding: 1rem;
-  display: flex; align-items: center; justify-content: center;
-  min-height: 100px;
+  padding: 0.65rem 1rem 1rem;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 0.6rem;
+  min-height: 80px;
+}
+
+.controls-hint {
+  display: flex; justify-content: center;
 }
 
 .complete-actions {
@@ -507,7 +512,8 @@ body {
 .strategy-hint__popup {
   position: absolute;
   bottom: calc(100% + 8px);
-  right: 0;
+  left: 50%;
+  transform: translateX(-50%);
   width: 300px;
   background: #0f2318;
   border: 1px solid var(--felt-border);
@@ -522,14 +528,16 @@ body {
 .strategy-hint__popup::after {
   content: '';
   position: absolute;
-  top: 100%; right: 1rem;
+  top: 100%; left: 50%;
+  transform: translateX(-50%);
   border: 7px solid transparent;
   border-top-color: var(--felt-border);
 }
 .strategy-hint__popup::before {
   content: '';
   position: absolute;
-  top: calc(100% - 1px); right: 1rem;
+  top: calc(100% - 1px); left: 50%;
+  transform: translateX(-50%);
   border: 6px solid transparent;
   border-top-color: #0f2318;
   z-index: 1;
@@ -917,7 +925,15 @@ body {
   .game-message { font-size: 0.95rem; padding: 0.4rem 1rem; }
 
   /* Controls: less padding */
-  .controls-area { padding: 0.65rem 0.75rem; min-height: 0; }
+  .controls-area { padding: 0.5rem 0.75rem 0.75rem; min-height: 0; gap: 0.4rem; }
+
+  /* Split hands: tighter gap, smaller padding on each hand */
+  .player-hands { gap: 0.75rem; }
+  .bj-hand { padding: 0.35rem 0.5rem; }
+  .bj-hand--active { box-shadow: 0 0 0 2px var(--gold), 0 0 12px rgba(212,168,67,0.3); }
+
+  /* Hint popup: clamp width on small screens */
+  .strategy-hint__popup { width: 260px; }
 
   /* Action buttons: narrower so all 5 fit in one row */
   .action-btn {
