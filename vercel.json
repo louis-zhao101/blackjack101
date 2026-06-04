@@ -1,0 +1,6 @@
+{
+  "buildCommand": "pnpm --filter @blackjack101/web build",
+  "outputDirectory": "apps/web/dist",
+  "installCommand": "pnpm install",
+  "framework": null
+}
