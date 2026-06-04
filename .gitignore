@@ -3,4 +3,5 @@ dist/
 apps/web/dist/
 .vercel/
 *.local
+*.tsbuildinfo
 .DS_Store

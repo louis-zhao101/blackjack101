@@ -1,5 +1,5 @@
 {
-  "buildCommand": "pnpm --filter @blackjack101/web build",
+  "buildCommand": "cd apps/web && npx vite build",
   "outputDirectory": "apps/web/dist",
   "installCommand": "pnpm install",
   "framework": null
