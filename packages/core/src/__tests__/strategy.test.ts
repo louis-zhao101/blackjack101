@@ -128,6 +128,29 @@ describe('getOptimalAction — surrender fallback', () => {
   });
 });
 
+describe('getOptimalAction — high totals (21)', () => {
+  it('stands on soft 21 vs dealer Ace', () => {
+    // A + 7 + 3 = soft 21 — was incorrectly returning Hit
+    const result = getOptimalAction([card('A'), card('7'), card('3')], card('A'), rules);
+    expect(result.action).toBe('S');
+  });
+
+  it('stands on soft 21 vs dealer 10', () => {
+    const result = getOptimalAction([card('A'), card('6'), card('4')], card('10'), rules);
+    expect(result.action).toBe('S');
+  });
+
+  it('stands on hard 21 vs dealer Ace', () => {
+    const result = getOptimalAction([card('7'), card('7'), card('7')], card('A'), rules);
+    expect(result.action).toBe('S');
+  });
+
+  it('stands on soft 20 vs dealer Ace', () => {
+    const result = getOptimalAction([card('A'), card('9')], card('A'), rules);
+    expect(result.action).toBe('S');
+  });
+});
+
 describe('explanation text', () => {
   it('returns non-empty explanation', () => {
     const result = getOptimalAction([card('8'), card('8')], card('6'), rules);

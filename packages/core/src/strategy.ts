@@ -242,6 +242,14 @@ export function getOptimalAction(
   const pairK = isPair(playerCards);
   const { total, soft } = handValue(playerCards);
 
+  // Any 21 is the best possible total — always Stand, no table lookup needed
+  if (total >= 21) {
+    const expl = soft
+      ? `Stand on soft 21 — you've reached 21 with the ace counting as 11. Always stand on 21.`
+      : `Stand on ${total} — always stand on 21.`;
+    return { action: 'S', label: 'Stand', explanation: expl, doubleFallback: 'H' };
+  }
+
   let rawAction: Action;
   let explanation: string;
   let doubleFallback: 'H' | 'S' = 'H';
@@ -269,8 +277,8 @@ export function getOptimalAction(
   // Resolve surrender fallback when surrender is not allowed
   let action = rawAction;
   if (action === 'R' && ruleSet.surrender === 'none') {
-    // Hard 17 vs A falls back to Stand; 15/16 fall back to Hit
-    action = !soft && total >= 17 ? 'S' : 'H';
+    // Hard/soft 17+ fall back to Stand; lower totals fall back to Hit
+    action = total >= 17 ? 'S' : 'H';
     explanation = pairK
       ? pairExplanation(pairK, dealerUpcard.rank, action)
       : soft
