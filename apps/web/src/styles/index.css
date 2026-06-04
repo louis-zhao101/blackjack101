@@ -325,12 +325,13 @@ body {
 }
 
 .game-message {
-  position: absolute; top: 50%; transform: translateY(-50%);
   background: rgba(0,0,0,0.7);
   padding: 0.5rem 1.5rem;
   border-radius: 20px;
   font-weight: 700; font-size: 1.1rem;
   letter-spacing: 0.03em;
+  align-self: center;
+  text-align: center;
 }
 .game-message--win { color: #6ee7b7; border: 1px solid #27ae60; }
 .game-message--push { color: #94a3b8; border: 1px solid #64748b; }
@@ -858,3 +859,66 @@ body {
 .mistake-detail-title { font-weight: 600; font-size: 0.9rem; }
 .mistake-detail-actions { color: var(--text-secondary); font-size: 0.82rem; }
 .mistake-detail-explanation { margin: 0; font-size: 0.85rem; color: var(--text-secondary); line-height: 1.6; }
+
+/* ─── Mobile layout ───────────────────────────────────────────────────── */
+@media (max-width: 480px) {
+  /* Tighter header */
+  .site-header__inner { height: 48px; padding: 0 0.75rem; }
+  .site-logo { font-size: 1rem; }
+  .nav-link { padding: 0.35rem 0.6rem; font-size: 0.82rem; }
+
+  /* Play toolbar */
+  .play-toolbar { padding: 0.35rem 0.75rem; }
+  .toolbar-ruleset-badge { font-size: 0.72rem; padding: 0.15rem 0.5rem; }
+
+  /* Stats bar: allow horizontal scroll so it never wraps awkwardly */
+  .stats-bar {
+    font-size: 0.72rem;
+    gap: 0.6rem;
+    padding: 0.3rem 0.75rem;
+    overflow-x: auto;
+    justify-content: flex-start;
+    -webkit-overflow-scrolling: touch;
+  }
+  .stats-bar::-webkit-scrollbar { display: none; }
+
+  /* Felt: shorter min-height, tighter padding */
+  .table-felt {
+    min-height: 240px;
+    padding: 0.85rem 0.75rem;
+    gap: 0.5rem;
+  }
+
+  /* Smaller game result message */
+  .game-message { font-size: 0.95rem; padding: 0.4rem 1rem; }
+
+  /* Controls: less padding */
+  .controls-area { padding: 0.65rem 0.75rem; min-height: 0; }
+
+  /* Action buttons: narrower so all 5 fit in one row */
+  .action-btn {
+    min-width: 58px;
+    min-height: 50px;
+    padding: 0.5rem 0.5rem;
+    font-size: 0.8rem;
+  }
+  .action-btn__hotkey { display: none; }
+
+  /* Chips: slightly smaller */
+  .chip { width: 48px; height: 48px; font-size: 0.7rem; }
+
+  /* Bet panel tighter */
+  .bet-panel { gap: 0.5rem; }
+  .bet-panel__info { gap: 1.25rem; }
+  .bet-display__amount { font-size: 1.2rem; }
+  .bankroll-display__amount { font-size: 1rem; }
+
+  /* Complete-actions buttons */
+  .btn--lg { padding: 0.65rem 1.25rem; font-size: 0.9rem; min-height: 46px; }
+
+  /* Strategy hint popup: keep on screen */
+  .strategy-hint__popup { width: 220px; }
+
+  /* Cards slightly smaller overlap */
+  .bj-hand__cards .playing-card + .playing-card { margin-left: -10px; }
+}

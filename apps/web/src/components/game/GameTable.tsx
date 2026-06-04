@@ -28,11 +28,26 @@ export function GameTable() {
           )}
         </div>
 
-        {/* Center decoration */}
-        <div className="table-logo" aria-hidden="true">
-          <span className="table-logo__text">Blackjack 101</span>
-          <span className="table-logo__sub">Pays 3 to 2</span>
-        </div>
+        {/* Center slot: result message when complete, logo otherwise */}
+        {message && isComplete ? (
+          <div
+            className={`game-message ${
+              message.includes('win') || message.includes('Blackjack')
+                ? 'game-message--win'
+                : message.includes('Push')
+                ? 'game-message--push'
+                : 'game-message--lose'
+            }`}
+            role="status"
+          >
+            {message}
+          </div>
+        ) : (
+          <div className="table-logo" aria-hidden="true">
+            <span className="table-logo__text">Blackjack 101</span>
+            <span className="table-logo__sub">Pays 3 to 2</span>
+          </div>
+        )}
 
         {/* Player zone */}
         <div className="player-zone">
@@ -58,22 +73,6 @@ export function GameTable() {
         {lastHandInfo && (
           <div style={{ position: 'absolute', bottom: '1rem', right: '1rem' }}>
             <StrategyHint info={lastHandInfo} />
-          </div>
-        )}
-
-        {/* Result message */}
-        {message && isComplete && (
-          <div
-            className={`game-message ${
-              message.includes('win') || message.includes('Blackjack')
-                ? 'game-message--win'
-                : message.includes('Push')
-                ? 'game-message--push'
-                : 'game-message--lose'
-            }`}
-            role="status"
-          >
-            {message}
           </div>
         )}
       </div>
