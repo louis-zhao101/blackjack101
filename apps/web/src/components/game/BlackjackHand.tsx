@@ -39,6 +39,7 @@ export function BlackjackHand({ cards, label, isActive = false, result, bet, cla
 
   return (
     <div className={`bj-hand ${isActive ? 'bj-hand--active' : ''} ${className}`}>
+      {isActive && <div className="bj-hand__turn-badge">Your Turn</div>}
       {label && (
         <div className="bj-hand__label">
           {label}

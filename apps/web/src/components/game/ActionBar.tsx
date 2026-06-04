@@ -28,10 +28,8 @@ export function ActionBar() {
     stand,
     double,
     split,
-    surrender,
     canDouble,
     canSplit,
-    canSurrender,
     game,
   } = useGameStore();
 
@@ -54,13 +52,6 @@ export function ActionBar() {
         disabled={!canSplit()}
         variant="secondary"
         hotkey="P"
-      />
-      <ActionButton
-        label="Surrender"
-        onClick={surrender}
-        disabled={!canSurrender()}
-        variant="danger"
-        hotkey="R"
       />
     </div>
   );

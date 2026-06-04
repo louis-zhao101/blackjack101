@@ -170,8 +170,32 @@ body {
 /* ─── Blackjack hand ──────────────────────────────────────────────────── */
 .bj-hand {
   display: flex; flex-direction: column; align-items: center; gap: 0.5rem;
+  border-radius: var(--radius-lg);
+  padding: 0.5rem 0.75rem;
+  transition: box-shadow 0.2s, background 0.2s;
 }
-.bj-hand--active .bj-hand__cards { filter: drop-shadow(0 0 8px rgba(212,168,67,0.5)); }
+.bj-hand--active {
+  box-shadow: 0 0 0 2px var(--gold), 0 0 20px rgba(212,168,67,0.35);
+  background: rgba(212,168,67,0.06);
+}
+.bj-hand--active .bj-hand__cards { filter: drop-shadow(0 0 10px rgba(212,168,67,0.7)); }
+.bj-hand--active .bj-hand__label { color: var(--gold-light); }
+
+.bj-hand__turn-badge {
+  font-size: 0.65rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.1em;
+  color: var(--gold);
+  background: rgba(212,168,67,0.15);
+  border: 1px solid rgba(212,168,67,0.45);
+  border-radius: 20px;
+  padding: 0.15rem 0.6rem;
+  animation: turn-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes turn-pulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(212,168,67,0); }
+  50% { opacity: 0.75; box-shadow: 0 0 6px 2px rgba(212,168,67,0.25); }
+}
 
 .bj-hand__label {
   font-size: 0.75rem; color: var(--text-secondary);
