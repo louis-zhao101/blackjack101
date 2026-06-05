@@ -63,13 +63,6 @@ export function BetPanel({ bankroll, pendingBet }: Props) {
         </button>
       </div>
 
-      <button
-        className="btn btn--ghost btn--sm"
-        onClick={() => topUp(500)}
-        aria-label="Add $500 to bankroll"
-      >
-        + Add $500
-      </button>
     </div>
   );
 }

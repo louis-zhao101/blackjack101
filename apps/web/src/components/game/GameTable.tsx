@@ -83,18 +83,6 @@ export function GameTable() {
 
         {phase === 'PLAYER_TURN' && <ActionBar />}
 
-        {isComplete && (() => {
-          const net = playerHands.reduce((sum, h) => sum + h.payout - h.bet, 0);
-          const netLabel = net > 0 ? `+$${net}` : net < 0 ? `-$${Math.abs(net)}` : 'Push';
-          const netClass = net > 0 ? 'hand-result__net--win' : net < 0 ? 'hand-result__net--lose' : 'hand-result__net--push';
-          return (
-            <div className="hand-result">
-              <span className="hand-result__balance">${bankroll}</span>
-              <span className={`hand-result__net ${netClass}`}>{netLabel}</span>
-            </div>
-          );
-        })()}
-
         {isComplete && (
           <div className="complete-actions">
             {lastBet > 0 ? (

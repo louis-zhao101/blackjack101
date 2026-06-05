@@ -378,21 +378,6 @@ body {
   display: flex; justify-content: center;
 }
 
-.hand-result {
-  display: flex; align-items: center; gap: 0.6rem;
-}
-.hand-result__balance {
-  font-size: 1.1rem; font-weight: 700; color: var(--gold);
-}
-.hand-result__net {
-  font-size: 0.9rem; font-weight: 700;
-  padding: 0.15rem 0.55rem;
-  border-radius: 20px;
-}
-.hand-result__net--win { color: #6ee7b7; background: rgba(110,231,183,0.15); }
-.hand-result__net--lose { color: #fc8181; background: rgba(252,129,129,0.15); }
-.hand-result__net--push { color: #94a3b8; background: rgba(148,163,184,0.15); }
-
 .complete-actions {
   display: flex; gap: 0.75rem; align-items: center;
   flex-wrap: wrap; justify-content: center;
@@ -492,6 +477,46 @@ body {
 .stats-bar__value--ok { color: var(--gold-light); }
 .stats-bar__value--warn { color: #fc8181; }
 .stats-bar__divider { width: 1px; height: 16px; background: var(--felt-border); }
+
+.balance-add-btn {
+  width: 18px; height: 18px; border-radius: 50%;
+  background: rgba(212,168,67,0.15);
+  border: 1px solid rgba(212,168,67,0.4);
+  color: var(--gold);
+  font-size: 0.8rem; font-weight: 700; line-height: 1;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+.balance-add-btn:hover { background: rgba(212,168,67,0.3); }
+
+.balance-add-popup {
+  position: fixed;
+  background: var(--felt-dark);
+  border: 1px solid var(--felt-border);
+  border-radius: var(--radius);
+  padding: 0.45rem 0.5rem;
+  display: flex; align-items: center; gap: 0.35rem;
+  z-index: 100;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+  white-space: nowrap;
+}
+.balance-add-popup__label {
+  color: var(--gold); font-weight: 700; font-size: 0.85rem;
+}
+.balance-add-popup__input {
+  width: 80px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid var(--felt-border);
+  border-radius: var(--radius);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  padding: 0.3rem 0.4rem;
+}
+.balance-add-popup__input:focus { outline: 2px solid var(--gold); outline-offset: 1px; }
+.balance-add-popup__input::-webkit-inner-spin-button,
+.balance-add-popup__input::-webkit-outer-spin-button { -webkit-appearance: none; }
 
 /* ─── Strategy hint (hover tooltip) ──────────────────────────────────── */
 .strategy-hint {
