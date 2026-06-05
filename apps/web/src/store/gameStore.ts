@@ -37,7 +37,8 @@ interface GameStoreState {
   lastHandInfo: LastHandInfo | null;
   lastBet: number;
   playStats: { total: number; correct: number };
-  handHadMistake: boolean; // tracks whether any play this hand was wrong (for per-hand stats store)
+  handHadMistake: boolean;
+  firstMistakeInfo: LastHandInfo | null; // first wrong action this hand; used for accurate mistake recording
 
   // Actions
   placeBetChip: (amount: number) => void;
@@ -88,6 +89,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
   lastBet: 0,
   playStats: { total: 0, correct: 0 },
   handHadMistake: false,
+  firstMistakeInfo: null,
 
   placeBetChip: (amount) =>
     set((s) => ({ game: addToBet(s.game, amount) })),
@@ -119,12 +121,13 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       game: dealHand(s.game),
       lastHandInfo: null,
       handHadMistake: false,
+      firstMistakeInfo: null,
       lastBet: originalBet,
     }));
   },
 
   hit: () => {
-    const { game, playStats, handHadMistake } = get();
+    const { game, playStats, handHadMistake, firstMistakeInfo } = get();
     const hand = game.playerHands[game.activeHandIndex];
     if (!hand) return;
     const dealerUpcard = game.dealerCards[0];
@@ -138,11 +141,11 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     const { total, soft } = handValue(hand.cards);
 
     const nextGame = hit(game);
-    _applyPlay(set, nextGame, { optimal, playerAction, wasCorrect, playerTotal: total, soft, dealerUpcard: dealerUpcard.rank, handType }, playStats, handHadMistake);
+    _applyPlay(set, nextGame, { optimal, playerAction, wasCorrect, playerTotal: total, soft, dealerUpcard: dealerUpcard.rank, handType }, playStats, handHadMistake, firstMistakeInfo);
   },
 
   stand: () => {
-    const { game, playStats, handHadMistake } = get();
+    const { game, playStats, handHadMistake, firstMistakeInfo } = get();
     const hand = game.playerHands[game.activeHandIndex];
     if (!hand) return;
     const dealerUpcard = game.dealerCards[0];
@@ -156,11 +159,11 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     const { total, soft } = handValue(hand.cards);
 
     const nextGame = stand(game);
-    _applyPlay(set, nextGame, { optimal, playerAction, wasCorrect, playerTotal: total, soft, dealerUpcard: dealerUpcard.rank, handType }, playStats, handHadMistake);
+    _applyPlay(set, nextGame, { optimal, playerAction, wasCorrect, playerTotal: total, soft, dealerUpcard: dealerUpcard.rank, handType }, playStats, handHadMistake, firstMistakeInfo);
   },
 
   double: () => {
-    const { game, playStats, handHadMistake } = get();
+    const { game, playStats, handHadMistake, firstMistakeInfo } = get();
     const hand = game.playerHands[game.activeHandIndex];
     if (!hand) return;
     const dealerUpcard = game.dealerCards[0];
@@ -173,11 +176,11 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     const { total, soft } = handValue(hand.cards);
 
     const nextGame = doubleDown(game);
-    _applyPlay(set, nextGame, { optimal, playerAction, wasCorrect, playerTotal: total, soft, dealerUpcard: dealerUpcard.rank, handType }, playStats, handHadMistake);
+    _applyPlay(set, nextGame, { optimal, playerAction, wasCorrect, playerTotal: total, soft, dealerUpcard: dealerUpcard.rank, handType }, playStats, handHadMistake, firstMistakeInfo);
   },
 
   split: () => {
-    const { game, playStats, handHadMistake } = get();
+    const { game, playStats, handHadMistake, firstMistakeInfo } = get();
     const hand = game.playerHands[game.activeHandIndex];
     if (!hand) return;
     const dealerUpcard = game.dealerCards[0];
@@ -190,11 +193,11 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     const { total, soft } = handValue(hand.cards);
 
     const nextGame = split(game);
-    _applyPlay(set, nextGame, { optimal, playerAction, wasCorrect, playerTotal: total, soft, dealerUpcard: dealerUpcard.rank, handType }, playStats, handHadMistake);
+    _applyPlay(set, nextGame, { optimal, playerAction, wasCorrect, playerTotal: total, soft, dealerUpcard: dealerUpcard.rank, handType }, playStats, handHadMistake, firstMistakeInfo);
   },
 
   surrender: () => {
-    const { game, playStats, handHadMistake } = get();
+    const { game, playStats, handHadMistake, firstMistakeInfo } = get();
     const hand = game.playerHands[game.activeHandIndex];
     if (!hand) return;
     const dealerUpcard = game.dealerCards[0];
@@ -207,7 +210,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     const { total, soft } = handValue(hand.cards);
 
     const nextGame = surrender(game);
-    _applyPlay(set, nextGame, { optimal, playerAction, wasCorrect, playerTotal: total, soft, dealerUpcard: dealerUpcard.rank, handType }, playStats, handHadMistake);
+    _applyPlay(set, nextGame, { optimal, playerAction, wasCorrect, playerTotal: total, soft, dealerUpcard: dealerUpcard.rank, handType }, playStats, handHadMistake, firstMistakeInfo);
   },
 
   nextHand: () => {
@@ -218,6 +221,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       game: autobet > 0 ? { ...nextGame, pendingBet: autobet } : nextGame,
       lastHandInfo: null,
       handHadMistake: false,
+      firstMistakeInfo: null,
     });
   },
 
@@ -245,7 +249,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     if (autobet > 0) {
       nextGame = dealHand({ ...nextGame, pendingBet: autobet });
     }
-    set({ game: nextGame, lastHandInfo: null, handHadMistake: false });
+    set({ game: nextGame, lastHandInfo: null, handHadMistake: false, firstMistakeInfo: null });
   },
 
   topUp: (amount) =>
@@ -264,6 +268,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       lastBet: 0,
       playStats: { total: 0, correct: 0 },
       handHadMistake: false,
+      firstMistakeInfo: null,
     });
   },
 
@@ -278,28 +283,35 @@ function _applyPlay(
   info: LastHandInfo,
   currentPlayStats: { total: number; correct: number },
   currentHandHadMistake: boolean,
+  currentFirstMistakeInfo: LastHandInfo | null,
 ) {
   const newHadMistake = currentHandHadMistake || !info.wasCorrect;
   const newPlayStats = {
     total: currentPlayStats.total + 1,
     correct: currentPlayStats.correct + (info.wasCorrect ? 1 : 0),
   };
+  // Capture the FIRST wrong action this hand; ignore all subsequent actions (right or wrong)
+  const newFirstMistakeInfo = !currentHandHadMistake && !info.wasCorrect
+    ? info
+    : currentFirstMistakeInfo;
 
-  set({ game: nextGame, lastHandInfo: info, handHadMistake: newHadMistake, playStats: newPlayStats });
+  set({ game: nextGame, lastHandInfo: info, handHadMistake: newHadMistake, playStats: newPlayStats, firstMistakeInfo: newFirstMistakeInfo });
 
-  // Record one entry per completed hand to the stats store (for session history page)
+  // Record one entry per completed hand to the stats store
   if (nextGame.phase === 'COMPLETE') {
     const statsStore = useStatsStore.getState();
     if (statsStore.currentSession) {
+      // Use the first mistake's action details so common mistakes accurately reflects what went wrong
+      const recordInfo = newHadMistake && newFirstMistakeInfo ? newFirstMistakeInfo : info;
       statsStore.addHandRecord({
-        playerAction: info.playerAction,
-        optimalAction: info.optimal.action,
+        playerAction: recordInfo.playerAction,
+        optimalAction: recordInfo.optimal.action,
         wasCorrect: !newHadMistake,
-        playerTotal: info.playerTotal,
-        soft: info.soft,
-        dealerUpcard: info.dealerUpcard,
-        handType: info.handType,
-        explanation: info.optimal.explanation,
+        playerTotal: recordInfo.playerTotal,
+        soft: recordInfo.soft,
+        dealerUpcard: recordInfo.dealerUpcard,
+        handType: recordInfo.handType,
+        explanation: recordInfo.optimal.explanation,
         betAmount: nextGame.playerHands[0]?.bet ?? 0,
         outcome: nextGame.playerHands[0]?.result ?? 'lose',
         payout: nextGame.playerHands[0]?.payout ?? 0,

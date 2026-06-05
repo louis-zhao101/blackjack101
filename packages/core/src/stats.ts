@@ -30,6 +30,7 @@ export interface SessionSummary {
   id: string;
   date: number;
   handsPlayed: number;
+  correctCount: number;
   correctPct: number;
   profitLoss: number;
   ruleSetId: string;
@@ -93,6 +94,7 @@ export function summarizeSession(session: Session): SessionSummary {
     id: session.id,
     date: session.startTime,
     handsPlayed: hands.length,
+    correctCount,
     correctPct: Math.round(correctPct * 10) / 10,
     profitLoss: endBankroll - session.startBankroll,
     ruleSetId: session.ruleSetId,

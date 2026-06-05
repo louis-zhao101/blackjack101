@@ -158,7 +158,7 @@ export function StatsPage() {
                   <td>{s.handsPlayed}</td>
                   <td>
                     <span className={`accuracy-badge ${s.correctPct >= 80 ? 'accuracy-badge--good' : s.correctPct >= 60 ? 'accuracy-badge--ok' : 'accuracy-badge--warn'}`}>
-                      {s.correctPct}%
+                      {s.correctCount}/{s.handsPlayed} ({s.correctPct}%)
                     </span>
                   </td>
                   <td className="streak-cell">
