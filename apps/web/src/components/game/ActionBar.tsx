@@ -35,17 +35,24 @@ export function ActionBar() {
 
   if (game.phase !== 'PLAYER_TURN') return null;
 
+  const activeHand = game.playerHands[game.activeHandIndex];
+  const isSplitAceHand = activeHand?.splitFromAce ?? false;
+
   return (
     <div className="action-bar" role="group" aria-label="Game actions">
-      <ActionButton label="Hit" onClick={hit} variant="primary" hotkey="H" />
+      {!isSplitAceHand && (
+        <ActionButton label="Hit" onClick={hit} variant="primary" hotkey="H" />
+      )}
       <ActionButton label="Stand" onClick={stand} variant="secondary" hotkey="S" />
-      <ActionButton
-        label="Double"
-        onClick={double}
-        disabled={!canDouble()}
-        variant="secondary"
-        hotkey="D"
-      />
+      {!isSplitAceHand && (
+        <ActionButton
+          label="Double"
+          onClick={double}
+          disabled={!canDouble()}
+          variant="secondary"
+          hotkey="D"
+        />
+      )}
       <ActionButton
         label="Split"
         onClick={split}

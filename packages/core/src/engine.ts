@@ -16,6 +16,7 @@ export interface PlayerHand {
   bet: number;
   doubled: boolean;
   surrendered: boolean;
+  splitFromAce: boolean; // only one card dealt; no hit/double allowed
   result: HandResult | null;
   payout: number;
 }
@@ -94,6 +95,7 @@ export function dealHand(state: GameState): GameState {
     bet: s.pendingBet,
     doubled: false,
     surrendered: false,
+    splitFromAce: false,
     result: null,
     payout: 0,
   };
@@ -132,6 +134,7 @@ export function canDouble(state: GameState): boolean {
   if (state.phase !== 'PLAYER_TURN') return false;
   const hand = state.playerHands[state.activeHandIndex];
   if (!hand) return false;
+  if (hand.splitFromAce) return false;
   if (hand.cards.length !== 2) return false;
   // Need enough bankroll to match the bet
   return state.bankroll >= hand.bet;
@@ -168,6 +171,7 @@ export function hit(state: GameState): GameState {
   const handIdx = state.activeHandIndex;
   const hand = state.playerHands[handIdx];
   if (!hand) return state;
+  if (hand.splitFromAce) return state;
 
   const { card, remaining } = dealCard(state.deck);
   const updatedHand: PlayerHand = { ...hand, cards: [...hand.cards, card] };
@@ -221,24 +225,44 @@ export function split(state: GameState): GameState {
   const { card: newCard2, remaining: r2 } = dealCard(deck);
   deck = r2;
 
-  const splitHand1: PlayerHand = { ...hand, cards: [c1, newCard1] };
-  const splitHand2: PlayerHand = {
-    ...hand,
-    cards: [c2, newCard2],
-    result: null,
-    payout: 0,
-  };
-
-  // For split aces, only one card each (stand automatically)
+  // For split aces: each resulting hand gets one card and cannot hit/double.
+  // If the dealt card is another Ace and resplitAces is on, return to PLAYER_TURN
+  // on that hand so the player can choose to split again.
   if (c1.rank === 'A') {
+    const splitHand1: PlayerHand = { ...hand, cards: [c1, newCard1], splitFromAce: true };
+    const splitHand2: PlayerHand = {
+      ...hand,
+      cards: [c2, newCard2],
+      result: null,
+      payout: 0,
+      splitFromAce: true,
+    };
     const hands = [
       ...state.playerHands.slice(0, handIdx),
       splitHand1,
       splitHand2,
       ...state.playerHands.slice(handIdx + 1),
     ];
-    return advanceHand({ ...state, deck, playerHands: hands, bankroll: state.bankroll - hand.bet });
+    const newState = { ...state, deck, playerHands: hands, bankroll: state.bankroll - hand.bet };
+
+    // If first resulting hand is A+A and re-split is allowed, stop for player input
+    const hand1IsAcePair = newCard1.rank === 'A';
+    const canResplit = state.ruleSet.resplitAces && hand1IsAcePair &&
+      hands.length <= state.ruleSet.maxSplits;
+    if (canResplit) return newState;
+
+    // Otherwise auto-advance (advanceHand skips locked hands that aren't re-splittable)
+    return advanceHand(newState);
   }
+
+  const splitHand1: PlayerHand = { ...hand, cards: [c1, newCard1], splitFromAce: false };
+  const splitHand2: PlayerHand = {
+    ...hand,
+    cards: [c2, newCard2],
+    result: null,
+    payout: 0,
+    splitFromAce: false,
+  };
 
   const hands = [
     ...state.playerHands.slice(0, handIdx),
@@ -271,7 +295,21 @@ export function surrender(state: GameState): GameState {
 }
 
 function advanceHand(state: GameState): GameState {
-  const nextIdx = state.activeHandIndex + 1;
+  let nextIdx = state.activeHandIndex + 1;
+
+  // Skip split-Ace hands that have already received their one card and
+  // don't qualify for a re-split (not A+A, or resplitAces is off, or maxSplits reached).
+  while (nextIdx < state.playerHands.length) {
+    const next = state.playerHands[nextIdx];
+    if (!next?.splitFromAce) break;
+    const cards = next.cards;
+    const isAcePair = cards.length === 2 && cards[0]?.rank === 'A' && cards[1]?.rank === 'A';
+    const canResplit = state.ruleSet.resplitAces && isAcePair &&
+      state.playerHands.length <= state.ruleSet.maxSplits;
+    if (canResplit) break; // let player act on this hand
+    nextIdx++;
+  }
+
   if (nextIdx < state.playerHands.length) {
     return { ...state, activeHandIndex: nextIdx };
   }

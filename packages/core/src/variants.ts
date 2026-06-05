@@ -18,7 +18,7 @@ export const VEGAS_STRIP: RuleSet = {
   numDecks: 6,
   dealerHitsSoft17: false,
   doubleAfterSplit: true,
-  resplitAces: false,
+  resplitAces: true,
   surrender: 'none',
   blackjackPays: '3:2',
   maxSplits: 3,
