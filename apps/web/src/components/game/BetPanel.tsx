@@ -15,7 +15,7 @@ interface Props {
 }
 
 export function BetPanel({ bankroll, pendingBet }: Props) {
-  const { placeBetChip, clearBet: doClearBet, deal } = useGameStore();
+  const { placeBetChip, clearBet: doClearBet, deal, topUp } = useGameStore();
 
   return (
     <div className="bet-panel">
@@ -62,6 +62,14 @@ export function BetPanel({ bankroll, pendingBet }: Props) {
           Deal
         </button>
       </div>
+
+      <button
+        className="btn btn--ghost btn--sm"
+        onClick={() => topUp(500)}
+        aria-label="Add $500 to bankroll"
+      >
+        + Add $500
+      </button>
     </div>
   );
 }

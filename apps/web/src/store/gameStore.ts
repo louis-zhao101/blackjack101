@@ -51,6 +51,7 @@ interface GameStoreState {
   nextHand: () => void;
   rebetAndDeal: () => void;
   resetGame: () => void;
+  topUp: (amount: number) => void;
 
   // Derived helpers
   canDouble: () => boolean;
@@ -226,6 +227,9 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     }
     set({ game: nextGame, lastHandInfo: null, handHadMistake: false });
   },
+
+  topUp: (amount) =>
+    set((s) => ({ game: { ...s.game, bankroll: s.game.bankroll + amount } })),
 
   resetGame: () => {
     const settings = useSettingsStore.getState();

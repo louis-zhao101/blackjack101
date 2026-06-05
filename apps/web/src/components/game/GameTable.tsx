@@ -6,7 +6,7 @@ import { StrategyHint } from './StrategyHint.js';
 import { StatsBar } from './StatsBar.js';
 
 export function GameTable() {
-  const { game, lastHandInfo, lastBet, nextHand, rebetAndDeal, resetGame } = useGameStore();
+  const { game, lastHandInfo, lastBet, nextHand, rebetAndDeal, resetGame, topUp } = useGameStore();
   const { phase, dealerCards, playerHands, activeHandIndex, pendingBet, bankroll, message } = game;
 
   const isComplete = phase === 'COMPLETE';
@@ -79,9 +79,21 @@ export function GameTable() {
           </div>
         )}
 
-        {isBetting && <BetPanel bankroll={bankroll} pendingBet={pendingBet} />}
+        {isBetting && bankroll > 0 && <BetPanel bankroll={bankroll} pendingBet={pendingBet} />}
 
         {phase === 'PLAYER_TURN' && <ActionBar />}
+
+        {isComplete && (() => {
+          const net = playerHands.reduce((sum, h) => sum + h.payout - h.bet, 0);
+          const netLabel = net > 0 ? `+$${net}` : net < 0 ? `-$${Math.abs(net)}` : 'Push';
+          const netClass = net > 0 ? 'hand-result__net--win' : net < 0 ? 'hand-result__net--lose' : 'hand-result__net--push';
+          return (
+            <div className="hand-result">
+              <span className="hand-result__balance">${bankroll}</span>
+              <span className={`hand-result__net ${netClass}`}>{netLabel}</span>
+            </div>
+          );
+        })()}
 
         {isComplete && (
           <div className="complete-actions">
@@ -124,9 +136,14 @@ export function GameTable() {
         {bankroll === 0 && isBetting && (
           <div className="bust-message">
             <p>Out of chips!</p>
-            <button className="btn btn--primary" onClick={resetGame}>
-              Start Over
-            </button>
+            <div className="bust-message__actions">
+              <button className="btn btn--primary" onClick={() => topUp(500)}>
+                Add $500
+              </button>
+              <button className="btn btn--ghost btn--sm" onClick={resetGame}>
+                Reset
+              </button>
+            </div>
           </div>
         )}
       </div>
