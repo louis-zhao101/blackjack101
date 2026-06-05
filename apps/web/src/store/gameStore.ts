@@ -50,7 +50,7 @@ interface GameStoreState {
   surrender: () => void;
   nextHand: () => void;
   rebetAndDeal: () => void;
-  resetGame: () => void;
+  newSession: () => void;
   topUp: (amount: number) => void;
 
   // Derived helpers
@@ -99,6 +99,16 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     const { game } = get();
     const settings = useSettingsStore.getState();
     const stats = useStatsStore.getState();
+
+    // Auto-rotate session after 60 minutes of inactivity
+    if (stats.currentSession && stats.currentSession.hands.length > 0) {
+      const lastHand = stats.currentSession.hands[stats.currentSession.hands.length - 1];
+      if (lastHand && Date.now() - lastHand.timestamp > 60 * 60 * 1000) {
+        stats.finishSession(game.bankroll);
+        stats.startSession(game.bankroll, settings.ruleSet.id);
+        set({ playStats: { total: 0, correct: 0 }, handHadMistake: false });
+      }
+    }
 
     if (!stats.currentSession) {
       stats.startSession(game.bankroll, settings.ruleSet.id);
@@ -216,6 +226,16 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     const settings = useSettingsStore.getState();
     const stats = useStatsStore.getState();
 
+    // Auto-rotate session after 60 minutes of inactivity
+    if (stats.currentSession && stats.currentSession.hands.length > 0) {
+      const lastHand = stats.currentSession.hands[stats.currentSession.hands.length - 1];
+      if (lastHand && Date.now() - lastHand.timestamp > 60 * 60 * 1000) {
+        stats.finishSession(game.bankroll);
+        stats.startSession(game.bankroll, settings.ruleSet.id);
+        set({ playStats: { total: 0, correct: 0 }, handHadMistake: false });
+      }
+    }
+
     if (!stats.currentSession) {
       stats.startSession(game.bankroll, settings.ruleSet.id);
     }
@@ -231,15 +251,20 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
   topUp: (amount) =>
     set((s) => ({ game: { ...s.game, bankroll: s.game.bankroll + amount } })),
 
-  resetGame: () => {
+  newSession: () => {
+    const { game } = get();
     const settings = useSettingsStore.getState();
     const stats = useStatsStore.getState();
-    if (get().game.bankroll > 0) {
-      stats.finishSession(get().game.bankroll);
-    }
-    const newGame = createInitialState(settings.startingBankroll, settings.ruleSet);
-    stats.startSession(settings.startingBankroll, settings.ruleSet.id);
-    set({ game: newGame, lastHandInfo: null, lastBet: 0, playStats: { total: 0, correct: 0 }, handHadMistake: false });
+    // Close current session at current bankroll, start fresh session with same bankroll
+    stats.finishSession(game.bankroll);
+    stats.startSession(game.bankroll, settings.ruleSet.id);
+    set({
+      game: createInitialState(game.bankroll, settings.ruleSet),
+      lastHandInfo: null,
+      lastBet: 0,
+      playStats: { total: 0, correct: 0 },
+      handHadMistake: false,
+    });
   },
 
   canDouble: () => canDouble(get().game),

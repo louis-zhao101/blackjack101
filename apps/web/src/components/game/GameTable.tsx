@@ -6,7 +6,7 @@ import { StrategyHint } from './StrategyHint.js';
 import { StatsBar } from './StatsBar.js';
 
 export function GameTable() {
-  const { game, lastHandInfo, lastBet, nextHand, rebetAndDeal, resetGame, topUp } = useGameStore();
+  const { game, lastHandInfo, lastBet, nextHand, rebetAndDeal, newSession, topUp } = useGameStore();
   const { phase, dealerCards, playerHands, activeHandIndex, pendingBet, bankroll, message } = game;
 
   const isComplete = phase === 'COMPLETE';
@@ -113,10 +113,10 @@ export function GameTable() {
             )}
             <button
               className="btn btn--ghost btn--sm"
-              onClick={resetGame}
-              aria-label="Reset game"
+              onClick={newSession}
+              aria-label="Start a new session"
             >
-              Reset
+              New Session
             </button>
           </div>
         )}
@@ -128,8 +128,8 @@ export function GameTable() {
               <button className="btn btn--primary" onClick={() => topUp(500)}>
                 Add $500
               </button>
-              <button className="btn btn--ghost btn--sm" onClick={resetGame}>
-                Reset
+              <button className="btn btn--ghost btn--sm" onClick={newSession}>
+                New Session
               </button>
             </div>
           </div>
