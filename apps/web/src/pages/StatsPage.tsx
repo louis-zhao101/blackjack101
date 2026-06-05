@@ -1,5 +1,5 @@
 import { useStatsStore } from '../store/statsStore.js';
-import { summarizeSession, getCommonMistakes } from '@blackjack101/core';
+import { summarizeSession, getCommonMistakes, computeLongestStreak } from '@blackjack101/core';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   BarChart, Bar, Cell,
@@ -10,9 +10,14 @@ const ACTION_NAMES: Record<string, string> = {
 };
 
 export function StatsPage() {
-  const { sessions, clearHistory } = useStatsStore();
+  const { sessions, currentSession, clearHistory } = useStatsStore();
 
-  if (sessions.length === 0) {
+  // Merge current session (if it has hands) into the view as a live entry
+  const allSessions = currentSession && currentSession.hands.length > 0
+    ? [...sessions, currentSession]
+    : sessions;
+
+  if (allSessions.length === 0) {
     return (
       <div className="stats-page">
         <div className="stats-empty">
@@ -23,11 +28,12 @@ export function StatsPage() {
     );
   }
 
-  const summaries = sessions.map(summarizeSession).reverse();
-  const mistakes = getCommonMistakes(sessions);
+  const summaries = allSessions.map(summarizeSession);
+  const summariesChronological = [...summaries].reverse();
+  const mistakes = getCommonMistakes(allSessions);
 
-  const accuracyData = summaries.map((s, i) => ({
-    name: `Session ${i + 1}`,
+  const accuracyData = summariesChronological.map((s, i) => ({
+    name: s.isLive ? 'Now' : `S${i + 1}`,
     accuracy: s.correctPct,
     hands: s.handsPlayed,
   }));
@@ -40,13 +46,16 @@ export function StatsPage() {
     explanation: m.explanation,
   }));
 
-  const totalHands = summaries.reduce((a, s) => a + s.handsPlayed, 0);
-  const allHandsFlat = sessions.flatMap((s) => s.hands);
-  const overallAccuracy =
-    allHandsFlat.length > 0
-      ? Math.round((allHandsFlat.filter((h) => h.wasCorrect).length / allHandsFlat.length) * 100)
-      : 0;
+  const allHands = allSessions.flatMap((s) => s.hands);
+  const totalHands = allHands.length;
+  const overallAccuracy = totalHands > 0
+    ? Math.round((allHands.filter((h) => h.wasCorrect).length / totalHands) * 100)
+    : 0;
   const totalPL = summaries.reduce((a, s) => a + s.profitLoss, 0);
+  const globalBestStreak = computeLongestStreak(allHands);
+  const bestSessionAccuracy = summaries.length > 0
+    ? Math.max(...summaries.filter((s) => s.handsPlayed >= 5).map((s) => s.correctPct))
+    : 0;
 
   return (
     <div className="stats-page">
@@ -70,14 +79,20 @@ export function StatsPage() {
           <span className="summary-card__label">Total Hands</span>
         </div>
         <div className="summary-card">
-          <span className={`summary-card__value ${overallAccuracy >= 80 ? 'text-green-400' : overallAccuracy >= 60 ? 'text-yellow-400' : 'text-red-400'}`}>
+          <span className={`summary-card__value ${overallAccuracy >= 80 ? 'summary-card__value--good' : overallAccuracy >= 60 ? 'summary-card__value--ok' : 'summary-card__value--warn'}`}>
             {overallAccuracy}%
           </span>
           <span className="summary-card__label">Overall Accuracy</span>
         </div>
         <div className="summary-card">
-          <span className={`summary-card__value ${totalPL >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-            {totalPL >= 0 ? '+' : ''}{totalPL}
+          <span className={`summary-card__value ${globalBestStreak >= 10 ? 'summary-card__value--good' : globalBestStreak >= 5 ? 'summary-card__value--ok' : ''}`}>
+            {globalBestStreak}
+          </span>
+          <span className="summary-card__label">Best Streak</span>
+        </div>
+        <div className="summary-card">
+          <span className={`summary-card__value ${totalPL >= 0 ? 'summary-card__value--good' : 'summary-card__value--warn'}`}>
+            {totalPL >= 0 ? '+' : ''}${totalPL}
           </span>
           <span className="summary-card__label">Total P&L</span>
         </div>
@@ -85,6 +100,14 @@ export function StatsPage() {
           <span className="summary-card__value">{sessions.length}</span>
           <span className="summary-card__label">Sessions</span>
         </div>
+        {bestSessionAccuracy > 0 && (
+          <div className="summary-card">
+            <span className={`summary-card__value ${bestSessionAccuracy >= 90 ? 'summary-card__value--good' : 'summary-card__value--ok'}`}>
+              {bestSessionAccuracy}%
+            </span>
+            <span className="summary-card__label">Best Session</span>
+          </div>
+        )}
       </div>
 
       {/* Accuracy chart */}
@@ -180,22 +203,31 @@ export function StatsPage() {
                 <th>Date</th>
                 <th>Hands</th>
                 <th>Accuracy</th>
+                <th>Best Streak</th>
                 <th>P&L</th>
                 <th>Rules</th>
               </tr>
             </thead>
             <tbody>
               {summaries.map((s) => (
-                <tr key={s.id}>
-                  <td>{new Date(s.date).toLocaleDateString()}</td>
+                <tr key={s.id} className={s.isLive ? 'session-row--live' : ''}>
+                  <td>
+                    {s.isLive
+                      ? <span className="live-badge">Live</span>
+                      : new Date(s.date).toLocaleDateString()}
+                  </td>
                   <td>{s.handsPlayed}</td>
                   <td>
                     <span className={`accuracy-badge ${s.correctPct >= 80 ? 'accuracy-badge--good' : s.correctPct >= 60 ? 'accuracy-badge--ok' : 'accuracy-badge--warn'}`}>
                       {s.correctPct}%
                     </span>
                   </td>
-                  <td className={s.profitLoss >= 0 ? 'text-green-400' : 'text-red-400'}>
-                    {s.profitLoss >= 0 ? '+' : ''}{s.profitLoss}
+                  <td className="streak-cell">
+                    <span className="streak-value">{s.longestStreak}</span>
+                    {s.longestStreak >= 10 && <span className="streak-fire">🔥</span>}
+                  </td>
+                  <td className={s.profitLoss >= 0 ? 'stat-positive' : 'stat-negative'}>
+                    {s.profitLoss >= 0 ? '+' : ''}${s.profitLoss}
                   </td>
                   <td>{s.ruleSetId}</td>
                 </tr>

@@ -882,6 +882,9 @@ body {
   display: flex; flex-direction: column; align-items: center; gap: 0.25rem;
 }
 .summary-card__value { font-size: 1.8rem; font-weight: 700; }
+.summary-card__value--good { color: #6ee7b7; }
+.summary-card__value--ok { color: var(--gold-light); }
+.summary-card__value--warn { color: #fc8181; }
 .summary-card__label { font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.07em; }
 
 .stats-chart-section {
@@ -917,6 +920,24 @@ body {
 .accuracy-badge--good { background: rgba(39,174,96,0.2); color: #6ee7b7; }
 .accuracy-badge--ok { background: rgba(212,168,67,0.2); color: var(--gold-light); }
 .accuracy-badge--warn { background: rgba(192,57,43,0.2); color: #fc8181; }
+
+.session-row--live td { background: rgba(212,168,67,0.05); }
+.session-row--live:hover td { background: rgba(212,168,67,0.1) !important; }
+
+.live-badge {
+  display: inline-block; padding: 0.1rem 0.45rem;
+  border-radius: 20px; font-size: 0.72rem; font-weight: 700;
+  background: rgba(212,168,67,0.2); color: var(--gold);
+  border: 1px solid rgba(212,168,67,0.4);
+  animation: turn-pulse 1.4s ease-in-out infinite;
+}
+
+.streak-cell { white-space: nowrap; }
+.streak-value { font-weight: 700; }
+.streak-fire { margin-left: 0.2rem; font-size: 0.85rem; }
+
+.stat-positive { color: #6ee7b7; font-weight: 600; }
+.stat-negative { color: #fc8181; font-weight: 600; }
 
 .mistakes-detail-list { display: flex; flex-direction: column; gap: 0.75rem; }
 .mistake-detail-card {

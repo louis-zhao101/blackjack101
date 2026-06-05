@@ -33,6 +33,8 @@ export interface SessionSummary {
   correctPct: number;
   profitLoss: number;
   ruleSetId: string;
+  longestStreak: number;
+  isLive: boolean;
 }
 
 export interface MistakeSummary {
@@ -71,6 +73,16 @@ export function endSession(session: Session, endBankroll: number): Session {
   return { ...session, endTime: Date.now(), endBankroll };
 }
 
+export function computeLongestStreak(hands: HandRecord[]): number {
+  let max = 0;
+  let current = 0;
+  for (const h of hands) {
+    if (h.wasCorrect) { current++; max = Math.max(max, current); }
+    else { current = 0; }
+  }
+  return max;
+}
+
 export function summarizeSession(session: Session): SessionSummary {
   const { hands } = session;
   const correctCount = hands.filter((h) => h.wasCorrect).length;
@@ -84,6 +96,8 @@ export function summarizeSession(session: Session): SessionSummary {
     correctPct: Math.round(correctPct * 10) / 10,
     profitLoss: endBankroll - session.startBankroll,
     ruleSetId: session.ruleSetId,
+    longestStreak: computeLongestStreak(hands),
+    isLive: session.endTime === null,
   };
 }
 
