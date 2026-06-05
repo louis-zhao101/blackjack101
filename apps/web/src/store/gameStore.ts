@@ -21,6 +21,12 @@ import {
 } from '@blackjack101/core';
 import { useSettingsStore } from './settingsStore.js';
 import { useStatsStore } from './statsStore.js';
+import { upsertProfile, getCurrentUserId } from '../lib/sync.js';
+
+async function syncBankroll(bankroll: number): Promise<void> {
+  const userId = await getCurrentUserId();
+  if (userId) void upsertProfile(userId, bankroll);
+}
 
 export interface LastHandInfo {
   optimal: OptimalAction;
@@ -53,6 +59,7 @@ interface GameStoreState {
   rebetAndDeal: () => void;
   newSession: () => void;
   topUp: (amount: number) => void;
+  loadBankroll: (bankroll: number) => void;
 
   // Derived helpers
   canDouble: () => boolean;
@@ -252,16 +259,22 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     set({ game: nextGame, lastHandInfo: null, handHadMistake: false, firstMistakeInfo: null });
   },
 
-  topUp: (amount) =>
-    set((s) => ({ game: { ...s.game, bankroll: s.game.bankroll + amount } })),
+  topUp: (amount) => {
+    const newBankroll = get().game.bankroll + amount;
+    set((s) => ({ game: { ...s.game, bankroll: s.game.bankroll + amount } }));
+    void syncBankroll(newBankroll);
+  },
+
+  loadBankroll: (bankroll) =>
+    set((s) => ({ game: { ...s.game, bankroll } })),
 
   newSession: () => {
     const { game } = get();
     const settings = useSettingsStore.getState();
     const stats = useStatsStore.getState();
-    // Close current session at current bankroll, start fresh session with same bankroll
     stats.finishSession(game.bankroll);
     stats.startSession(game.bankroll, settings.ruleSet.id);
+    void syncBankroll(game.bankroll);
     set({
       game: createInitialState(game.bankroll, settings.ruleSet),
       lastHandInfo: null,
