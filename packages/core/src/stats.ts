@@ -101,9 +101,37 @@ export function summarizeSession(session: Session): SessionSummary {
   };
 }
 
+export interface MistakeCategory {
+  label: string;
+  count: number;
+}
+
+function getMistakeCategoryLabel(playerAction: string, optimalAction: string): string {
+  if (optimalAction === 'D') return 'Missed Double';
+  if (optimalAction === 'P') return 'Missed Split';
+  if (optimalAction === 'H' && playerAction === 'S') return 'Stood when should Hit';
+  if (optimalAction === 'S' && playerAction === 'H') return 'Hit when should Stand';
+  if (optimalAction === 'R') return 'Missed Surrender';
+  const names: Record<string, string> = { H: 'Hit', S: 'Stand', D: 'Double', P: 'Split', R: 'Surrender' };
+  return `${names[playerAction] ?? playerAction} → ${names[optimalAction] ?? optimalAction}`;
+}
+
+export function getMistakeCategories(sessions: Session[]): MistakeCategory[] {
+  const allHands = sessions.flatMap((s) => s.hands);
+  const mistakes = allHands.filter((h) => !h.wasCorrect && h.playerAction !== h.optimalAction);
+  const counts = new Map<string, number>();
+  for (const m of mistakes) {
+    const label = getMistakeCategoryLabel(m.playerAction, m.optimalAction);
+    counts.set(label, (counts.get(label) ?? 0) + 1);
+  }
+  return Array.from(counts.entries())
+    .map(([label, count]) => ({ label, count }))
+    .sort((a, b) => b.count - a.count);
+}
+
 export function getCommonMistakes(sessions: Session[], topN = 10): MistakeSummary[] {
   const allHands = sessions.flatMap((s) => s.hands);
-  const mistakes = allHands.filter((h) => !h.wasCorrect);
+  const mistakes = allHands.filter((h) => !h.wasCorrect && h.playerAction !== h.optimalAction);
 
   const counts = new Map<string, MistakeSummary>();
   for (const m of mistakes) {

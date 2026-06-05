@@ -1,5 +1,5 @@
 import { useStatsStore } from '../store/statsStore.js';
-import { summarizeSession, getCommonMistakes, computeLongestStreak } from '@blackjack101/core';
+import { summarizeSession, getCommonMistakes, computeLongestStreak, getMistakeCategories } from '@blackjack101/core';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   BarChart, Bar, Cell,
@@ -31,19 +31,12 @@ export function StatsPage() {
   const summaries = allSessions.map(summarizeSession);
   const summariesChronological = [...summaries].reverse();
   const mistakes = getCommonMistakes(allSessions);
+  const mistakeCategories = getMistakeCategories(allSessions);
 
   const accuracyData = summariesChronological.map((s, i) => ({
     name: s.isLive ? 'Now' : `S${i + 1}`,
     accuracy: s.correctPct,
     hands: s.handsPlayed,
-  }));
-
-  const mistakeData = mistakes.slice(0, 8).map((m) => ({
-    label: `${m.soft ? 'Soft ' : m.handType === 'pair' ? 'Pair ' : ''}${m.playerTotal} vs ${m.dealerUpcard}`,
-    count: m.count,
-    played: ACTION_NAMES[m.playerAction] ?? m.playerAction,
-    should: ACTION_NAMES[m.optimalAction] ?? m.optimalAction,
-    explanation: m.explanation,
   }));
 
   const allHands = allSessions.flatMap((s) => s.hands);
@@ -139,60 +132,6 @@ export function StatsPage() {
         </div>
       )}
 
-      {/* Common mistakes */}
-      {mistakeData.length > 0 && (
-        <div className="stats-chart-section">
-          <h2>Most Common Mistakes</h2>
-          <div className="chart-container">
-            <ResponsiveContainer width="100%" height={260}>
-              <BarChart data={mistakeData} margin={{ top: 10, right: 20, left: 0, bottom: 60 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#2d7a53" />
-                <XAxis
-                  dataKey="label"
-                  stroke="#9ca3af"
-                  tick={{ fontSize: 11, fill: '#9ca3af' }}
-                  angle={-35}
-                  textAnchor="end"
-                  interval={0}
-                />
-                <YAxis stroke="#9ca3af" tick={{ fontSize: 12 }} allowDecimals={false} />
-                <Tooltip
-                  contentStyle={{ background: '#122e20', border: '1px solid #2d7a53', borderRadius: 8 }}
-                  labelStyle={{ color: '#d4a843' }}
-                  formatter={(_val: number, _name: string, props: { payload?: { played: string; should: string } }) => [
-                    `Played ${props.payload?.played ?? '?'} → Should ${props.payload?.should ?? '?'}`,
-                    'Times',
-                  ]}
-                />
-                <Bar dataKey="count" radius={[4, 4, 0, 0]}>
-                  {mistakeData.map((_entry, i) => (
-                    <Cell key={i} fill="#e74c3c" opacity={0.85} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-
-          <div className="mistakes-detail-list">
-            {mistakes.slice(0, 5).map((m, i) => (
-              <div key={i} className="mistake-detail-card">
-                <div className="mistake-detail-header">
-                  <span className="mistake-detail-count">{m.count}×</span>
-                  <span className="mistake-detail-title">
-                    {m.soft ? 'Soft ' : m.handType === 'pair' ? 'Pair of ' : 'Hard '}
-                    {m.playerTotal} vs dealer {m.dealerUpcard}
-                  </span>
-                  <span className="mistake-detail-actions">
-                    Played <strong>{ACTION_NAMES[m.playerAction]}</strong> → should <strong>{ACTION_NAMES[m.optimalAction]}</strong>
-                  </span>
-                </div>
-                <p className="mistake-detail-explanation">{m.explanation}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* Session history table */}
       <div className="stats-chart-section">
         <h2>Session History</h2>
@@ -236,6 +175,59 @@ export function StatsPage() {
           </table>
         </div>
       </div>
+
+      {/* Common mistakes */}
+      {mistakeCategories.length > 0 && (
+        <div className="stats-chart-section">
+          <h2>Most Common Mistakes</h2>
+          <div className="chart-container">
+            <ResponsiveContainer width="100%" height={240}>
+              <BarChart data={mistakeCategories.slice(0, 6)} margin={{ top: 10, right: 20, left: 0, bottom: 60 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#2d7a53" />
+                <XAxis
+                  dataKey="label"
+                  stroke="#9ca3af"
+                  tick={{ fontSize: 11, fill: '#9ca3af' }}
+                  angle={-30}
+                  textAnchor="end"
+                  interval={0}
+                />
+                <YAxis stroke="#9ca3af" tick={{ fontSize: 12 }} allowDecimals={false} />
+                <Tooltip
+                  contentStyle={{ background: '#122e20', border: '1px solid #2d7a53', borderRadius: 8 }}
+                  labelStyle={{ color: '#d4a843' }}
+                  formatter={(val: number) => [val, 'Times']}
+                />
+                <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+                  {mistakeCategories.slice(0, 6).map((_entry, i) => (
+                    <Cell key={i} fill="#e74c3c" opacity={0.85} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+
+          {mistakes.length > 0 && (
+            <div className="mistakes-detail-list">
+              {mistakes.slice(0, 5).map((m, i) => (
+                <div key={i} className="mistake-detail-card">
+                  <div className="mistake-detail-header">
+                    <span className="mistake-detail-count">{m.count}×</span>
+                    <span className="mistake-detail-title">
+                      {m.soft ? 'Soft ' : m.handType === 'pair' ? 'Pair of ' : 'Hard '}
+                      {m.playerTotal} vs dealer {m.dealerUpcard}
+                    </span>
+                    <span className="mistake-detail-actions">
+                      Played <strong>{ACTION_NAMES[m.playerAction]}</strong> → should <strong>{ACTION_NAMES[m.optimalAction]}</strong>
+                    </span>
+                  </div>
+                  <p className="mistake-detail-explanation">{m.explanation}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
