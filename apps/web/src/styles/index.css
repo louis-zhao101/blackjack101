@@ -82,7 +82,7 @@ body {
 .nav-link:hover { background: var(--felt-light); color: var(--text-primary); }
 .nav-link--active { color: var(--gold); background: rgba(212,168,67,0.12); }
 
-.site-main { flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; }
+.site-main { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; }
 
 /* ─── Buttons ─────────────────────────────────────────────────────────── */
 .btn {
