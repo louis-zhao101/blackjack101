@@ -56,7 +56,9 @@ body {
   max-width: 1200px; margin: 0 auto;
   padding: 0 1rem;
   height: 56px;
-  display: flex; align-items: center; justify-content: space-between;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
 }
 
 .site-logo {
@@ -1056,9 +1058,13 @@ body {
 }
 
 /* ─── Auth ────────────────────────────────────────────────────────────── */
-.site-auth { display: flex; align-items: center; margin-left: auto; padding-left: 0.75rem; }
+.site-auth { display: flex; align-items: center; justify-content: flex-end; }
 
-.auth-signin-btn { font-size: 0.85rem; }
+.auth-signin-btn {
+  font-size: 0.85rem; font-weight: 500;
+  padding: 0.3rem 0.9rem; min-height: 32px;
+  border-color: rgba(255,255,255,0.25);
+}
 
 /* User avatar button */
 .user-menu-wrap { position: relative; }
