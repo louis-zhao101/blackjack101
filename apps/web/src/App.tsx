@@ -72,35 +72,49 @@ export function App() {
     <div className="app">
       <header className="site-header">
         <div className="site-header__inner">
-          <NavLink to="/play" className="site-logo" aria-label="Blackjack 101 home">
-            <span className="site-logo__suit" aria-hidden="true">♠</span>
-            <span className="site-logo__name">Blackjack 101</span>
-            <span className="site-logo__suit" aria-hidden="true">♥</span>
-          </NavLink>
+          <div className="header-left">
+            <NavLink to="/play" className="site-logo" aria-label="Blackjack 101 home">
+              <span className="site-logo__suit" aria-hidden="true">♠</span>
+              <span className="site-logo__name">Blackjack 101</span>
+              <span className="site-logo__suit" aria-hidden="true">♥</span>
+            </NavLink>
+            <nav className="site-nav" aria-label="Main navigation">
+              <NavLink to="/play" className={({ isActive }) => `nav-link ${isActive ? 'nav-link--active' : ''}`}>Play</NavLink>
+              <NavLink to="/learn" className={({ isActive }) => `nav-link ${isActive ? 'nav-link--active' : ''}`}>Learn</NavLink>
+              <NavLink to="/stats" className={({ isActive }) => `nav-link ${isActive ? 'nav-link--active' : ''}`}>Stats</NavLink>
+            </nav>
+          </div>
 
-          <nav className="site-nav" aria-label="Main navigation">
-            <NavLink to="/play" className={({ isActive }) => `nav-link ${isActive ? 'nav-link--active' : ''}`}>Play</NavLink>
-            <NavLink to="/learn" className={({ isActive }) => `nav-link ${isActive ? 'nav-link--active' : ''}`}>Learn</NavLink>
-            <NavLink to="/stats" className={({ isActive }) => `nav-link ${isActive ? 'nav-link--active' : ''}`}>Stats</NavLink>
-          </nav>
+          {isPlay && (
+            <div className="header-center">
+              <span className="toolbar-ruleset-badge">{ruleSet.name}</span>
+            </div>
+          )}
 
-          <div className="site-auth">
+          <div className="header-right">
             {isPlay && (
-              <>
-                <span className="toolbar-ruleset-badge">{ruleSet.name}</span>
-                <button
-                  className={`btn btn--ghost btn--sm ${showChart ? 'btn--active' : ''}`}
-                  onClick={() => setShowChart((v) => !v)}
-                  aria-expanded={showChart}
-                  aria-controls="strategy-chart-panel"
-                >
-                  Strategy Chart
-                </button>
-              </>
+              <button
+                className={`icon-btn${showChart ? ' icon-btn--active' : ''}`}
+                onClick={() => setShowChart((v) => !v)}
+                aria-expanded={showChart}
+                aria-controls="strategy-chart-panel"
+                aria-label="Toggle strategy chart"
+              >
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                  <rect x="1" y="1" width="14" height="14" rx="1.5"/>
+                  <line x1="1" y1="5.5" x2="15" y2="5.5"/>
+                  <line x1="1" y1="10.5" x2="15" y2="10.5"/>
+                  <line x1="5.5" y1="1" x2="5.5" y2="15"/>
+                  <line x1="10.5" y1="1" x2="10.5" y2="15"/>
+                </svg>
+              </button>
             )}
             {!loading && !user && (
-              <button className="btn btn--ghost btn--sm auth-signin-btn" onClick={() => setShowAuthModal(true)}>
-                Sign in
+              <button className="icon-btn" onClick={() => setShowAuthModal(true)} aria-label="Sign in">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="8" cy="5.5" r="2.5"/>
+                  <path d="M2 14.5c0-3.314 2.686-6 6-6s6 2.686 6 6"/>
+                </svg>
               </button>
             )}
             {user && (
