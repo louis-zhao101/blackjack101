@@ -1215,3 +1215,14 @@ body {
 .auth-success p { margin: 0; font-size: 0.875rem; }
 
 .auth-submit { width: 100%; }
+
+.auth-switch {
+  text-align: center; font-size: 0.85rem;
+  color: var(--text-secondary); margin: 0;
+}
+.auth-switch__link {
+  background: none; border: none;
+  color: var(--gold); font-size: inherit;
+  cursor: pointer; padding: 0;
+  text-decoration: underline;
+}

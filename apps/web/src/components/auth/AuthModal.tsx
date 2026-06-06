@@ -1,25 +1,53 @@
 import { useState } from 'react';
 import { useAuthStore } from '../../store/authStore.js';
 
+type Mode = 'signin' | 'signup';
+
 interface Props {
   onClose: () => void;
 }
 
 export function AuthModal({ onClose }: Props) {
-  const { signInWithEmail, signInWithGoogle } = useAuthStore();
+  const { signInWithPassword, signUp, signInWithGoogle } = useAuthStore();
 
+  const [mode, setMode] = useState<Mode>('signin');
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
   const [error, setError] = useState('');
 
-  async function handleEmailSubmit(e: React.FormEvent) {
+  function switchMode(m: Mode) {
+    setMode(m);
+    setError('');
+    setSuccessMsg('');
+    setPassword('');
+    setConfirmPassword('');
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setLoading(true); setError('');
-    const { error } = await signInWithEmail(email);
-    setLoading(false);
-    if (error) setError(error);
-    else setSuccessMsg('Check your email — we sent a sign-in link!');
+    setError('');
+
+    if (mode === 'signup') {
+      if (password.length < 8) { setError('Password must be at least 8 characters.'); return; }
+      if (password !== confirmPassword) { setError('Passwords do not match.'); return; }
+    }
+
+    setLoading(true);
+
+    if (mode === 'signin') {
+      const { error } = await signInWithPassword(email, password);
+      setLoading(false);
+      if (error) setError(error === 'Invalid login credentials' ? 'Incorrect email or password.' : error);
+      else onClose();
+    } else {
+      const { error } = await signUp(email, password);
+      setLoading(false);
+      if (error) setError(error);
+      else setSuccessMsg('Account created! Check your email to confirm, then sign in.');
+    }
   }
 
   async function handleGoogle() {
@@ -36,7 +64,9 @@ export function AuthModal({ onClose }: Props) {
 
         <div className="auth-modal__header">
           <span className="auth-modal__suit">♠</span>
-          <h2 className="auth-modal__title">Sign in to Blackjack 101</h2>
+          <h2 className="auth-modal__title">
+            {mode === 'signin' ? 'Sign in' : 'Create account'}
+          </h2>
           <p className="auth-modal__sub">Save your progress and stats across devices</p>
         </div>
 
@@ -59,25 +89,63 @@ export function AuthModal({ onClose }: Props) {
               <p>{successMsg}</p>
             </div>
           ) : (
-            <form onSubmit={handleEmailSubmit} className="auth-form">
-              <label className="auth-label" htmlFor="auth-email">Email address</label>
-              <input
-                id="auth-email"
-                className="auth-input"
-                type="email"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                autoComplete="email"
-                required
-              />
+            <form onSubmit={handleSubmit} className="auth-form">
+              <div>
+                <label className="auth-label" htmlFor="auth-email">Email</label>
+                <input
+                  id="auth-email"
+                  className="auth-input"
+                  type="email"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  autoComplete="email"
+                  required
+                />
+              </div>
+              <div>
+                <label className="auth-label" htmlFor="auth-password">Password</label>
+                <input
+                  id="auth-password"
+                  className="auth-input"
+                  type="password"
+                  placeholder={mode === 'signup' ? 'At least 8 characters' : '••••••••'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
+                  required
+                />
+              </div>
+              {mode === 'signup' && (
+                <div>
+                  <label className="auth-label" htmlFor="auth-confirm">Confirm password</label>
+                  <input
+                    id="auth-confirm"
+                    className="auth-input"
+                    type="password"
+                    placeholder="••••••••"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    autoComplete="new-password"
+                    required
+                  />
+                </div>
+              )}
               {error && <p className="auth-error">{error}</p>}
               <button className="btn btn--primary btn--lg auth-submit" type="submit" disabled={loading}>
-                {loading ? 'Sending…' : 'Send magic link'}
+                {loading ? '…' : mode === 'signin' ? 'Sign in' : 'Create account'}
               </button>
             </form>
           )}
         </div>
+
+        <p className="auth-switch">
+          {mode === 'signin' ? (
+            <>No account? <button className="auth-switch__link" onClick={() => switchMode('signup')}>Create one</button></>
+          ) : (
+            <>Already have an account? <button className="auth-switch__link" onClick={() => switchMode('signin')}>Sign in</button></>
+          )}
+        </p>
 
       </div>
     </div>

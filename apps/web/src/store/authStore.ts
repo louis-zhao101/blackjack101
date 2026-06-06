@@ -7,7 +7,8 @@ interface AuthState {
   loading: boolean;
 
   initialize: () => void;
-  signInWithEmail: (email: string) => Promise<{ error: string | null }>;
+  signInWithPassword: (email: string, password: string) => Promise<{ error: string | null }>;
+  signUp: (email: string, password: string) => Promise<{ error: string | null }>;
   signInWithPhone: (phone: string) => Promise<{ error: string | null }>;
   verifyPhoneOtp: (phone: string, token: string) => Promise<{ error: string | null }>;
   signInWithGoogle: () => Promise<{ error: string | null }>;
@@ -28,9 +29,15 @@ export const useAuthStore = create<AuthState>((set) => ({
     });
   },
 
-  signInWithEmail: async (email) => {
-    const { error } = await supabase.auth.signInWithOtp({
+  signInWithPassword: async (email, password) => {
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    return { error: error?.message ?? null };
+  },
+
+  signUp: async (email, password) => {
+    const { error } = await supabase.auth.signUp({
       email,
+      password,
       options: { emailRedirectTo: window.location.origin },
     });
     return { error: error?.message ?? null };
