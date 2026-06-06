@@ -1,12 +1,15 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
+import { useOutletContext } from 'react-router-dom';
 import { GameTable } from '../components/game/GameTable.js';
 import { StrategyChart } from '../components/learn/StrategyChart.js';
 import { useSettingsStore } from '../store/settingsStore.js';
 import { useGameStore } from '../store/gameStore.js';
 import { useStatsStore } from '../store/statsStore.js';
 
+type PlayOutletContext = { showChart: boolean; setShowChart: (v: boolean | ((p: boolean) => boolean)) => void };
+
 export function PlayPage() {
-  const [showChart, setShowChart] = useState(false);
+  const { showChart, setShowChart } = useOutletContext<PlayOutletContext>();
   const { game } = useGameStore();
   const { startSession, currentSession } = useStatsStore();
   const { ruleSet } = useSettingsStore();
@@ -19,22 +22,6 @@ export function PlayPage() {
 
   return (
     <div className="play-page">
-      <div className="play-toolbar">
-        <div className="play-toolbar__left">
-          <span className="toolbar-ruleset-badge">{ruleSet.name}</span>
-        </div>
-        <div className="play-toolbar__right">
-          <button
-            className={`btn btn--ghost btn--sm ${showChart ? 'btn--active' : ''}`}
-            onClick={() => setShowChart((v) => !v)}
-            aria-expanded={showChart}
-            aria-controls="strategy-chart-panel"
-          >
-            Strategy Chart
-          </button>
-        </div>
-      </div>
-
       <div className="play-layout">
         <GameTable />
 

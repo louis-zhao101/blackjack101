@@ -33,6 +33,7 @@ body {
   font-family: 'Inter', system-ui, sans-serif;
   background: var(--felt-dark);
   color: var(--text-primary);
+  height: 100vh;
   height: 100dvh;
   overflow: hidden;
 }
@@ -44,7 +45,7 @@ body {
 }
 
 /* ─── App shell ───────────────────────────────────────────────────────── */
-.app { display: flex; flex-direction: column; height: 100dvh; overflow: hidden; }
+.app { display: flex; flex-direction: column; height: 100vh; height: 100dvh; overflow: hidden; }
 
 .site-header {
   background: var(--felt-dark);
@@ -53,7 +54,6 @@ body {
 }
 
 .site-header__inner {
-  max-width: 1200px; margin: 0 auto;
   padding: 0 1rem;
   height: 56px;
   display: grid;
@@ -62,16 +62,19 @@ body {
 }
 
 .site-logo {
+  min-width: 0;
   display: flex; align-items: center; gap: 0.5rem;
   text-decoration: none; color: var(--gold);
   font-family: 'Playfair Display', Georgia, serif;
   font-size: 1.2rem; font-weight: 700;
   letter-spacing: 0.02em;
+  overflow: hidden;
 }
-.site-logo__suit { font-size: 1.1rem; }
+.site-logo__suit { font-size: 1.1rem; flex-shrink: 0; }
+.site-logo__name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .site-logo:hover .site-logo__name { color: var(--gold-light); }
 
-.site-nav { display: flex; gap: 0.25rem; }
+.site-nav { display: flex; gap: 0.25rem; flex-shrink: 0; }
 
 .nav-link {
   color: var(--text-secondary);
@@ -239,14 +242,6 @@ body {
   flex: 1; min-height: 0; overflow: hidden;
 }
 
-.play-toolbar {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 0.5rem 1rem;
-  background: rgba(0,0,0,0.2);
-  border-bottom: 1px solid var(--felt-border);
-  gap: 0.5rem; flex-wrap: wrap;
-}
-.play-toolbar__right { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
 
 .toolbar-ruleset-badge {
   background: rgba(212,168,67,0.15);
@@ -959,15 +954,20 @@ body {
 .mistake-detail-actions { color: var(--text-secondary); font-size: 0.82rem; }
 .mistake-detail-explanation { margin: 0; font-size: 0.85rem; color: var(--text-secondary); line-height: 1.6; }
 
+/* ─── Narrow window (600–640px gap has no breakpoint without this) ─────── */
+@media (max-width: 640px) {
+  .site-logo { font-size: 1.05rem; }
+  .nav-link { padding: 0.35rem 0.7rem; font-size: 0.85rem; }
+}
+
 /* ─── Mobile layout ───────────────────────────────────────────────────── */
 @media (max-width: 480px) {
   /* Tighter header */
   .site-header__inner { height: 48px; padding: 0 0.75rem; }
   .site-logo { font-size: 1rem; }
+  .site-logo__name { display: none; }
   .nav-link { padding: 0.35rem 0.6rem; font-size: 0.82rem; }
 
-  /* Play toolbar */
-  .play-toolbar { padding: 0.35rem 0.75rem; }
   .toolbar-ruleset-badge { font-size: 0.72rem; padding: 0.15rem 0.5rem; }
 
   /* Stats bar: allow horizontal scroll so it never wraps awkwardly */
@@ -1032,7 +1032,6 @@ body {
 /* ─── Compact height: reduce padding/sizes so game fits in short windows ── */
 @media (max-height: 620px) {
   .site-header__inner { height: 44px; }
-  .play-toolbar { padding: 0.25rem 0.75rem; }
   .stats-bar { padding: 0.2rem 0.75rem; font-size: 0.72rem; }
   .table-felt { padding: 0.6rem 0.75rem; gap: 0.4rem; }
   .controls-area { padding: 0.4rem 0.75rem 0.5rem; gap: 0.35rem; }
@@ -1058,7 +1057,7 @@ body {
 }
 
 /* ─── Auth ────────────────────────────────────────────────────────────── */
-.site-auth { display: flex; align-items: center; justify-content: flex-end; }
+.site-auth { min-width: 0; display: flex; align-items: center; justify-content: flex-end; gap: 0.5rem; flex-shrink: 0; }
 
 .auth-signin-btn {
   font-size: 0.85rem; font-weight: 500;

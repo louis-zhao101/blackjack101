@@ -1,17 +1,22 @@
 import { useEffect, useRef, useState } from 'react';
-import { NavLink, Outlet } from 'react-router-dom';
+import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useAuthStore } from './store/authStore.js';
 import { useStatsStore } from './store/statsStore.js';
 import { useGameStore } from './store/gameStore.js';
+import { useSettingsStore } from './store/settingsStore.js';
 import { loadUserData, upsertSession, upsertProfile } from './lib/sync.js';
 import { AuthModal } from './components/auth/AuthModal.js';
 
 export function App() {
   const { user, loading, initialize, signOut } = useAuthStore();
+  const { ruleSet } = useSettingsStore();
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showChart, setShowChart] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const prevUserIdRef = useRef<string | null>(null);
+  const location = useLocation();
+  const isPlay = location.pathname === '/play';
 
   // Boot auth listener once
   useEffect(() => { initialize(); }, [initialize]);
@@ -80,6 +85,19 @@ export function App() {
           </nav>
 
           <div className="site-auth">
+            {isPlay && (
+              <>
+                <span className="toolbar-ruleset-badge">{ruleSet.name}</span>
+                <button
+                  className={`btn btn--ghost btn--sm ${showChart ? 'btn--active' : ''}`}
+                  onClick={() => setShowChart((v) => !v)}
+                  aria-expanded={showChart}
+                  aria-controls="strategy-chart-panel"
+                >
+                  Strategy Chart
+                </button>
+              </>
+            )}
             {!loading && !user && (
               <button className="btn btn--ghost btn--sm auth-signin-btn" onClick={() => setShowAuthModal(true)}>
                 Sign in
@@ -105,7 +123,7 @@ export function App() {
       </header>
 
       <main className="site-main">
-        <Outlet />
+        <Outlet context={{ showChart, setShowChart }} />
       </main>
 
       {showAuthModal && <AuthModal onClose={() => setShowAuthModal(false)} />}
