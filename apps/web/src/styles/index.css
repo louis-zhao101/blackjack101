@@ -61,8 +61,7 @@ body {
   gap: 0.5rem;
 }
 
-.header-left { display: flex; align-items: center; gap: 0.5rem; min-width: 0; }
-.header-center { flex: 1; display: flex; align-items: center; justify-content: center; min-width: 0; overflow: hidden; }
+.header-left { display: flex; align-items: center; gap: 0.5rem; min-width: 0; flex: 1; }
 .header-right { display: flex; align-items: center; gap: 0.4rem; flex-shrink: 0; }
 
 .site-logo {
@@ -91,7 +90,7 @@ body {
 .nav-link:hover { background: var(--felt-light); color: var(--text-primary); }
 .nav-link--active { color: var(--gold); background: rgba(212,168,67,0.12); }
 
-.site-main { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; }
+.site-main { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; }
 
 /* ─── Buttons ─────────────────────────────────────────────────────────── */
 .btn {
@@ -653,7 +652,7 @@ body {
   display: inline-block;
 }
 
-.chart-scroll-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.chart-scroll-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; max-width: 100%; }
 
 .strategy-table {
   border-collapse: collapse;
@@ -914,9 +913,11 @@ body {
   border: 1px solid var(--felt-border);
   border-radius: var(--radius-lg);
   padding: 1rem;
+  min-width: 0;
+  max-width: 100%;
 }
 
-.sessions-table-wrapper { overflow-x: auto; }
+.sessions-table-wrapper { overflow-x: auto; max-width: 100%; }
 .sessions-table {
   width: 100%; border-collapse: collapse; font-size: 0.875rem;
 }
@@ -999,37 +1000,37 @@ body {
   }
   .stats-bar::-webkit-scrollbar { display: none; }
 
-  /* Felt: tighter padding on small screens */
-  .table-felt {
-    padding: 0.85rem 0.75rem;
-    gap: 0.5rem;
-  }
+  /* Cards: smaller on mobile so hands fit without scrolling */
+  .playing-card { width: 52px; height: 72px; }
+  .empty-hand-placeholder { width: 52px; height: 72px; }
+  .card-center-suit { font-size: 1.2rem; }
+  .card-rank { font-size: 0.75rem; }
+  .bj-hand__cards .playing-card + .playing-card { margin-left: -10px; }
 
-  /* Smaller game result message */
-  .game-message { font-size: 0.95rem; padding: 0.4rem 1rem; }
+  /* Felt: compact padding and gaps */
+  .table-felt { padding: 0.5rem 0.75rem; gap: 0.35rem; }
+  .zone-label { font-size: 0.65rem; margin-bottom: 0.2rem; }
+  .game-message { font-size: 0.9rem; padding: 0.35rem 0.9rem; }
 
-  /* Controls: less padding */
-  .controls-area { padding: 0.5rem 0.75rem 0.75rem; min-height: 0; gap: 0.4rem; }
-
-  /* Split hands: tighter gap, smaller padding on each hand */
-  .player-hands { gap: 0.75rem; }
-  .bj-hand { padding: 0.35rem 0.5rem; }
+  /* Hands: tighter spacing */
+  .player-hands { gap: 0.5rem; }
+  .bj-hand { padding: 0.25rem 0.4rem; gap: 0.25rem; }
   .bj-hand--active { box-shadow: 0 0 0 2px var(--gold), 0 0 12px rgba(212,168,67,0.3); }
+  .bj-hand__label { font-size: 0.7rem; }
+  .bj-hand__total { font-size: 0.75rem; padding: 0.1rem 0.45rem; }
+  .result-badge { font-size: 0.72rem; padding: 0.15rem 0.55rem; }
 
-  /* Hint popup: clamp width on small screens */
-  .strategy-hint__popup { width: 260px; }
+  /* Controls: compact */
+  .controls-area { padding: 0.4rem 0.75rem 0.5rem; min-height: 0; gap: 0.35rem; }
+  .complete-actions { gap: 0.5rem; }
+  .btn--lg { padding: 0.55rem 1.1rem; font-size: 0.88rem; min-height: 42px; }
 
-  /* Action buttons: narrower so all 5 fit in one row */
-  .action-btn {
-    min-width: 58px;
-    min-height: 50px;
-    padding: 0.5rem 0.5rem;
-    font-size: 0.8rem;
-  }
+  /* Action buttons */
+  .action-btn { min-width: 58px; min-height: 48px; padding: 0.45rem 0.5rem; font-size: 0.8rem; }
   .action-btn__hotkey { display: none; }
 
   /* Chips: slightly smaller */
-  .chip { width: 48px; height: 48px; font-size: 0.7rem; }
+  .chip { width: 46px; height: 46px; font-size: 0.7rem; }
 
   /* Bet panel tighter */
   .bet-panel { gap: 0.5rem; }
@@ -1037,18 +1038,12 @@ body {
   .bet-display__amount { font-size: 1.2rem; }
   .bankroll-display__amount { font-size: 1rem; }
 
-  /* Complete-actions buttons */
-  .btn--lg { padding: 0.65rem 1.25rem; font-size: 0.9rem; min-height: 46px; }
-
   /* Strategy hint popup: keep on screen */
   .strategy-hint__popup { width: 220px; }
-
-  /* Cards slightly smaller overlap */
-  .bj-hand__cards .playing-card + .playing-card { margin-left: -10px; }
 }
 
 /* ─── Compact height: reduce padding/sizes so game fits in short windows ── */
-@media (max-height: 620px) {
+@media (max-height: 700px) {
   .site-header__inner { height: 44px; }
   .stats-bar { padding: 0.2rem 0.75rem; font-size: 0.72rem; }
   .table-felt { padding: 0.6rem 0.75rem; gap: 0.4rem; }

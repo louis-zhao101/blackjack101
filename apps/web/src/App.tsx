@@ -85,13 +85,8 @@ export function App() {
             </nav>
           </div>
 
-          {isPlay && (
-            <div className="header-center">
-              <span className="toolbar-ruleset-badge">{ruleSet.name}</span>
-            </div>
-          )}
-
           <div className="header-right">
+            {isPlay && <span className="toolbar-ruleset-badge">{ruleSet.name}</span>}
             {isPlay && (
               <button
                 className={`icon-btn${showChart ? ' icon-btn--active' : ''}`}
