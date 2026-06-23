@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "399808752144",
+    "project_id": "blackjack101-app",
+    "storage_bucket": "blackjack101-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:399808752144:android:6abc45408682abf8f5f895",
+        "android_client_info": {
+          "package_name": "com.blackjack101.blackjack101"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDVXgx63gOUUwEq0rk28YQ2popMD_k68wU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
