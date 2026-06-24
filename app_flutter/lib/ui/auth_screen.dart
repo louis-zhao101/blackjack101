@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../state/auth_provider.dart';
+import 'widgets/game_button.dart';
 
 /// Phone-only sign in: enter number → enter SMS code. Validates the Firebase
 /// auth plumbing; styling is intentionally minimal until the Phase 4 theme pass.
@@ -57,9 +58,9 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                   ),
                   const SizedBox(height: 16),
                   FilledButton(
-                    onPressed: state.busy
+                    onPressed: withHaptic(state.busy
                         ? null
-                        : () => controller.sendCode(_phoneController.text.trim()),
+                        : () => controller.sendCode(_phoneController.text.trim())),
                     child: state.busy
                         ? const SizedBox(
                             height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2))
@@ -81,16 +82,16 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                   ),
                   const SizedBox(height: 16),
                   FilledButton(
-                    onPressed: state.busy
+                    onPressed: withHaptic(state.busy
                         ? null
-                        : () => controller.verifyCode(_codeController.text.trim()),
+                        : () => controller.verifyCode(_codeController.text.trim())),
                     child: state.busy
                         ? const SizedBox(
                             height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2))
                         : const Text('Verify'),
                   ),
                   TextButton(
-                    onPressed: state.busy ? null : controller.reset,
+                    onPressed: withHaptic(state.busy ? null : controller.reset),
                     child: const Text('Use a different number'),
                   ),
                 ],

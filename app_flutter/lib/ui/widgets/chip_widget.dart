@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/appearance.dart';
+import 'game_button.dart';
 
 class ChipWidget extends StatelessWidget {
   final int amount;
@@ -22,8 +23,8 @@ class ChipWidget extends StatelessWidget {
     final isBlack = amount >= 500;
     return Opacity(
       opacity: onTap == null ? 0.35 : 1,
-      child: GestureDetector(
-        onTap: onTap,
+      child: TappableScale(
+        onPressed: onTap,
         child: Container(
           width: size,
           height: size,

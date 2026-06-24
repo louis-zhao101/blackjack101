@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../engine/strategy.dart' as st;
@@ -102,10 +103,13 @@ class _StrategyChartState extends ConsumerState<StrategyChart> {
           ChoiceChip(
             label: Text(labels[t]!),
             selected: _tab == t,
-            onSelected: (_) => setState(() {
-              _tab = t;
-              _selected = null;
-            }),
+            onSelected: (_) {
+              HapticFeedback.selectionClick();
+              setState(() {
+                _tab = t;
+                _selected = null;
+              });
+            },
           ),
       ],
     );
@@ -162,7 +166,10 @@ class _StrategyChartState extends ConsumerState<StrategyChart> {
     final key = '${handType.name}|$value|$dealer';
     final selected = _selected == key;
     return GestureDetector(
-      onTap: () => setState(() => _selected = key),
+      onTap: () {
+        HapticFeedback.selectionClick();
+        setState(() => _selected = key);
+      },
       child: Container(
         width: 30,
         height: 30,

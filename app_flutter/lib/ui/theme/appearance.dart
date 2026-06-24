@@ -139,6 +139,81 @@ const List<AppearanceTheme> appearancePresets = [classicGreen, midnightBlue, cri
 AppearanceTheme appearanceById(String id) =>
     appearancePresets.firstWhere((t) => t.id == id, orElse: () => classicGreen);
 
+/// Builds a [ThemeData] from the active skin so Material surfaces — dialogs,
+/// popup menus, buttons, text fields — all match the table. Rebuilt whenever
+/// the skin changes.
+ThemeData appThemeData(AppearanceTheme a) {
+  final scheme = ColorScheme.fromSeed(
+    seedColor: a.felt,
+    brightness: Brightness.dark,
+  ).copyWith(
+    primary: a.gold,
+    onPrimary: a.feltDark,
+    secondary: a.goldLight,
+    surface: a.feltDark,
+    onSurface: AppTokens.textPrimary,
+  );
+
+  return ThemeData(
+    useMaterial3: true,
+    colorScheme: scheme,
+    scaffoldBackgroundColor: a.feltDark,
+    dividerColor: const Color(0x22FFFFFF),
+    dialogTheme: DialogThemeData(
+      backgroundColor: a.felt,
+      surfaceTintColor: Colors.transparent,
+      elevation: 12,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppTokens.radiusLg),
+        side: BorderSide(color: a.feltBorder),
+      ),
+      titleTextStyle:
+          TextStyle(color: a.goldLight, fontSize: 18, fontWeight: FontWeight.bold),
+      contentTextStyle:
+          const TextStyle(color: AppTokens.textPrimary, fontSize: 14, height: 1.45),
+    ),
+    popupMenuTheme: PopupMenuThemeData(
+      color: a.felt,
+      surfaceTintColor: Colors.transparent,
+      elevation: 8,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppTokens.radius),
+        side: BorderSide(color: a.feltBorder),
+      ),
+      textStyle: const TextStyle(color: AppTokens.textPrimary, fontSize: 14),
+    ),
+    textButtonTheme:
+        TextButtonThemeData(style: TextButton.styleFrom(foregroundColor: a.gold)),
+    filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+            backgroundColor: a.gold, foregroundColor: a.feltDark)),
+    outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+            foregroundColor: AppTokens.textPrimary,
+            side: BorderSide(color: a.feltBorder, width: 1.5))),
+    inputDecorationTheme: InputDecorationTheme(
+      labelStyle: const TextStyle(color: AppTokens.textSecondary),
+      hintStyle: TextStyle(color: AppTokens.textSecondary.withValues(alpha: 0.6)),
+      prefixStyle: const TextStyle(color: AppTokens.textPrimary),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(AppTokens.radius),
+        borderSide: BorderSide(color: a.feltBorder),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(AppTokens.radius),
+        borderSide: BorderSide(color: a.gold, width: 2),
+      ),
+    ),
+    chipTheme: ChipThemeData(
+      backgroundColor: a.feltDark,
+      selectedColor: a.gold.withValues(alpha: 0.22),
+      side: BorderSide(color: a.feltBorder),
+      labelStyle: const TextStyle(color: AppTokens.textPrimary),
+      secondaryLabelStyle: TextStyle(color: a.goldLight),
+    ),
+  );
+}
+
 /// Fixed (non-skinned) design tokens shared across themes.
 class AppTokens {
   static const textPrimary = Color(0xFFF5F0E8);

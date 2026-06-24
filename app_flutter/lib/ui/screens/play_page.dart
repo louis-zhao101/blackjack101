@@ -8,8 +8,38 @@ import '../../state/stats_provider.dart';
 import '../theme/appearance.dart';
 import '../widgets/blackjack_hand.dart';
 import '../widgets/chip_widget.dart';
+import '../widgets/game_button.dart';
 
 const _chipDenoms = [5, 25, 100, 500];
+
+void _confirmAction(
+  BuildContext context, {
+  required String title,
+  required String message,
+  required String confirmLabel,
+  required VoidCallback onConfirm,
+}) {
+  showDialog(
+    context: context,
+    builder: (_) => AlertDialog(
+      title: Text(title),
+      content: Text(message),
+      actions: [
+        TextButton(
+          onPressed: withHaptic(() => Navigator.pop(context)),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: withHaptic(() {
+            Navigator.pop(context);
+            onConfirm();
+          }),
+          child: Text(confirmLabel),
+        ),
+      ],
+    ),
+  );
+}
 
 class PlayPage extends ConsumerWidget {
   const PlayPage({super.key});
@@ -40,6 +70,17 @@ class PlayPage extends ConsumerWidget {
                     _DealerZone(game: game, theme: theme, cardWidth: cardWidth),
                     Expanded(child: Center(child: _TableCenter(game: game, theme: theme))),
                     _PlayerZone(game: game, theme: theme, cardWidth: cardWidth),
+                    SizedBox(
+                      height: 36,
+                      width: double.infinity,
+                      child: Align(
+                        alignment: Alignment.topCenter,
+                        child: (store.lastHandInfo != null &&
+                                game.phase != eng.GamePhase.betting)
+                            ? _StrategyHint(info: store.lastHandInfo!, theme: theme)
+                            : null,
+                      ),
+                    ),
                   ],
                 ),
               );
@@ -87,7 +128,7 @@ class _StatsBar extends ConsumerWidget {
               iconSize: 18,
               icon: Icon(Icons.add_circle_outline, color: AppTokens.textSecondary),
               tooltip: 'Add chips',
-              onPressed: () => _addChips(context, ref),
+              onPressed: withHaptic(() => _addChips(context, ref)),
             ),
             _divider(),
             _item('BET', '\$$bet', AppTokens.textPrimary),
@@ -139,9 +180,11 @@ class _StatsBar extends ConsumerWidget {
           onSubmitted: (_) => _submitChips(context, ref, controller.text),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(
+              onPressed: withHaptic(() => Navigator.pop(context)),
+              child: const Text('Cancel')),
           FilledButton(
-            onPressed: () => _submitChips(context, ref, controller.text),
+            onPressed: withHaptic(() => _submitChips(context, ref, controller.text)),
             child: const Text('Add'),
           ),
         ],
@@ -251,22 +294,35 @@ class _Controls extends ConsumerWidget {
     final notifier = ref.read(gameProvider.notifier);
 
     return Container(
-      constraints: const BoxConstraints(minHeight: 150),
+      height: 140,
       width: double.infinity,
       color: theme.feltDark,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (store.lastHandInfo != null && game.phase != eng.GamePhase.betting)
-            _StrategyHint(info: store.lastHandInfo!, theme: theme),
-          if (game.phase == eng.GamePhase.betting)
-            _BetPanel(game: game, theme: theme, notifier: notifier)
-          else if (game.phase == eng.GamePhase.playerTurn)
-            _ActionBar(notifier: notifier, theme: theme)
-          else if (game.phase == eng.GamePhase.complete)
-            _CompleteActions(game: game, theme: theme, notifier: notifier),
-        ],
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Center(
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 220),
+          switchInCurve: Curves.easeOut,
+          switchOutCurve: Curves.easeIn,
+          transitionBuilder: (child, anim) => FadeTransition(
+            opacity: anim,
+            child: SlideTransition(
+              position: Tween<Offset>(begin: const Offset(0, 0.14), end: Offset.zero)
+                  .animate(anim),
+              child: child,
+            ),
+          ),
+          child: KeyedSubtree(
+            key: ValueKey(game.phase),
+            child: switch (game.phase) {
+              eng.GamePhase.betting =>
+                _BetPanel(game: game, theme: theme, notifier: notifier),
+              eng.GamePhase.playerTurn => _ActionBar(notifier: notifier, theme: theme),
+              eng.GamePhase.complete =>
+                _CompleteActions(game: game, theme: theme, notifier: notifier),
+              _ => const SizedBox.shrink(),
+            },
+          ),
+        ),
       ),
     );
   }
@@ -283,15 +339,6 @@ class _BetPanel extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            _stat('BET', '\$${game.pendingBet}', theme.goldLight),
-            const SizedBox(width: 32),
-            _stat('BANKROLL', '\$${game.bankroll}', AppTokens.textPrimary),
-          ],
-        ),
-        const SizedBox(height: 12),
         Wrap(
           spacing: 12,
           children: [
@@ -305,36 +352,42 @@ class _BetPanel extends StatelessWidget {
               ),
           ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 14),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            OutlinedButton(
+            GameButton(
+              label: 'Clear',
+              theme: theme,
               onPressed: game.pendingBet > 0 ? notifier.clearBet : null,
-              child: const Text('Clear'),
             ),
-            const SizedBox(width: 12),
-            FilledButton(
+            SizedBox(
+              width: 88,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('BET',
+                      style: TextStyle(
+                          color: AppTokens.textSecondary, fontSize: 10, letterSpacing: 1)),
+                  Text('\$${game.pendingBet}',
+                      style: TextStyle(
+                          color: theme.goldLight,
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold)),
+                ],
+              ),
+            ),
+            GameButton(
+              label: 'Deal',
+              theme: theme,
+              variant: GameBtn.gold,
               onPressed: game.pendingBet >= 1 ? notifier.deal : null,
-              style: FilledButton.styleFrom(
-                  backgroundColor: theme.gold, foregroundColor: theme.feltDark),
-              child: const Text('Deal'),
             ),
           ],
         ),
       ],
     );
   }
-
-  Widget _stat(String label, String value, Color color) => Column(
-        children: [
-          Text(label,
-              style: TextStyle(
-                  color: AppTokens.textSecondary, fontSize: 11, letterSpacing: 1)),
-          Text(value,
-              style: TextStyle(color: color, fontSize: 22, fontWeight: FontWeight.bold)),
-        ],
-      );
 }
 
 class _ActionBar extends StatelessWidget {
@@ -347,41 +400,64 @@ class _ActionBar extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Wrap(
-          spacing: 10,
-          runSpacing: 10,
-          alignment: WrapAlignment.center,
+        Row(
           children: [
-            FilledButton(
-              onPressed: notifier.hit,
-              style: FilledButton.styleFrom(
-                  backgroundColor: theme.gold, foregroundColor: theme.feltDark),
-              child: const Text('Hit'),
+            Expanded(
+              child: GameButton(
+                  label: 'Hit',
+                  theme: theme,
+                  variant: GameBtn.gold,
+                  expand: true,
+                  onPressed: notifier.hit),
             ),
-            FilledButton(
-              onPressed: notifier.stand,
-              style: FilledButton.styleFrom(
-                  backgroundColor: theme.gold, foregroundColor: theme.feltDark),
-              child: const Text('Stand'),
+            const SizedBox(width: 8),
+            Expanded(
+              child: GameButton(
+                  label: 'Stand',
+                  theme: theme,
+                  variant: GameBtn.gold,
+                  expand: true,
+                  onPressed: notifier.stand),
             ),
-            OutlinedButton(
-              onPressed: notifier.canDouble ? notifier.double : null,
-              child: const Text('Double'),
-            ),
-            OutlinedButton(
-              onPressed: notifier.canSplit ? notifier.split : null,
-              child: const Text('Split'),
-            ),
-            if (notifier.canSurrender)
-              OutlinedButton(
-                onPressed: notifier.surrender,
-                child: const Text('Surrender'),
+            const SizedBox(width: 8),
+            Expanded(
+              child: GameButton(
+                label: 'Double',
+                theme: theme,
+                expand: true,
+                onPressed: notifier.canDouble ? notifier.double : null,
               ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: GameButton(
+                label: 'Split',
+                theme: theme,
+                expand: true,
+                onPressed: notifier.canSplit ? notifier.split : null,
+              ),
+            ),
+            if (notifier.canSurrender) ...[
+              const SizedBox(width: 8),
+              Expanded(
+                child: GameButton(
+                  label: 'Surrender',
+                  theme: theme,
+                  expand: true,
+                  onPressed: notifier.surrender,
+                ),
+              ),
+            ],
           ],
         ),
-        const SizedBox(height: 8),
         TextButton(
-          onPressed: notifier.forfeitHand,
+          onPressed: withHaptic(() => _confirmAction(
+                context,
+                title: 'Forfeit this hand?',
+                message: 'Your current bet is returned and the hand ends.',
+                confirmLabel: 'Forfeit',
+                onConfirm: notifier.forfeitHand,
+              )),
           child: Text('Forfeit hand', style: TextStyle(color: AppTokens.textSecondary)),
         ),
       ],
@@ -398,42 +474,51 @@ class _CompleteActions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final newSessionButton = TextButton(
+      onPressed: withHaptic(() => _confirmAction(
+            context,
+            title: 'Start a new session?',
+            message: 'This ends your current session and resets the table. '
+                'Your stats are saved.',
+            confirmLabel: 'New Session',
+            onConfirm: notifier.newSession,
+          )),
+      child: Text('New Session', style: TextStyle(color: AppTokens.textSecondary)),
+    );
+
     if (game.bankroll < 1) {
       return Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           const Text('Out of chips!',
               style: TextStyle(color: AppTokens.textPrimary, fontSize: 16)),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 12,
-            children: [
-              FilledButton(
-                onPressed: () => notifier.topUp(500),
-                style: FilledButton.styleFrom(
-                    backgroundColor: theme.gold, foregroundColor: theme.feltDark),
-                child: const Text('Add \$500'),
-              ),
-              OutlinedButton(
-                  onPressed: notifier.newSession, child: const Text('New Session')),
-            ],
-          ),
+          const SizedBox(height: 8),
+          GameButton(
+              label: 'Add \$500',
+              theme: theme,
+              variant: GameBtn.gold,
+              onPressed: () => notifier.topUp(500)),
+          newSessionButton,
         ],
       );
     }
-    return Wrap(
-      spacing: 12,
-      runSpacing: 10,
-      alignment: WrapAlignment.center,
+    return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        FilledButton(
-          onPressed: notifier.rebetAndDeal,
-          style: FilledButton.styleFrom(
-              backgroundColor: theme.gold, foregroundColor: theme.feltDark),
-          child: const Text('Deal Again'),
+        Wrap(
+          spacing: 12,
+          runSpacing: 10,
+          alignment: WrapAlignment.center,
+          children: [
+            GameButton(
+                label: 'Deal Again',
+                theme: theme,
+                variant: GameBtn.gold,
+                onPressed: notifier.rebetAndDeal),
+            GameButton(label: 'Change Bet', theme: theme, onPressed: notifier.nextHand),
+          ],
         ),
-        OutlinedButton(onPressed: notifier.nextHand, child: const Text('Change Bet')),
-        OutlinedButton(onPressed: notifier.newSession, child: const Text('New Session')),
+        newSessionButton,
       ],
     );
   }
@@ -447,37 +532,35 @@ class _StrategyHint extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final correct = info.wasCorrect;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: GestureDetector(
-        onTap: () => showDialog(
-          context: context,
-          builder: (_) => AlertDialog(
-            title: Text(correct ? 'Optimal play ✓' : 'Optimal: ${info.optimal.label}'),
-            content: Text(info.optimal.explanation),
-            actions: [
-              TextButton(
-                  onPressed: () => Navigator.pop(context), child: const Text('Got it')),
-            ],
-          ),
+    return GestureDetector(
+      onTap: withHaptic(() => showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: Text(correct ? 'Optimal play ✓' : 'Optimal: ${info.optimal.label}'),
+          content: Text(info.optimal.explanation),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(context), child: const Text('Got it')),
+          ],
         ),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            color: correct ? const Color(0x3327AE60) : const Color(0x33C0392B),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-                color: correct ? const Color(0xFF27AE60) : const Color(0xFFC0392B)),
-          ),
-          child: Text(
-            correct
-                ? '✓ Optimal play'
-                : '✕ Should have ${info.optimal.label.toLowerCase()} — tap to learn',
-            style: TextStyle(
-                color: correct ? const Color(0xFF6EE7B7) : const Color(0xFFFC8181),
-                fontSize: 13,
-                fontWeight: FontWeight.w600),
-          ),
+      )),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+        decoration: BoxDecoration(
+          color: correct ? const Color(0x3327AE60) : const Color(0x33C0392B),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+              color: correct ? const Color(0xFF27AE60) : const Color(0xFFC0392B)),
+        ),
+        child: Text(
+          correct
+              ? '✓ Optimal play'
+              : '✕ Should have ${info.optimal.label.toLowerCase()} — tap to learn',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+              color: correct ? const Color(0xFF6EE7B7) : const Color(0xFFFC8181),
+              fontSize: 11,
+              fontWeight: FontWeight.w600),
         ),
       ),
     );

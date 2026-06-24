@@ -8,11 +8,13 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'firebase_options.dart';
 import 'state/app_providers.dart';
+import 'state/appearance_provider.dart';
 import 'state/auth_provider.dart';
 import 'state/game_provider.dart';
 import 'state/stats_provider.dart';
 import 'ui/app_shell.dart';
 import 'ui/auth_screen.dart';
+import 'ui/theme/appearance.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -33,20 +35,15 @@ Future<void> main() async {
   );
 }
 
-class BlackjackApp extends StatelessWidget {
+class BlackjackApp extends ConsumerWidget {
   const BlackjackApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final appearance = ref.watch(appearanceProvider);
     return MaterialApp(
       title: 'Blackjack 101',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF1a4731),
-          brightness: Brightness.dark,
-        ),
-        useMaterial3: true,
-      ),
+      theme: appThemeData(appearance),
       home: const AuthGate(),
     );
   }

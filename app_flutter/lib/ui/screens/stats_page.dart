@@ -6,6 +6,7 @@ import '../../engine/stats.dart';
 import '../../engine/strategy.dart' as st;
 import '../../state/stats_provider.dart';
 import '../theme/appearance.dart';
+import '../widgets/game_button.dart';
 
 const _good = Color(0xFF6EE7B7);
 const _ok = Color(0xFFF0C84A);
@@ -67,7 +68,7 @@ class StatsPage extends ConsumerWidget {
                   style: TextStyle(
                       color: AppTokens.textPrimary, fontSize: 24, fontWeight: FontWeight.bold)),
               TextButton(
-                onPressed: () => _confirmClear(context, ref),
+                onPressed: withHaptic(() => _confirmClear(context, ref)),
                 child: const Text('Clear History'),
               ),
             ],
@@ -128,12 +129,14 @@ class StatsPage extends ConsumerWidget {
         title: const Text('Clear all session history?'),
         content: const Text('This removes all saved sessions. This cannot be undone.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(
+              onPressed: withHaptic(() => Navigator.pop(context)),
+              child: const Text('Cancel')),
           FilledButton(
-            onPressed: () {
+            onPressed: withHaptic(() {
               ref.read(statsProvider.notifier).clearHistory();
               Navigator.pop(context);
-            },
+            }),
             child: const Text('Clear'),
           ),
         ],

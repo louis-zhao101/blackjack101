@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../theme/appearance.dart';
@@ -83,6 +84,7 @@ class LearnPage extends ConsumerWidget {
         children: [
           TabBar(
             isScrollable: true,
+            onTap: (_) => HapticFeedback.selectionClick(),
             labelColor: classicGreen.gold,
             unselectedLabelColor: AppTokens.textSecondary,
             indicatorColor: classicGreen.gold,
