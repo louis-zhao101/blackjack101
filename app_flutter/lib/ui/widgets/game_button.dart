@@ -43,6 +43,57 @@ class _TappableScaleState extends State<TappableScale> {
   }
 }
 
+/// Fade + slight scale "pop" entrance. Replays whenever [triggerKey] changes,
+/// so reused widgets (hint pill, result badge) re-animate on new content.
+class AppearIn extends StatefulWidget {
+  final Widget child;
+  final Object? triggerKey;
+  final Duration duration;
+  final double fromScale;
+  const AppearIn({
+    super.key,
+    required this.child,
+    this.triggerKey,
+    this.duration = const Duration(milliseconds: 240),
+    this.fromScale = 0.85,
+  });
+
+  @override
+  State<AppearIn> createState() => _AppearInState();
+}
+
+class _AppearInState extends State<AppearIn> with SingleTickerProviderStateMixin {
+  late final AnimationController _c =
+      AnimationController(vsync: this, duration: widget.duration)..forward();
+
+  @override
+  void didUpdateWidget(AppearIn oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.triggerKey != widget.triggerKey) _c.forward(from: 0);
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _c,
+      child: widget.child,
+      builder: (context, child) {
+        final t = Curves.easeOutBack.transform(_c.value);
+        return Opacity(
+          opacity: Curves.easeOut.transform(_c.value).clamp(0.0, 1.0),
+          child: Transform.scale(scale: widget.fromScale + (1 - widget.fromScale) * t, child: child),
+        );
+      },
+    );
+  }
+}
+
 enum GameBtn { gold, outlined }
 
 /// Themed pill button with built-in press animation + haptic.

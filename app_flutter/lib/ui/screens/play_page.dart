@@ -6,6 +6,7 @@ import '../../state/appearance_provider.dart';
 import '../../state/game_provider.dart';
 import '../../state/stats_provider.dart';
 import '../theme/appearance.dart';
+import '../widgets/bet_chip_stack.dart';
 import '../widgets/blackjack_hand.dart';
 import '../widgets/chip_widget.dart';
 import '../widgets/game_button.dart';
@@ -61,34 +62,58 @@ class PlayPage extends ConsumerWidget {
                   : constraints.maxWidth < 900
                   ? 68.0
                   : 80.0;
+              final bet = game.phase == eng.GamePhase.betting
+                  ? game.pendingBet
+                  : game.playerHands.fold<int>(0, (s, h) => s + h.bet);
               return Container(
                 width: double.infinity,
                 decoration: BoxDecoration(gradient: theme.feltGradient),
                 padding: const EdgeInsets.all(16),
-                child: Column(
+                child: Stack(
                   children: [
-                    _DealerZone(game: game, theme: theme, cardWidth: cardWidth),
-                    Expanded(
-                      child: Center(
-                        child: _TableCenter(game: game, theme: theme),
-                      ),
+                    Column(
+                      children: [
+                        _DealerZone(
+                          game: game,
+                          theme: theme,
+                          cardWidth: cardWidth,
+                        ),
+                        Expanded(
+                          child: Center(
+                            child: _TableCenter(game: game, theme: theme),
+                          ),
+                        ),
+                        _PlayerZone(
+                          game: game,
+                          theme: theme,
+                          cardWidth: cardWidth,
+                        ),
+                        SizedBox(
+                          height: 36,
+                          width: double.infinity,
+                          child: Align(
+                            alignment: Alignment.topCenter,
+                            child:
+                                (store.lastHandInfo != null &&
+                                    game.phase != eng.GamePhase.betting)
+                                ? AppearIn(
+                                    triggerKey: store.lastHandInfo,
+                                    child: _StrategyHint(
+                                      info: store.lastHandInfo!,
+                                      theme: theme,
+                                    ),
+                                  )
+                                : null,
+                          ),
+                        ),
+                      ],
                     ),
-                    _PlayerZone(game: game, theme: theme, cardWidth: cardWidth),
-                    SizedBox(
-                      height: 36,
-                      width: double.infinity,
-                      child: Align(
-                        alignment: Alignment.topCenter,
-                        child:
-                            (store.lastHandInfo != null &&
-                                game.phase != eng.GamePhase.betting)
-                            ? _StrategyHint(
-                                info: store.lastHandInfo!,
-                                theme: theme,
-                              )
-                            : null,
+                    if (bet > 0)
+                      Positioned(
+                        right: 4,
+                        bottom: 8,
+                        child: BetChipStack(amount: bet, theme: theme),
                       ),
-                    ),
                   ],
                 ),
               );
@@ -276,13 +301,29 @@ class _TableCenter extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (game.phase == eng.GamePhase.complete && game.message.isNotEmpty) {
-      return Text(
-        game.message,
-        textAlign: TextAlign.center,
-        style: TextStyle(
-          color: theme.goldLight,
-          fontSize: 20,
-          fontWeight: FontWeight.bold,
+      final hasBlackjack = game.playerHands.any(
+        (h) => h.result == eng.HandResult.blackjack,
+      );
+      final net = game.playerHands.fold<int>(0, (s, h) => s + h.payout - h.bet);
+      final color = hasBlackjack
+          ? theme.goldLight
+          : net > 0
+          ? const Color(0xFF6EE7B7)
+          : net < 0
+          ? const Color(0xFFFC8181)
+          : AppTokens.textSecondary;
+      return AppearIn(
+        triggerKey: game.message,
+        fromScale: 0.7,
+        child: Text(
+          game.message,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: color,
+            fontSize: 28,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 0.5,
+          ),
         ),
       );
     }
@@ -539,6 +580,7 @@ class _ActionBar extends StatelessWidget {
             ],
           ],
         ),
+        const SizedBox(height: 6),
         TextButton(
           onPressed: withHaptic(
             () => _confirmAction(
@@ -604,6 +646,7 @@ class _CompleteActions extends StatelessWidget {
             variant: GameBtn.gold,
             onPressed: () => notifier.topUp(500),
           ),
+          const SizedBox(height: 6),
           newSessionButton,
         ],
       );
@@ -629,6 +672,7 @@ class _CompleteActions extends StatelessWidget {
             ),
           ],
         ),
+        const SizedBox(height: 6),
         newSessionButton,
       ],
     );

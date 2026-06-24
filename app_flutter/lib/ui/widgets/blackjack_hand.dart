@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../engine/cards.dart' as bj;
 import '../../engine/engine.dart' show HandResult;
 import '../theme/appearance.dart';
+import 'game_button.dart';
 import 'playing_card.dart';
 
 class BlackjackHandView extends StatelessWidget {
@@ -41,21 +42,26 @@ class BlackjackHandView extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (isActive)
-            Container(
-              margin: const EdgeInsets.only(bottom: 12),
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              decoration: BoxDecoration(
-                color: theme.gold,
-                borderRadius: BorderRadius.circular(20),
+            AppearIn(
+              child: Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: theme.gold,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text('Your Turn',
+                    style: TextStyle(
+                        color: theme.feltDark, fontSize: 11, fontWeight: FontWeight.bold)),
               ),
-              child: Text('Your Turn',
-                  style: TextStyle(
-                      color: theme.feltDark, fontSize: 11, fontWeight: FontWeight.bold)),
             )
           else if (showResult && result != null)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: ResultBadge(result: result!),
+            AppearIn(
+              triggerKey: result,
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: ResultBadge(result: result!),
+              ),
             ),
           SizedBox(
             width: stackWidth,
