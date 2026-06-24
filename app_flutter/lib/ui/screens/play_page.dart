@@ -59,8 +59,8 @@ class PlayPage extends ConsumerWidget {
               final cardWidth = constraints.maxWidth < 480
                   ? 52.0
                   : constraints.maxWidth < 900
-                      ? 68.0
-                      : 80.0;
+                  ? 68.0
+                  : 80.0;
               return Container(
                 width: double.infinity,
                 decoration: BoxDecoration(gradient: theme.feltGradient),
@@ -68,16 +68,24 @@ class PlayPage extends ConsumerWidget {
                 child: Column(
                   children: [
                     _DealerZone(game: game, theme: theme, cardWidth: cardWidth),
-                    Expanded(child: Center(child: _TableCenter(game: game, theme: theme))),
+                    Expanded(
+                      child: Center(
+                        child: _TableCenter(game: game, theme: theme),
+                      ),
+                    ),
                     _PlayerZone(game: game, theme: theme, cardWidth: cardWidth),
                     SizedBox(
                       height: 36,
                       width: double.infinity,
                       child: Align(
                         alignment: Alignment.topCenter,
-                        child: (store.lastHandInfo != null &&
+                        child:
+                            (store.lastHandInfo != null &&
                                 game.phase != eng.GamePhase.betting)
-                            ? _StrategyHint(info: store.lastHandInfo!, theme: theme)
+                            ? _StrategyHint(
+                                info: store.lastHandInfo!,
+                                theme: theme,
+                              )
                             : null,
                       ),
                     ),
@@ -104,15 +112,16 @@ class _StatsBar extends ConsumerWidget {
     final bet = game.phase == eng.GamePhase.betting
         ? game.pendingBet
         : game.playerHands.fold<int>(0, (sum, h) => sum + h.bet);
-    final handsPlayed = ref.watch(statsProvider).currentSession?.hands.length ?? 0;
+    final handsPlayed =
+        ref.watch(statsProvider).currentSession?.hands.length ?? 0;
     final plays = store.playStats;
     final hasPlays = plays.total > 0;
     final pct = hasPlays ? (plays.correct / plays.total * 100).round() : 0;
     final pctColor = pct >= 80
         ? const Color(0xFF6EE7B7)
         : pct >= 60
-            ? theme.goldLight
-            : const Color(0xFFFC8181);
+        ? theme.goldLight
+        : const Color(0xFFFC8181);
 
     return Container(
       width: double.infinity,
@@ -126,7 +135,10 @@ class _StatsBar extends ConsumerWidget {
             IconButton(
               visualDensity: VisualDensity.compact,
               iconSize: 18,
-              icon: Icon(Icons.add_circle_outline, color: AppTokens.textSecondary),
+              icon: Icon(
+                Icons.add_circle_outline,
+                color: AppTokens.textSecondary,
+              ),
               tooltip: 'Add chips',
               onPressed: withHaptic(() => _addChips(context, ref)),
             ),
@@ -138,7 +150,11 @@ class _StatsBar extends ConsumerWidget {
               _divider(),
               _item('HANDS', '$handsPlayed', AppTokens.textPrimary),
               _divider(),
-              _item('CORRECT', '${plays.correct}/${plays.total}', AppTokens.textPrimary),
+              _item(
+                'CORRECT',
+                '${plays.correct}/${plays.total}',
+                AppTokens.textPrimary,
+              ),
             ],
           ],
         ),
@@ -147,24 +163,35 @@ class _StatsBar extends ConsumerWidget {
   }
 
   Widget _item(String label, String value, Color color) => Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 6),
-        child: Row(
-          children: [
-            Text('$label ',
-                style: const TextStyle(
-                    color: AppTokens.textSecondary, fontSize: 11, letterSpacing: 0.5)),
-            Text(value,
-                style: TextStyle(color: color, fontSize: 14, fontWeight: FontWeight.bold)),
-          ],
+    padding: const EdgeInsets.symmetric(horizontal: 6),
+    child: Row(
+      children: [
+        Text(
+          '$label ',
+          style: const TextStyle(
+            color: AppTokens.textSecondary,
+            fontSize: 11,
+            letterSpacing: 0.5,
+          ),
         ),
-      );
+        Text(
+          value,
+          style: TextStyle(
+            color: color,
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ],
+    ),
+  );
 
   Widget _divider() => Container(
-        width: 1,
-        height: 18,
-        margin: const EdgeInsets.symmetric(horizontal: 8),
-        color: const Color(0x22FFFFFF),
-      );
+    width: 1,
+    height: 18,
+    margin: const EdgeInsets.symmetric(horizontal: 8),
+    color: const Color(0x22FFFFFF),
+  );
 
   void _addChips(BuildContext context, WidgetRef ref) {
     final controller = TextEditingController();
@@ -176,15 +203,21 @@ class _StatsBar extends ConsumerWidget {
           controller: controller,
           autofocus: true,
           keyboardType: TextInputType.number,
-          decoration: const InputDecoration(prefixText: '\$ ', hintText: 'Amount'),
+          decoration: const InputDecoration(
+            prefixText: '\$ ',
+            hintText: 'Amount',
+          ),
           onSubmitted: (_) => _submitChips(context, ref, controller.text),
         ),
         actions: [
           TextButton(
-              onPressed: withHaptic(() => Navigator.pop(context)),
-              child: const Text('Cancel')),
+            onPressed: withHaptic(() => Navigator.pop(context)),
+            child: const Text('Cancel'),
+          ),
           FilledButton(
-            onPressed: withHaptic(() => _submitChips(context, ref, controller.text)),
+            onPressed: withHaptic(
+              () => _submitChips(context, ref, controller.text),
+            ),
             child: const Text('Add'),
           ),
         ],
@@ -205,18 +238,31 @@ class _DealerZone extends StatelessWidget {
   final eng.GameState game;
   final AppearanceTheme theme;
   final double cardWidth;
-  const _DealerZone({required this.game, required this.theme, required this.cardWidth});
+  const _DealerZone({
+    required this.game,
+    required this.theme,
+    required this.cardWidth,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Text('DEALER',
-            style: TextStyle(
-                color: AppTokens.textSecondary, fontSize: 12, letterSpacing: 1.5)),
+        Text(
+          'DEALER',
+          style: TextStyle(
+            color: AppTokens.textSecondary,
+            fontSize: 12,
+            letterSpacing: 1.5,
+          ),
+        ),
         const SizedBox(height: 4),
         if (game.dealerCards.isNotEmpty)
-          BlackjackHandView(cards: game.dealerCards, theme: theme, cardWidth: cardWidth),
+          BlackjackHandView(
+            cards: game.dealerCards,
+            theme: theme,
+            cardWidth: cardWidth,
+          ),
       ],
     );
   }
@@ -233,22 +279,33 @@ class _TableCenter extends StatelessWidget {
       return Text(
         game.message,
         textAlign: TextAlign.center,
-        style: TextStyle(color: theme.goldLight, fontSize: 20, fontWeight: FontWeight.bold),
+        style: TextStyle(
+          color: theme.goldLight,
+          fontSize: 20,
+          fontWeight: FontWeight.bold,
+        ),
       );
     }
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text('Blackjack 101',
-            style: TextStyle(
-              color: theme.gold.withValues(alpha: 0.55),
-              fontSize: 26,
-              fontWeight: FontWeight.bold,
-              fontFamily: 'serif',
-            )),
-        Text('PAYS 3 TO 2',
-            style: TextStyle(
-                color: theme.gold.withValues(alpha: 0.4), fontSize: 11, letterSpacing: 3)),
+        Text(
+          'Blackjack 101',
+          style: TextStyle(
+            color: theme.gold.withValues(alpha: 0.55),
+            fontSize: 26,
+            fontWeight: FontWeight.bold,
+            fontFamily: 'serif',
+          ),
+        ),
+        Text(
+          'PAYS 3 TO 2',
+          style: TextStyle(
+            color: theme.gold.withValues(alpha: 0.4),
+            fontSize: 11,
+            letterSpacing: 3,
+          ),
+        ),
       ],
     );
   }
@@ -258,7 +315,11 @@ class _PlayerZone extends StatelessWidget {
   final eng.GameState game;
   final AppearanceTheme theme;
   final double cardWidth;
-  const _PlayerZone({required this.game, required this.theme, required this.cardWidth});
+  const _PlayerZone({
+    required this.game,
+    required this.theme,
+    required this.cardWidth,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -299,28 +360,42 @@ class _Controls extends ConsumerWidget {
       color: theme.feltDark,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Center(
-        child: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 220),
-          switchInCurve: Curves.easeOut,
-          switchOutCurve: Curves.easeIn,
-          transitionBuilder: (child, anim) => FadeTransition(
-            opacity: anim,
-            child: SlideTransition(
-              position: Tween<Offset>(begin: const Offset(0, 0.14), end: Offset.zero)
-                  .animate(anim),
-              child: child,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 520),
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 220),
+            switchInCurve: Curves.easeOut,
+            switchOutCurve: Curves.easeIn,
+            transitionBuilder: (child, anim) => FadeTransition(
+              opacity: anim,
+              child: SlideTransition(
+                position: Tween<Offset>(
+                  begin: const Offset(0, 0.14),
+                  end: Offset.zero,
+                ).animate(anim),
+                child: child,
+              ),
             ),
-          ),
-          child: KeyedSubtree(
-            key: ValueKey(game.phase),
-            child: switch (game.phase) {
-              eng.GamePhase.betting =>
-                _BetPanel(game: game, theme: theme, notifier: notifier),
-              eng.GamePhase.playerTurn => _ActionBar(notifier: notifier, theme: theme),
-              eng.GamePhase.complete =>
-                _CompleteActions(game: game, theme: theme, notifier: notifier),
-              _ => const SizedBox.shrink(),
-            },
+            child: KeyedSubtree(
+              key: ValueKey(game.phase),
+              child: switch (game.phase) {
+                eng.GamePhase.betting => _BetPanel(
+                  game: game,
+                  theme: theme,
+                  notifier: notifier,
+                ),
+                eng.GamePhase.playerTurn => _ActionBar(
+                  notifier: notifier,
+                  theme: theme,
+                ),
+                eng.GamePhase.complete => _CompleteActions(
+                  game: game,
+                  theme: theme,
+                  notifier: notifier,
+                ),
+                _ => const SizedBox.shrink(),
+              },
+            ),
           ),
         ),
       ),
@@ -332,7 +407,11 @@ class _BetPanel extends StatelessWidget {
   final eng.GameState game;
   final AppearanceTheme theme;
   final GameController notifier;
-  const _BetPanel({required this.game, required this.theme, required this.notifier});
+  const _BetPanel({
+    required this.game,
+    required this.theme,
+    required this.notifier,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -366,14 +445,22 @@ class _BetPanel extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text('BET',
-                      style: TextStyle(
-                          color: AppTokens.textSecondary, fontSize: 10, letterSpacing: 1)),
-                  Text('\$${game.pendingBet}',
-                      style: TextStyle(
-                          color: theme.goldLight,
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold)),
+                  const Text(
+                    'BET',
+                    style: TextStyle(
+                      color: AppTokens.textSecondary,
+                      fontSize: 10,
+                      letterSpacing: 1,
+                    ),
+                  ),
+                  Text(
+                    '\$${game.pendingBet}',
+                    style: TextStyle(
+                      color: theme.goldLight,
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -404,20 +491,22 @@ class _ActionBar extends StatelessWidget {
           children: [
             Expanded(
               child: GameButton(
-                  label: 'Hit',
-                  theme: theme,
-                  variant: GameBtn.gold,
-                  expand: true,
-                  onPressed: notifier.hit),
+                label: 'Hit',
+                theme: theme,
+                variant: GameBtn.gold,
+                expand: true,
+                onPressed: notifier.hit,
+              ),
             ),
             const SizedBox(width: 8),
             Expanded(
               child: GameButton(
-                  label: 'Stand',
-                  theme: theme,
-                  variant: GameBtn.gold,
-                  expand: true,
-                  onPressed: notifier.stand),
+                label: 'Stand',
+                theme: theme,
+                variant: GameBtn.gold,
+                expand: true,
+                onPressed: notifier.stand,
+              ),
             ),
             const SizedBox(width: 8),
             Expanded(
@@ -451,14 +540,19 @@ class _ActionBar extends StatelessWidget {
           ],
         ),
         TextButton(
-          onPressed: withHaptic(() => _confirmAction(
-                context,
-                title: 'Forfeit this hand?',
-                message: 'Your current bet is returned and the hand ends.',
-                confirmLabel: 'Forfeit',
-                onConfirm: notifier.forfeitHand,
-              )),
-          child: Text('Forfeit hand', style: TextStyle(color: AppTokens.textSecondary)),
+          onPressed: withHaptic(
+            () => _confirmAction(
+              context,
+              title: 'Forfeit this hand?',
+              message: 'Your current bet is returned and the hand ends.',
+              confirmLabel: 'Forfeit',
+              onConfirm: notifier.forfeitHand,
+            ),
+          ),
+          child: Text(
+            'Forfeit hand',
+            style: TextStyle(color: AppTokens.textSecondary),
+          ),
         ),
       ],
     );
@@ -469,35 +563,47 @@ class _CompleteActions extends StatelessWidget {
   final eng.GameState game;
   final AppearanceTheme theme;
   final GameController notifier;
-  const _CompleteActions(
-      {required this.game, required this.theme, required this.notifier});
+  const _CompleteActions({
+    required this.game,
+    required this.theme,
+    required this.notifier,
+  });
 
   @override
   Widget build(BuildContext context) {
     final newSessionButton = TextButton(
-      onPressed: withHaptic(() => _confirmAction(
-            context,
-            title: 'Start a new session?',
-            message: 'This ends your current session and resets the table. '
-                'Your stats are saved.',
-            confirmLabel: 'New Session',
-            onConfirm: notifier.newSession,
-          )),
-      child: Text('New Session', style: TextStyle(color: AppTokens.textSecondary)),
+      onPressed: withHaptic(
+        () => _confirmAction(
+          context,
+          title: 'Start a new session?',
+          message:
+              'This ends your current session and resets the table. '
+              'Your stats are saved.',
+          confirmLabel: 'New Session',
+          onConfirm: notifier.newSession,
+        ),
+      ),
+      child: Text(
+        'New Session',
+        style: TextStyle(color: AppTokens.textSecondary),
+      ),
     );
 
     if (game.bankroll < 1) {
       return Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Text('Out of chips!',
-              style: TextStyle(color: AppTokens.textPrimary, fontSize: 16)),
+          const Text(
+            'Out of chips!',
+            style: TextStyle(color: AppTokens.textPrimary, fontSize: 16),
+          ),
           const SizedBox(height: 8),
           GameButton(
-              label: 'Add \$500',
-              theme: theme,
-              variant: GameBtn.gold,
-              onPressed: () => notifier.topUp(500)),
+            label: 'Add \$500',
+            theme: theme,
+            variant: GameBtn.gold,
+            onPressed: () => notifier.topUp(500),
+          ),
           newSessionButton,
         ],
       );
@@ -511,11 +617,16 @@ class _CompleteActions extends StatelessWidget {
           alignment: WrapAlignment.center,
           children: [
             GameButton(
-                label: 'Deal Again',
-                theme: theme,
-                variant: GameBtn.gold,
-                onPressed: notifier.rebetAndDeal),
-            GameButton(label: 'Change Bet', theme: theme, onPressed: notifier.nextHand),
+              label: 'Deal Again',
+              theme: theme,
+              variant: GameBtn.gold,
+              onPressed: notifier.rebetAndDeal,
+            ),
+            GameButton(
+              label: 'Change Bet',
+              theme: theme,
+              onPressed: notifier.nextHand,
+            ),
           ],
         ),
         newSessionButton,
@@ -533,24 +644,31 @@ class _StrategyHint extends StatelessWidget {
   Widget build(BuildContext context) {
     final correct = info.wasCorrect;
     return GestureDetector(
-      onTap: withHaptic(() => showDialog(
-        context: context,
-        builder: (_) => AlertDialog(
-          title: Text(correct ? 'Optimal play ✓' : 'Optimal: ${info.optimal.label}'),
-          content: Text(info.optimal.explanation),
-          actions: [
-            TextButton(
-                onPressed: () => Navigator.pop(context), child: const Text('Got it')),
-          ],
+      onTap: withHaptic(
+        () => showDialog(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: Text(
+              correct ? 'Optimal play ✓' : 'Optimal: ${info.optimal.label}',
+            ),
+            content: Text(info.optimal.explanation),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Got it'),
+              ),
+            ],
+          ),
         ),
-      )),
+      ),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
         decoration: BoxDecoration(
           color: correct ? const Color(0x3327AE60) : const Color(0x33C0392B),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-              color: correct ? const Color(0xFF27AE60) : const Color(0xFFC0392B)),
+            color: correct ? const Color(0xFF27AE60) : const Color(0xFFC0392B),
+          ),
         ),
         child: Text(
           correct
@@ -558,9 +676,10 @@ class _StrategyHint extends StatelessWidget {
               : '✕ Should have ${info.optimal.label.toLowerCase()} — tap to learn',
           textAlign: TextAlign.center,
           style: TextStyle(
-              color: correct ? const Color(0xFF6EE7B7) : const Color(0xFFFC8181),
-              fontSize: 11,
-              fontWeight: FontWeight.w600),
+            color: correct ? const Color(0xFF6EE7B7) : const Color(0xFFFC8181),
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+          ),
         ),
       ),
     );

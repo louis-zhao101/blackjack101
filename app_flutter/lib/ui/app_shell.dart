@@ -94,34 +94,40 @@ class _Header extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Flexible(
-            child: Text(
-              '♠ Blackjack 101 ♥',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(color: theme.gold, fontSize: 17, fontWeight: FontWeight.bold),
-            ),
-          ),
-          if (showNav) ...[
-            const SizedBox(width: 12),
-            for (var i = 0; i < _navTitles.length; i++)
-              TextButton(
-                style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 10),
-                  minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-                onPressed: withHaptic(() => onSelectTab(i)),
-                child: Text(
-                  _navTitles[i],
-                  style: TextStyle(
-                    color: i == tab ? theme.gold : AppTokens.textSecondary,
-                    fontWeight: i == tab ? FontWeight.bold : FontWeight.normal,
+          Expanded(
+            child: Row(
+              children: [
+                Flexible(
+                  child: Text(
+                    '♠ Blackjack 101 ♥',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                        color: theme.gold, fontSize: 17, fontWeight: FontWeight.bold),
                   ),
                 ),
-              ),
-          ],
-          const Spacer(),
+                if (showNav) ...[
+                  const SizedBox(width: 12),
+                  for (var i = 0; i < _navTitles.length; i++)
+                    TextButton(
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      onPressed: withHaptic(() => onSelectTab(i)),
+                      child: Text(
+                        _navTitles[i],
+                        style: TextStyle(
+                          color: i == tab ? theme.gold : AppTokens.textSecondary,
+                          fontWeight: i == tab ? FontWeight.bold : FontWeight.normal,
+                        ),
+                      ),
+                    ),
+                ],
+              ],
+            ),
+          ),
           PopupMenuButton<String>(
             tooltip: 'Table skin',
             icon: const Icon(Icons.palette_outlined, color: AppTokens.textSecondary),
