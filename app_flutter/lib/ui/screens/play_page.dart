@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../engine/engine.dart' as eng;
@@ -44,6 +45,41 @@ void _confirmAction(
   );
 }
 
+void _showRuleInfo(BuildContext context, AppearanceTheme theme, RuleSet r) {
+  HapticFeedback.selectionClick();
+  final lines = ruleSetDescription(r).split('\n');
+  showDialog(
+    context: context,
+    builder: (_) => AlertDialog(
+      title: Text(r.name),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (final line in lines)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.check_circle_outline, size: 16, color: theme.gold),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(line)),
+                ],
+              ),
+            ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: withHaptic(() => Navigator.pop(context)),
+          child: const Text('Close'),
+        ),
+      ],
+    ),
+  );
+}
+
 class PlayPage extends ConsumerWidget {
   const PlayPage({super.key});
 
@@ -83,6 +119,7 @@ class PlayPage extends ConsumerWidget {
                           game: game,
                           theme: theme,
                           cardWidth: cardWidth,
+                          roundId: store.roundId,
                         ),
                         Expanded(
                           child: Center(
@@ -93,6 +130,7 @@ class PlayPage extends ConsumerWidget {
                           game: game,
                           theme: theme,
                           cardWidth: cardWidth,
+                          roundId: store.roundId,
                         ),
                         SizedBox(
                           height: 36,
@@ -118,7 +156,17 @@ class PlayPage extends ConsumerWidget {
                       Positioned(
                         right: 4,
                         bottom: 8,
-                        child: BetChipStack(amount: bet, theme: theme),
+                        child: BetChipStack(
+                          amount: bet,
+                          theme: theme,
+                          settle: game.phase == eng.GamePhase.complete
+                              ? (game.playerHands.fold<int>(
+                                          0, (s, h) => s + h.payout - h.bet) <
+                                      0
+                                  ? ChipSettle.toDealer
+                                  : ChipSettle.toPlayer)
+                              : null,
+                        ),
                       ),
                   ],
                 ),
@@ -166,50 +214,70 @@ class _StatsBar extends ConsumerWidget {
         scrollDirection: Axis.horizontal,
         child: Row(
           children: [
-            Tooltip(
-              message: ruleSetLocked ? 'Start a new session to switch rulesets' : '',
-              preferBelow: false,
-              child: DropdownButtonHideUnderline(
-                child: DropdownButton<String>(
-                  value: currentRuleSet.id,
-                  isDense: true,
-                  dropdownColor: theme.feltDark,
-                  style: TextStyle(
-                    color: ruleSetLocked ? AppTokens.textSecondary : theme.goldLight,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  icon: Icon(Icons.expand_more, size: 16, color: AppTokens.textSecondary),
-                  items: [
-                    for (final r in rulePresets)
-                      DropdownMenuItem(
-                        value: r.id,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(r.name),
-                            const SizedBox(width: 6),
-                            Tooltip(
-                              message: ruleSetDescription(r),
-                              preferBelow: false,
-                              decoration: BoxDecoration(
-                                color: theme.feltDark,
-                                border: Border.all(color: theme.gold.withValues(alpha: 0.4)),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              textStyle: TextStyle(color: theme.goldLight, fontSize: 12, height: 1.6),
-                              child: Icon(Icons.info_outline, size: 14, color: AppTokens.textSecondary),
-                            ),
-                          ],
+            PopupMenuButton<String>(
+              tooltip: 'Game mode',
+              position: PopupMenuPosition.under,
+              onSelected: (id) {
+                HapticFeedback.selectionClick();
+                if (id == currentRuleSet.id) return;
+                final rule = rulePresets.firstWhere((r) => r.id == id);
+                if (ruleSetLocked) {
+                  _confirmAction(
+                    context,
+                    title: 'Switch game mode?',
+                    message:
+                        'Switching to ${rule.name} starts a new session and '
+                        'resets the current hand.',
+                    confirmLabel: 'Switch',
+                    onConfirm: () {
+                      ref.read(settingsProvider.notifier).setRuleSet(rule);
+                      ref.read(gameProvider.notifier).newSession();
+                    },
+                  );
+                } else {
+                  ref.read(settingsProvider.notifier).setRuleSet(rule);
+                }
+              },
+              itemBuilder: (_) => [
+                for (final r in rulePresets)
+                  PopupMenuItem<String>(
+                    value: r.id,
+                    child: Row(
+                      children: [
+                        SizedBox(
+                          width: 22,
+                          child: r.id == currentRuleSet.id
+                              ? Icon(Icons.check, size: 16, color: theme.gold)
+                              : null,
                         ),
-                      ),
-                  ],
-                  onChanged: ruleSetLocked ? null : (id) {
-                    if (id == null) return;
-                    final rule = rulePresets.firstWhere((r) => r.id == id);
-                    ref.read(settingsProvider.notifier).setRuleSet(rule);
-                  },
-                ),
+                        Text(r.name),
+                        const SizedBox(width: 6),
+                        GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: () => _showRuleInfo(context, theme, r),
+                          child: Padding(
+                            padding: const EdgeInsets.all(4),
+                            child: Icon(Icons.info_outline,
+                                size: 15, color: AppTokens.textSecondary),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    currentRuleSet.name,
+                    style: TextStyle(
+                      color: theme.goldLight,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  Icon(Icons.expand_more, size: 16, color: AppTokens.textSecondary),
+                ],
               ),
             ),
             _divider(),
@@ -311,10 +379,12 @@ class _DealerZone extends StatelessWidget {
   final eng.GameState game;
   final AppearanceTheme theme;
   final double cardWidth;
+  final int roundId;
   const _DealerZone({
     required this.game,
     required this.theme,
     required this.cardWidth,
+    required this.roundId,
   });
 
   @override
@@ -335,6 +405,8 @@ class _DealerZone extends StatelessWidget {
             cards: game.dealerCards,
             theme: theme,
             cardWidth: cardWidth,
+            dealOffset: 1,
+            roundId: roundId,
           ),
       ],
     );
@@ -409,10 +481,12 @@ class _PlayerZone extends StatelessWidget {
   final eng.GameState game;
   final AppearanceTheme theme;
   final double cardWidth;
+  final int roundId;
   const _PlayerZone({
     required this.game,
     required this.theme,
     required this.cardWidth,
+    required this.roundId,
   });
 
   @override
@@ -431,6 +505,7 @@ class _PlayerZone extends StatelessWidget {
               cardWidth: cardWidth,
               isActive: active && i == game.activeHandIndex,
               result: game.playerHands[i].result,
+              roundId: roundId,
             ),
         ],
       ),
@@ -449,7 +524,7 @@ class _Controls extends ConsumerWidget {
     final notifier = ref.read(gameProvider.notifier);
 
     return Container(
-      height: 140,
+      height: 150,
       width: double.infinity,
       color: theme.feltDark,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -477,7 +552,6 @@ class _Controls extends ConsumerWidget {
                   game: game,
                   theme: theme,
                   notifier: notifier,
-                  hasDealtInSession: store.hasDealtInSession,
                 ),
                 eng.GamePhase.playerTurn => _ActionBar(
                   notifier: notifier,
@@ -502,12 +576,10 @@ class _BetPanel extends StatelessWidget {
   final eng.GameState game;
   final AppearanceTheme theme;
   final GameController notifier;
-  final bool hasDealtInSession;
   const _BetPanel({
     required this.game,
     required this.theme,
     required this.notifier,
-    required this.hasDealtInSession,
   });
 
   @override
@@ -569,21 +641,6 @@ class _BetPanel extends StatelessWidget {
             ),
           ],
         ),
-        if (hasDealtInSession) ...[
-          const SizedBox(height: 4),
-          TextButton(
-            onPressed: withHaptic(
-              () => _confirmAction(
-                context,
-                title: 'Start a new session?',
-                message: 'This ends your current session and resets the table. Your stats are saved.',
-                confirmLabel: 'New Session',
-                onConfirm: notifier.newSession,
-              ),
-            ),
-            child: Text('New Session', style: TextStyle(color: AppTokens.textSecondary)),
-          ),
-        ],
       ],
     );
   }
@@ -685,6 +742,11 @@ class _CompleteActions extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final newSessionButton = TextButton(
+      style: TextButton.styleFrom(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        minimumSize: Size.zero,
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      ),
       onPressed: withHaptic(
         () => _confirmAction(
           context,
@@ -785,16 +847,31 @@ class _StrategyHint extends StatelessWidget {
             color: correct ? const Color(0xFF27AE60) : const Color(0xFFC0392B),
           ),
         ),
-        child: Text(
-          correct
-              ? '✓ Optimal play'
-              : '✕ Should have ${info.optimal.label.toLowerCase()} — tap to learn',
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: correct ? const Color(0xFF6EE7B7) : const Color(0xFFFC8181),
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
-          ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Flexible(
+              child: Text(
+                correct
+                    ? '✓ Optimal play'
+                    : '✕ Should have ${info.optimal.label.toLowerCase()}',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: correct ? const Color(0xFF6EE7B7) : const Color(0xFFFC8181),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            if (!correct) ...[
+              const SizedBox(width: 5),
+              Icon(
+                Icons.info_outline,
+                size: 13,
+                color: const Color(0xFFFC8181),
+              ),
+            ],
+          ],
         ),
       ),
     );

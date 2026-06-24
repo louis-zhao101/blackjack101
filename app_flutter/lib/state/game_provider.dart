@@ -43,6 +43,10 @@ class GameStoreState {
   final LastHandInfo? firstMistakeInfo;
   final bool hasDealtInSession;
 
+  /// Increments on every deal so the card-deal animation replays for a fresh
+  /// hand even when an identical card lands in the same position.
+  final int roundId;
+
   const GameStoreState({
     required this.game,
     this.lastHandInfo,
@@ -51,6 +55,7 @@ class GameStoreState {
     this.handHadMistake = false,
     this.firstMistakeInfo,
     this.hasDealtInSession = false,
+    this.roundId = 0,
   });
 
   GameStoreState copyWith({
@@ -63,6 +68,7 @@ class GameStoreState {
     LastHandInfo? firstMistakeInfo,
     bool clearFirstMistakeInfo = false,
     bool? hasDealtInSession,
+    int? roundId,
   }) =>
       GameStoreState(
         game: game ?? this.game,
@@ -73,6 +79,7 @@ class GameStoreState {
         firstMistakeInfo:
             clearFirstMistakeInfo ? null : (firstMistakeInfo ?? this.firstMistakeInfo),
         hasDealtInSession: hasDealtInSession ?? this.hasDealtInSession,
+        roundId: roundId ?? this.roundId,
       );
 }
 
@@ -149,6 +156,7 @@ class GameController extends Notifier<GameStoreState> {
       hasDealtInSession: true,
       clearFirstMistakeInfo: true,
       lastBet: originalBet,
+      roundId: state.roundId + 1,
     );
   }
 
@@ -311,6 +319,7 @@ class GameController extends Notifier<GameStoreState> {
       handHadMistake: false,
       clearFirstMistakeInfo: true,
       hasDealtInSession: true,
+      roundId: state.roundId + 1,
     );
   }
 

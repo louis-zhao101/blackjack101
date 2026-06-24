@@ -15,6 +15,14 @@ class BlackjackHandView extends StatelessWidget {
   final bool showTotal;
   final bool showResult;
 
+  /// Interleaves the deal animation across hands: 0 = player (slots 0,2),
+  /// 1 = dealer (slots 1,3) → player, dealer, player, dealer.
+  final int dealOffset;
+
+  /// Bumped each deal so the entrance replays for a new hand even when an
+  /// identical card lands in the same slot.
+  final int roundId;
+
   const BlackjackHandView({
     super.key,
     required this.cards,
@@ -24,6 +32,8 @@ class BlackjackHandView extends StatelessWidget {
     this.cardWidth = 72,
     this.showTotal = true,
     this.showResult = true,
+    this.dealOffset = 0,
+    this.roundId = 0,
   });
 
   @override
@@ -73,13 +83,13 @@ class BlackjackHandView extends StatelessWidget {
                     key: ValueKey(i),
                     left: i * (cardWidth - overlap),
                     child: _DealtCard(
-                      // Stagger the first two cards (the initial deal / split);
-                      // later cards (hit, double) animate in immediately.
-                      delayMs: i < 2 ? i * 110 : 0,
-                      // Replays the entrance when the card at this slot changes
-                      // (e.g. Deal Again). Ignores faceDown so revealing the
-                      // dealer hole card doesn't re-trigger it.
-                      cardId: '${cards[i].rank}${cards[i].suit}',
+                      // Interleave the opening deal (player, dealer, player,
+                      // dealer); later cards (hit, double) animate immediately.
+                      delayMs: i < 2 ? (2 * i + dealOffset) * 160 : 0,
+                      // Replays the entrance when the round changes (every
+                      // deal) or the card at this slot changes (split). Ignores
+                      // faceDown so revealing the hole card doesn't re-trigger.
+                      cardId: '$roundId|${cards[i].rank}${cards[i].suit}',
                       child:
                           PlayingCardView(card: cards[i], theme: theme, width: cardWidth),
                     ),
@@ -115,7 +125,7 @@ class _DealtCard extends StatefulWidget {
 
 class _DealtCardState extends State<_DealtCard> with SingleTickerProviderStateMixin {
   late final AnimationController _c =
-      AnimationController(vsync: this, duration: const Duration(milliseconds: 260));
+      AnimationController(vsync: this, duration: const Duration(milliseconds: 200));
 
   void _play() {
     if (widget.delayMs <= 0) {
