@@ -59,6 +59,9 @@ lib/
   - Android: register debug + release SHA-1/SHA-256 fingerprints.
   - Project is on the **Spark (free)** plan — upgrade to **Blaze** for production SMS volume.
 - Web phone auth works on `localhost` + the Firebase Hosting domains via reCAPTCHA.
+- iOS deployment target raised to **15.0** (Podfile + Xcode project) — required by `cloud_firestore`.
+- Debug builds set `appVerificationDisabledForTesting = true` (non-web) so the test
+  numbers sign in on simulators without APNs/reCAPTCHA. No effect on release.
 
 ## Notes
 - Engine stays Flutter-free on purpose (testable + portable), same discipline as `packages/core`.

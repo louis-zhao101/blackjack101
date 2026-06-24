@@ -1,5 +1,7 @@
-import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart'
+    show kDebugMode, kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -9,11 +11,19 @@ import 'state/app_providers.dart';
 import 'state/auth_provider.dart';
 import 'state/game_provider.dart';
 import 'state/stats_provider.dart';
+import 'ui/app_shell.dart';
 import 'ui/auth_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  // Android emulators have no Play Integrity, so in debug let configured test
+  // numbers bypass verification. iOS uses the reCAPTCHA fallback instead (the
+  // disable flag doesn't attach a client identifier on iOS). No effect on
+  // release or web builds.
+  if (kDebugMode && !kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+    await FirebaseAuth.instance.setSettings(appVerificationDisabledForTesting: true);
+  }
   final prefs = await SharedPreferences.getInstance();
   runApp(
     ProviderScope(
@@ -61,7 +71,7 @@ class AuthGate extends ConsumerWidget {
     return auth.when(
       loading: () => const Scaffold(body: Center(child: CircularProgressIndicator())),
       error: (e, _) => Scaffold(body: Center(child: Text('Auth error: $e'))),
-      data: (user) => user == null ? const AuthScreen() : _SignedInPlaceholder(user),
+      data: (user) => user == null ? const AuthScreen() : const AppShell(),
     );
   }
 
@@ -86,43 +96,5 @@ class AuthGate extends ConsumerWidget {
     } else {
       sync.upsertProfile(uid, ref.read(gameProvider).game.bankroll);
     }
-  }
-}
-
-class _SignedInPlaceholder extends ConsumerWidget {
-  final User user;
-  const _SignedInPlaceholder(this.user);
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final stats = ref.watch(statsProvider);
-    final game = ref.watch(gameProvider);
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Blackjack 101'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () => ref.read(phoneAuthControllerProvider.notifier).signOut(),
-          ),
-        ],
-      ),
-      body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.check_circle, size: 48, color: Colors.greenAccent),
-            const SizedBox(height: 12),
-            Text('Signed in as ${user.phoneNumber ?? user.uid}'),
-            const SizedBox(height: 8),
-            Text('Bankroll: \$${game.game.bankroll}'),
-            Text('Sessions: ${stats.sessions.length}'
-                '${stats.currentSession != null ? ' (+1 live)' : ''}'),
-            const SizedBox(height: 8),
-            const Text('Phase 4 will render the game here.'),
-          ],
-        ),
-      ),
-    );
   }
 }

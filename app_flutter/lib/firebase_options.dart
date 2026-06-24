@@ -69,6 +69,8 @@ class DefaultFirebaseOptions {
     messagingSenderId: '399808752144',
     projectId: 'blackjack101-app',
     storageBucket: 'blackjack101-app.firebasestorage.app',
+    iosClientId: '399808752144-3nlfag8j2k98s1lhsgg5fijd6i59jge4.apps.googleusercontent.com',
     iosBundleId: 'com.blackjack101.blackjack101',
   );
+
 }

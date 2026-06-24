@@ -12,7 +12,12 @@
           "package_name": "com.blackjack101.blackjack101"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "399808752144-7e6vo1iq7nfej6jm85nd4ea1p36h38ki.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyDVXgx63gOUUwEq0rk28YQ2popMD_k68wU"
@@ -20,7 +25,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "399808752144-7e6vo1iq7nfej6jm85nd4ea1p36h38ki.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "399808752144-3nlfag8j2k98s1lhsgg5fijd6i59jge4.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.blackjack101.blackjack101"
+              }
+            }
+          ]
         }
       }
     }

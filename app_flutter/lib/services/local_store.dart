@@ -9,9 +9,16 @@ import '../engine/variants.dart';
 class LocalStore {
   static const _statsKey = 'bj101-stats';
   static const _settingsKey = 'bj101-settings';
+  static const _appearanceKey = 'bj101-appearance';
 
   final SharedPreferences _prefs;
   LocalStore(this._prefs);
+
+  // --- appearance (selected skin id) ---
+
+  String? loadAppearanceId() => _prefs.getString(_appearanceKey);
+
+  Future<void> saveAppearanceId(String id) => _prefs.setString(_appearanceKey, id);
 
   // --- stats ---
 
