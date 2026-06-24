@@ -112,7 +112,7 @@ export function GameTable() {
               </button>
             )}
             <button
-              className="btn btn--ghost btn--sm"
+              className="btn btn--ghost btn--sm btn--tertiary"
               onClick={newSession}
               aria-label="Start a new session"
             >
@@ -128,7 +128,7 @@ export function GameTable() {
               <button className="btn btn--primary" onClick={() => topUp(500)}>
                 Add $500
               </button>
-              <button className="btn btn--ghost btn--sm" onClick={newSession}>
+              <button className="btn btn--ghost btn--sm btn--tertiary" onClick={newSession}>
                 New Session
               </button>
             </div>

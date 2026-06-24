@@ -104,20 +104,18 @@ export function StatsBar() {
         <>
           <div className="stats-bar__divider" aria-hidden="true" />
           <div className="stats-bar__item">
-            <span className="stats-bar__label">Accuracy</span>
-            <span className={`stats-bar__value ${pct! >= 80 ? 'stats-bar__value--good' : pct! >= 60 ? 'stats-bar__value--ok' : 'stats-bar__value--warn'}`}>
-              {pct}%
-            </span>
-          </div>
-          <div className="stats-bar__divider" aria-hidden="true" />
-          <div className="stats-bar__item">
             <span className="stats-bar__label">Hands</span>
             <span className="stats-bar__value">{handsPlayed}</span>
           </div>
           <div className="stats-bar__divider" aria-hidden="true" />
           <div className="stats-bar__item">
             <span className="stats-bar__label">Correct Plays</span>
-            <span className="stats-bar__value">{playStats.correct}/{playStats.total}</span>
+            <span className="stats-bar__value">
+              {playStats.correct}/{playStats.total}
+            </span>
+            <span className={`stats-bar__value ${pct! >= 80 ? 'stats-bar__value--good' : pct! >= 60 ? 'stats-bar__value--ok' : 'stats-bar__value--warn'}`}>
+              {pct}%
+            </span>
           </div>
         </>
       )}

@@ -112,6 +112,7 @@ body {
 .btn--ghost.btn--active { color: var(--gold); border-color: var(--gold); background: rgba(212,168,67,0.1); }
 .btn--sm { padding: 0.4rem 0.8rem; font-size: 0.8rem; min-height: 36px; }
 .btn--lg { padding: 0.75rem 2rem; font-size: 1rem; min-height: 52px; }
+.btn--tertiary { opacity: 0.5; font-size: 0.78rem; min-height: 32px; padding: 0.25rem 0.75rem; }
 
 .icon-btn {
   display: inline-flex; align-items: center; justify-content: center;
@@ -483,8 +484,8 @@ body {
   font-size: 0.8rem;
 }
 .stats-bar__item { display: flex; align-items: center; gap: 0.4rem; }
-.stats-bar__label { color: var(--text-secondary); }
-.stats-bar__value { font-weight: 700; color: var(--text-primary); }
+.stats-bar__label { color: var(--text-secondary); white-space: nowrap; }
+.stats-bar__value { font-weight: 700; color: var(--text-primary); white-space: nowrap; }
 .stats-bar__value--gold { color: var(--gold-light); }
 .stats-bar__value--good { color: #6ee7b7; }
 .stats-bar__value--ok { color: var(--gold-light); }
@@ -1008,7 +1009,7 @@ body {
   .bj-hand__cards .playing-card + .playing-card { margin-left: -10px; }
 
   /* Felt: compact padding and gaps */
-  .table-felt { padding: 0.5rem 0.75rem; gap: 0.35rem; }
+  .table-felt { padding: 0.5rem 0.75rem; gap: 0.6rem; justify-content: center; }
   .zone-label { font-size: 0.65rem; margin-bottom: 0.2rem; }
   .game-message { font-size: 0.9rem; padding: 0.35rem 0.9rem; }
 

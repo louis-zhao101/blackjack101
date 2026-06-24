@@ -26,7 +26,7 @@ function resultLabel(result: string): string {
     case 'blackjack': return 'Blackjack!';
     case 'win': return 'Win';
     case 'push': return 'Push';
-    case 'lose': return 'Bust' ;
+    case 'lose': return 'Lose';
     case 'surrender': return 'Surrender';
     default: return result;
   }
@@ -59,13 +59,20 @@ export function BlackjackHand({ cards, label, isActive = false, result, bet, cla
         ))}
       </div>
 
-      {cards.length > 0 && !hasHiddenCard && (
-        <div className={`bj-hand__total ${bust ? 'bj-hand__total--bust' : ''} ${soft && !bust ? 'bj-hand__total--soft' : ''}`}>
-          {bust ? 'Bust' : `${soft ? 'Soft ' : ''}${total}`}
+      {/* Total badge — hidden when bust (result badge takes over) */}
+      {cards.length > 0 && !hasHiddenCard && !bust && (
+        <div className={`bj-hand__total ${soft ? 'bj-hand__total--soft' : ''}`}>
+          {soft ? 'Soft ' : ''}{total}
         </div>
       )}
 
-      {result && (
+      {/* Bust: single merged badge */}
+      {bust && cards.length > 0 && !hasHiddenCard && (
+        <div className="result-badge badge--lose">Bust</div>
+      )}
+
+      {/* Regular result badge when not bust */}
+      {!bust && result && (
         <div className={`result-badge ${resultBadgeClass(result)}`}>
           {resultLabel(result)}
         </div>
