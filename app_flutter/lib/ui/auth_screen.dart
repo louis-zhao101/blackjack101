@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../state/auth_provider.dart';
 import 'widgets/game_button.dart';
 
+const bool _useEmulator = bool.fromEnvironment('USE_EMULATOR');
+
 /// Phone-only sign in: enter number → enter SMS code. Validates the Firebase
 /// auth plumbing; styling is intentionally minimal until the Phase 4 theme pass.
 class AuthScreen extends ConsumerStatefulWidget {
@@ -101,10 +103,29 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                       textAlign: TextAlign.center,
                       style: TextStyle(color: Theme.of(context).colorScheme.error)),
                 ],
+                if (_useEmulator) const _DevAnonButton(),
               ],
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _DevAnonButton extends ConsumerWidget {
+  const _DevAnonButton();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(phoneAuthControllerProvider);
+    return Padding(
+      padding: const EdgeInsets.only(top: 24),
+      child: TextButton(
+        onPressed: state.busy
+            ? null
+            : () => ref.read(phoneAuthControllerProvider.notifier).signInDevAccount(),
+        child: const Text('Skip login (dev)', style: TextStyle(fontSize: 12)),
       ),
     );
   }

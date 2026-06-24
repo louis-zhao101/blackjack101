@@ -41,6 +41,7 @@ class GameStoreState {
   final PlayStats playStats;
   final bool handHadMistake;
   final LastHandInfo? firstMistakeInfo;
+  final bool hasDealtInSession;
 
   const GameStoreState({
     required this.game,
@@ -49,6 +50,7 @@ class GameStoreState {
     this.playStats = const PlayStats(),
     this.handHadMistake = false,
     this.firstMistakeInfo,
+    this.hasDealtInSession = false,
   });
 
   GameStoreState copyWith({
@@ -60,6 +62,7 @@ class GameStoreState {
     bool? handHadMistake,
     LastHandInfo? firstMistakeInfo,
     bool clearFirstMistakeInfo = false,
+    bool? hasDealtInSession,
   }) =>
       GameStoreState(
         game: game ?? this.game,
@@ -69,6 +72,7 @@ class GameStoreState {
         handHadMistake: handHadMistake ?? this.handHadMistake,
         firstMistakeInfo:
             clearFirstMistakeInfo ? null : (firstMistakeInfo ?? this.firstMistakeInfo),
+        hasDealtInSession: hasDealtInSession ?? this.hasDealtInSession,
       );
 }
 
@@ -122,7 +126,11 @@ class GameController extends Notifier<GameStoreState> {
         statsCtrl.finishSession(game.bankroll);
         statsCtrl.startSession(game.bankroll, settings.ruleSet.id);
         state = state.copyWith(
-            playStats: const PlayStats(), handHadMistake: false);
+          playStats: const PlayStats(),
+          handHadMistake: false,
+          hasDealtInSession: false,
+          game: eng.createInitialState(bankroll: game.bankroll, ruleSet: settings.ruleSet),
+        );
       }
     }
     if (ref.read(statsProvider).currentSession == null) {
@@ -138,6 +146,7 @@ class GameController extends Notifier<GameStoreState> {
       game: eng.dealHand(game),
       clearLastHandInfo: true,
       handHadMistake: false,
+      hasDealtInSession: true,
       clearFirstMistakeInfo: true,
       lastBet: originalBet,
     );
@@ -301,6 +310,7 @@ class GameController extends Notifier<GameStoreState> {
       clearLastHandInfo: true,
       handHadMistake: false,
       clearFirstMistakeInfo: true,
+      hasDealtInSession: true,
     );
   }
 
@@ -323,6 +333,7 @@ class GameController extends Notifier<GameStoreState> {
     _syncBankroll(game.bankroll);
     state = GameStoreState(
       game: eng.createInitialState(bankroll: game.bankroll, ruleSet: settings.ruleSet),
+      hasDealtInSession: false,
     );
   }
 

@@ -247,12 +247,49 @@ String? _isPair(List<Card> cards) {
   return k1 == k2 ? k1 : null;
 }
 
+// Returns copies of the base tables with ruleset-specific overrides applied.
+({Map<int, List<String>> hard, Map<int, List<String>> soft, Map<String, List<String>> pairs})
+    _tables(RuleSet ruleSet) {
+  var hard = _hard.map((k, v) => MapEntry(k, List<String>.from(v)));
+  var soft = _soft.map((k, v) => MapEntry(k, List<String>.from(v)));
+  var pairs = _pairs.map((k, v) => MapEntry(k, List<String>.from(v)));
+
+  if (ruleSet.dealerHitsSoft17) {
+    // H17 changes: hard 11 vs A → Double; soft 18 vs 2 → Ds; soft 19 vs 6 → Ds
+    hard[11]![9] = 'D';
+    soft[18]![0] = 'Ds';
+    soft[19]![4] = 'Ds';
+  }
+
+  if (!ruleSet.doubleAfterSplit) {
+    // No-DAS: 2s/3s don't split vs 2,3; 4s don't split vs 5,6; 6s don't split vs 2
+    pairs['2']![0] = 'H';
+    pairs['2']![1] = 'H';
+    pairs['3']![0] = 'H';
+    pairs['3']![1] = 'H';
+    pairs['4']![3] = 'H';
+    pairs['4']![4] = 'H';
+    pairs['6']![0] = 'H';
+  }
+
+  if (ruleSet.numDecks == 1) {
+    // Single deck: hard 8 doubles vs 5,6; soft 13/14 double vs 4
+    hard[8]![3] = 'D';
+    hard[8]![4] = 'D';
+    soft[13]![2] = 'D';
+    soft[14]![2] = 'D';
+  }
+
+  return (hard: hard, soft: soft, pairs: pairs);
+}
+
 OptimalAction getOptimalAction(List<Card> playerCards, Card dealerUpcard, RuleSet ruleSet) {
   final di = _dealerIndex(dealerUpcard.rank);
   final pairK = _isPair(playerCards);
   final hv = handValue(playerCards);
   final total = hv.total;
   final soft = hv.soft;
+  final t = _tables(ruleSet);
 
   if (total >= 21) {
     final expl = soft
@@ -266,12 +303,12 @@ OptimalAction getOptimalAction(List<Card> playerCards, Card dealerUpcard, RuleSe
   String doubleFallback = 'H';
 
   if (pairK != null && playerCards.length == 2) {
-    final row = _pairs[pairK];
+    final row = t.pairs[pairK];
     rawAction = (row != null ? row[di] : 'H');
     explanation = _pairExplanation(pairK, dealerUpcard.rank, rawAction);
     if (rawAction == 'D') doubleFallback = 'H';
   } else if (soft && total >= 13 && total <= 20) {
-    final row = _soft[total];
+    final row = t.soft[total];
     final rawSoft = (row != null ? row[di] : 'H');
     final isDs = rawSoft == 'Ds';
     rawAction = isDs ? 'D' : rawSoft;
@@ -279,7 +316,7 @@ OptimalAction getOptimalAction(List<Card> playerCards, Card dealerUpcard, RuleSe
     explanation = _softExplanation(total, dealerUpcard.rank, rawAction, isDs);
   } else {
     final clampedTotal = total.clamp(8, 17);
-    final row = _hard[clampedTotal];
+    final row = t.hard[clampedTotal];
     rawAction = (row != null ? row[di] : (total >= 17 ? 'S' : 'H'));
     explanation = _hardExplanation(total, dealerUpcard.rank, rawAction);
     if (rawAction == 'D') doubleFallback = 'H';
@@ -298,25 +335,25 @@ OptimalAction getOptimalAction(List<Card> playerCards, Card dealerUpcard, RuleSe
   return OptimalAction(actionFromCode(action), _actionLabels[action]!, explanation, doubleFallback);
 }
 
-Action getChartAction(HandType handType, Object playerValue, String dealerRank,
-    [bool surrenderAllowed = true]) {
+Action getChartAction(HandType handType, Object playerValue, String dealerRank, RuleSet ruleSet) {
   final di = _dealerIndex(dealerRank);
+  final t = _tables(ruleSet);
   String action;
   if (handType == HandType.pair) {
     final key = playerValue.toString();
-    final row = _pairs[key];
+    final row = t.pairs[key];
     action = row != null ? row[di] : 'H';
   } else if (handType == HandType.soft) {
-    final row = _soft[int.parse(playerValue.toString())];
+    final row = t.soft[int.parse(playerValue.toString())];
     final raw = row != null ? row[di] : 'H';
     action = raw == 'Ds' ? 'D' : raw;
   } else {
     final n = int.parse(playerValue.toString());
     final clamped = n.clamp(8, 17);
-    final row = _hard[clamped];
+    final row = t.hard[clamped];
     action = row != null ? row[di] : (n >= 17 ? 'S' : 'H');
   }
-  if (action == 'R' && !surrenderAllowed) {
+  if (action == 'R' && ruleSet.surrender == Surrender.none) {
     return (handType == HandType.hard && int.parse(playerValue.toString()) >= 17)
         ? Action.stand
         : Action.hit;

@@ -88,6 +88,15 @@ class PhoneAuthController extends Notifier<PhoneAuthState> {
     state = const PhoneAuthState();
   }
 
+  Future<void> signInDevAccount() async {
+    state = state.copyWith(busy: true, clearError: true);
+    try {
+      await _service.signInDevAccount();
+    } catch (e) {
+      state = state.copyWith(error: e.toString(), busy: false);
+    }
+  }
+
   Future<void> signOut() async {
     await _service.signOut();
     reset();

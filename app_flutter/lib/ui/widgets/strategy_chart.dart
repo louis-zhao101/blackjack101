@@ -51,7 +51,6 @@ class _StrategyChartState extends ConsumerState<StrategyChart> {
   @override
   Widget build(BuildContext context) {
     final ruleSet = ref.watch(settingsProvider).ruleSet;
-    final surrenderAllowed = ruleSet.surrender != Surrender.none;
 
     final rows = switch (_tab) {
       _ChartTab.hard => _hardTotals.map((t) => (label: '$t', value: t as Object)).toList(),
@@ -70,7 +69,7 @@ class _StrategyChartState extends ConsumerState<StrategyChart> {
       children: [
         _tabs(),
         const SizedBox(height: 10),
-        _legend(surrenderAllowed),
+        _legend(ruleSet),
         const SizedBox(height: 10),
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
@@ -78,13 +77,13 @@ class _StrategyChartState extends ConsumerState<StrategyChart> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _headerRow(),
-              for (final row in rows) _dataRow(handType, row.label, row.value, surrenderAllowed),
+              for (final row in rows) _dataRow(handType, row.label, row.value, ruleSet),
             ],
           ),
         ),
         if (_selected != null) ...[
           const SizedBox(height: 12),
-          _explanation(handType, surrenderAllowed),
+          _explanation(handType, ruleSet),
         ],
       ],
     );
@@ -115,13 +114,13 @@ class _StrategyChartState extends ConsumerState<StrategyChart> {
     );
   }
 
-  Widget _legend(bool surrenderAllowed) {
+  Widget _legend(RuleSet ruleSet) {
     final items = [
       (st.Action.hit, 'H = Hit'),
       (st.Action.stand, 'S = Stand'),
       (st.Action.double, 'D = Double'),
       (st.Action.split, 'P = Split'),
-      if (surrenderAllowed) (st.Action.surrender, 'R = Surrender'),
+      if (ruleSet.surrender != Surrender.none) (st.Action.surrender, 'R = Surrender'),
     ];
     return Wrap(
       spacing: 12,
@@ -150,18 +149,18 @@ class _StrategyChartState extends ConsumerState<StrategyChart> {
     );
   }
 
-  Widget _dataRow(st.HandType handType, String label, Object value, bool surrenderAllowed) {
+  Widget _dataRow(st.HandType handType, String label, Object value, RuleSet ruleSet) {
     return Row(
       children: [
         _cell(label, isRowHeader: true),
         for (final dr in _dealerRanks)
-          _actionCell(handType, value, dr, surrenderAllowed),
+          _actionCell(handType, value, dr, ruleSet),
       ],
     );
   }
 
-  Widget _actionCell(st.HandType handType, Object value, String dealer, bool surrenderAllowed) {
-    final action = st.getChartAction(handType, value, dealer, surrenderAllowed);
+  Widget _actionCell(st.HandType handType, Object value, String dealer, RuleSet ruleSet) {
+    final action = st.getChartAction(handType, value, dealer, ruleSet);
     final style = _actionStyle(action);
     final key = '${handType.name}|$value|$dealer';
     final selected = _selected == key;
@@ -200,13 +199,13 @@ class _StrategyChartState extends ConsumerState<StrategyChart> {
     );
   }
 
-  Widget _explanation(st.HandType handType, bool surrenderAllowed) {
+  Widget _explanation(st.HandType handType, RuleSet ruleSet) {
     final parts = _selected!.split('|');
     final dealer = parts[2];
     final rawValue = parts[1];
     final value =
         handType == st.HandType.pair ? rawValue : (int.tryParse(rawValue) ?? rawValue);
-    final action = st.getChartAction(handType, value, dealer, surrenderAllowed);
+    final action = st.getChartAction(handType, value, dealer, ruleSet);
     final style = _actionStyle(action);
     final desc = switch (handType) {
       st.HandType.pair => 'Pair of ${rawValue}s',

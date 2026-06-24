@@ -79,6 +79,20 @@ class FirebaseAuthService {
     }
   }
 
+  Future<void> signInDevAccount() async {
+    const email = 'dev@test.local';
+    const password = 'devaccount123';
+    try {
+      await _auth.createUserWithEmailAndPassword(email: email, password: password);
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'email-already-in-use') {
+        await _auth.signInWithEmailAndPassword(email: email, password: password);
+      } else {
+        rethrow;
+      }
+    }
+  }
+
   Future<void> signOut() => _auth.signOut();
 
   String _friendlyError(FirebaseAuthException e) {

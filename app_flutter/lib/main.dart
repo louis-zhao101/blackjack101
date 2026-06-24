@@ -26,6 +26,10 @@ Future<void> main() async {
   if (kDebugMode && !kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
     await FirebaseAuth.instance.setSettings(appVerificationDisabledForTesting: true);
   }
+  const useEmulator = bool.fromEnvironment('USE_EMULATOR');
+  if (useEmulator) {
+    await FirebaseAuth.instance.useAuthEmulator('localhost', 9099);
+  }
   final prefs = await SharedPreferences.getInstance();
   runApp(
     ProviderScope(

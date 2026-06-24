@@ -179,6 +179,7 @@ bool canDouble(GameState state) {
   final hand = state.playerHands[state.activeHandIndex];
   if (hand.splitFromAce) return false;
   if (hand.cards.length != 2) return false;
+  if (state.playerHands.length > 1 && !state.ruleSet.doubleAfterSplit) return false;
   return state.bankroll >= hand.bet;
 }
 
@@ -221,7 +222,8 @@ GameState hit(GameState state) {
 
   var newState = state.copyWith(deck: res.remaining, playerHands: playerHands);
 
-  if (isBust(updatedHand.cards)) {
+  // Auto-advance on bust OR on 21 — player cannot hit a completed hand.
+  if (handValue(updatedHand.cards).total >= 21) {
     newState = _advanceHand(newState);
   }
   return newState;
@@ -302,11 +304,17 @@ GameState split(GameState state) {
     ...state.playerHands.sublist(handIdx + 1),
   ];
 
-  return state.copyWith(
+  var newState = state.copyWith(
     deck: deck,
     playerHands: hands,
     bankroll: state.bankroll - hand.bet,
   );
+
+  // Auto-advance if the first split hand already totals 21.
+  if (handValue(splitHand1.cards).total >= 21) {
+    newState = _advanceHand(newState);
+  }
+  return newState;
 }
 
 GameState surrender(GameState state) {

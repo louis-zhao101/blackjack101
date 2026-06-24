@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../engine/engine.dart' as eng;
+import '../../engine/variants.dart';
 import '../../state/appearance_provider.dart';
 import '../../state/game_provider.dart';
+import '../../state/settings_provider.dart';
 import '../../state/stats_provider.dart';
 import '../theme/appearance.dart';
 import '../widgets/bet_chip_stack.dart';
@@ -50,6 +52,10 @@ class PlayPage extends ConsumerWidget {
     final theme = ref.watch(appearanceProvider);
     final store = ref.watch(gameProvider);
     final game = store.game;
+    // Before the first deal, show the pending ruleset's payout; after, use the locked game ruleset.
+    final effectivePayout = store.hasDealtInSession
+        ? game.ruleSet.blackjackPays
+        : ref.watch(settingsProvider).ruleSet.blackjackPays;
 
     return Column(
       children: [
@@ -80,7 +86,7 @@ class PlayPage extends ConsumerWidget {
                         ),
                         Expanded(
                           child: Center(
-                            child: _TableCenter(game: game, theme: theme),
+                            child: _TableCenter(game: game, theme: theme, payout: effectivePayout),
                           ),
                         ),
                         _PlayerZone(
@@ -148,6 +154,10 @@ class _StatsBar extends ConsumerWidget {
         ? theme.goldLight
         : const Color(0xFFFC8181);
 
+    final settings = ref.watch(settingsProvider);
+    final currentRuleSet = settings.ruleSet;
+    final ruleSetLocked = store.hasDealtInSession;
+
     return Container(
       width: double.infinity,
       color: theme.feltDark,
@@ -156,14 +166,58 @@ class _StatsBar extends ConsumerWidget {
         scrollDirection: Axis.horizontal,
         child: Row(
           children: [
+            Tooltip(
+              message: ruleSetLocked ? 'Start a new session to switch rulesets' : '',
+              preferBelow: false,
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  value: currentRuleSet.id,
+                  isDense: true,
+                  dropdownColor: theme.feltDark,
+                  style: TextStyle(
+                    color: ruleSetLocked ? AppTokens.textSecondary : theme.goldLight,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  icon: Icon(Icons.expand_more, size: 16, color: AppTokens.textSecondary),
+                  items: [
+                    for (final r in rulePresets)
+                      DropdownMenuItem(
+                        value: r.id,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(r.name),
+                            const SizedBox(width: 6),
+                            Tooltip(
+                              message: ruleSetDescription(r),
+                              preferBelow: false,
+                              decoration: BoxDecoration(
+                                color: theme.feltDark,
+                                border: Border.all(color: theme.gold.withValues(alpha: 0.4)),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              textStyle: TextStyle(color: theme.goldLight, fontSize: 12, height: 1.6),
+                              child: Icon(Icons.info_outline, size: 14, color: AppTokens.textSecondary),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                  onChanged: ruleSetLocked ? null : (id) {
+                    if (id == null) return;
+                    final rule = rulePresets.firstWhere((r) => r.id == id);
+                    ref.read(settingsProvider.notifier).setRuleSet(rule);
+                  },
+                ),
+              ),
+            ),
+            _divider(),
             _item('BALANCE', '\$${game.bankroll}', theme.goldLight),
             IconButton(
               visualDensity: VisualDensity.compact,
               iconSize: 18,
-              icon: Icon(
-                Icons.add_circle_outline,
-                color: AppTokens.textSecondary,
-              ),
+              icon: Icon(Icons.add_circle_outline, color: AppTokens.textSecondary),
               tooltip: 'Add chips',
               onPressed: withHaptic(() => _addChips(context, ref)),
             ),
@@ -171,15 +225,9 @@ class _StatsBar extends ConsumerWidget {
             _item('BET', '\$$bet', AppTokens.textPrimary),
             if (hasPlays) ...[
               _divider(),
-              _item('ACCURACY', '$pct%', pctColor),
+              _item('ACCURACY', '$pct% (${plays.correct}/${plays.total})', pctColor),
               _divider(),
               _item('HANDS', '$handsPlayed', AppTokens.textPrimary),
-              _divider(),
-              _item(
-                'CORRECT',
-                '${plays.correct}/${plays.total}',
-                AppTokens.textPrimary,
-              ),
             ],
           ],
         ),
@@ -296,7 +344,8 @@ class _DealerZone extends StatelessWidget {
 class _TableCenter extends StatelessWidget {
   final eng.GameState game;
   final AppearanceTheme theme;
-  const _TableCenter({required this.game, required this.theme});
+  final BlackjackPayout payout;
+  const _TableCenter({required this.game, required this.theme, required this.payout});
 
   @override
   Widget build(BuildContext context) {
@@ -340,7 +389,11 @@ class _TableCenter extends StatelessWidget {
           ),
         ),
         Text(
-          'PAYS 3 TO 2',
+          switch (payout) {
+            BlackjackPayout.sixToFive => 'PAYS 6 TO 5',
+            BlackjackPayout.oneToOne => 'PAYS 1 TO 1',
+            _ => 'PAYS 3 TO 2',
+          },
           style: TextStyle(
             color: theme.gold.withValues(alpha: 0.4),
             fontSize: 11,
@@ -424,6 +477,7 @@ class _Controls extends ConsumerWidget {
                   game: game,
                   theme: theme,
                   notifier: notifier,
+                  hasDealtInSession: store.hasDealtInSession,
                 ),
                 eng.GamePhase.playerTurn => _ActionBar(
                   notifier: notifier,
@@ -448,10 +502,12 @@ class _BetPanel extends StatelessWidget {
   final eng.GameState game;
   final AppearanceTheme theme;
   final GameController notifier;
+  final bool hasDealtInSession;
   const _BetPanel({
     required this.game,
     required this.theme,
     required this.notifier,
+    required this.hasDealtInSession,
   });
 
   @override
@@ -513,6 +569,21 @@ class _BetPanel extends StatelessWidget {
             ),
           ],
         ),
+        if (hasDealtInSession) ...[
+          const SizedBox(height: 4),
+          TextButton(
+            onPressed: withHaptic(
+              () => _confirmAction(
+                context,
+                title: 'Start a new session?',
+                message: 'This ends your current session and resets the table. Your stats are saved.',
+                confirmLabel: 'New Session',
+                onConfirm: notifier.newSession,
+              ),
+            ),
+            child: Text('New Session', style: TextStyle(color: AppTokens.textSecondary)),
+          ),
+        ],
       ],
     );
   }

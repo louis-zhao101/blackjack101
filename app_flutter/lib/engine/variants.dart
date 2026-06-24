@@ -110,7 +110,54 @@ const RuleSet vegasStrip = RuleSet(
   maxSplits: 3,
 );
 
-const List<RuleSet> rulePresets = [vegasStrip];
+const RuleSet vegasStripH17 = RuleSet(
+  id: 'vegas-strip-h17',
+  name: 'Vegas Strip H17',
+  numDecks: 6,
+  dealerHitsSoft17: true,
+  doubleAfterSplit: true,
+  resplitAces: true,
+  surrender: Surrender.none,
+  blackjackPays: BlackjackPayout.threeToTwo,
+  maxSplits: 3,
+);
+
+const RuleSet atlanticCity = RuleSet(
+  id: 'atlantic-city',
+  name: 'Atlantic City',
+  numDecks: 8,
+  dealerHitsSoft17: false,
+  doubleAfterSplit: true,
+  resplitAces: false,
+  surrender: Surrender.late,
+  blackjackPays: BlackjackPayout.threeToTwo,
+  maxSplits: 3,
+);
+
+const RuleSet singleDeck = RuleSet(
+  id: 'single-deck',
+  name: 'Single Deck',
+  numDecks: 1,
+  dealerHitsSoft17: true,
+  doubleAfterSplit: false,
+  resplitAces: false,
+  surrender: Surrender.none,
+  blackjackPays: BlackjackPayout.sixToFive,
+  maxSplits: 1,
+);
+
+const List<RuleSet> rulePresets = [vegasStrip, vegasStripH17, atlanticCity, singleDeck];
+
+String ruleSetDescription(RuleSet r) {
+  return [
+    '${r.numDecks} deck${r.numDecks > 1 ? 's' : ''}',
+    r.dealerHitsSoft17 ? 'Dealer hits soft 17' : 'Dealer stands on soft 17',
+    r.doubleAfterSplit ? 'Double after split allowed' : 'No double after split',
+    if (r.resplitAces) 'Re-split aces allowed',
+    if (r.surrender == Surrender.late) 'Late surrender',
+    'Blackjack pays ${blackjackPayoutId(r.blackjackPays)}',
+  ].join('\n');
+}
 
 double blackjackPayoutMultiplier(BlackjackPayout payout) {
   switch (payout) {
