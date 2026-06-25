@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'cards.dart';
 import 'variants.dart';
 
@@ -359,4 +361,186 @@ Action getChartAction(HandType handType, Object playerValue, String dealerRank, 
         : Action.hit;
   }
   return actionFromCode(action);
+}
+
+// ---------------------------------------------------------------------------
+// Difficulty: how non-obvious the optimal decision is for the hands dealt.
+// This steers WHICH starting hands appear, not the odds of winning — the
+// dealer hole card and all draws stay random, so resolution/payouts are
+// unaffected.
+// ---------------------------------------------------------------------------
+
+enum Difficulty { regular, medium, challenging }
+
+const List<Difficulty> difficultyPresets = [
+  Difficulty.regular,
+  Difficulty.medium,
+  Difficulty.challenging,
+];
+
+String difficultyId(Difficulty d) => d.name;
+
+Difficulty difficultyFromId(String id) =>
+    Difficulty.values.firstWhere((d) => d.name == id, orElse: () => Difficulty.regular);
+
+String difficultyLabel(Difficulty d) {
+  switch (d) {
+    case Difficulty.regular:
+      return 'Regular';
+    case Difficulty.medium:
+      return 'Medium';
+    case Difficulty.challenging:
+      return 'Challenging';
+  }
+}
+
+String difficultyDescription(Difficulty d) {
+  switch (d) {
+    case Difficulty.regular:
+      return 'Mostly clear-cut hands — obvious hits and stands. Best for learning the basics.';
+    case Difficulty.medium:
+      return 'A realistic mix, with more borderline decisions to test your strategy.';
+    case Difficulty.challenging:
+      return 'Heavy on close calls and trap hands — 16 vs 10, soft 18 vs 9, tricky splits.';
+  }
+}
+
+/// A target opening hand to steer the deal toward, for a given difficulty.
+class DealScenario {
+  final HandType handType;
+  final Object value; // int total for hard/soft; String pair rank for pair
+  final String dealerUpcard; // '2'..'10','A'
+  const DealScenario(this.handType, this.value, this.dealerUpcard);
+}
+
+enum _Tier { easy, medium, hard }
+
+const List<String> _dealerRanks = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'A'];
+
+typedef _Tables = ({
+  Map<int, List<String>> hard,
+  Map<int, List<String>> soft,
+  Map<String, List<String>> pairs
+});
+
+// Normalized chart action at a cell, or null if outside the charted region.
+// 'Ds' collapses to 'D'; surrender ('R') collapses to the played fallback when
+// the ruleset disallows surrender, so classification matches how the player is
+// actually graded.
+String? _normAction(_Tables t, RuleSet rs, HandType type, Object value, int di) {
+  String? a;
+  switch (type) {
+    case HandType.hard:
+      a = t.hard[value as int]?[di];
+      break;
+    case HandType.soft:
+      final raw = t.soft[value as int]?[di];
+      a = raw == 'Ds' ? 'D' : raw;
+      break;
+    case HandType.pair:
+      a = t.pairs[value as String]?[di];
+      break;
+  }
+  if (a == null) return null;
+  if (a == 'R' && rs.surrender == Surrender.none) {
+    return (type == HandType.hard && (value as int) >= 17) ? 'S' : 'H';
+  }
+  return a;
+}
+
+// A cell sits on a decision boundary if any orthogonal neighbor has a different
+// action. Hard/soft compare across both dealer-upcard and player-total axes;
+// pairs (not ordinal across rows) compare across the dealer axis only.
+bool _isBoundary(_Tables t, RuleSet rs, HandType type, Object value, int di) {
+  final a = _normAction(t, rs, type, value, di);
+  if (a == null) return false;
+  for (final ndi in [di - 1, di + 1]) {
+    if (ndi < 0 || ndi > 9) continue;
+    final na = _normAction(t, rs, type, value, ndi);
+    if (na != null && na != a) return true;
+  }
+  if (type != HandType.pair) {
+    final v = value as int;
+    for (final nv in [v - 1, v + 1]) {
+      final na = _normAction(t, rs, type, nv, di);
+      if (na != null && na != a) return true;
+    }
+  }
+  return false;
+}
+
+_Tier _cellTier(_Tables t, RuleSet rs, HandType type, Object value, int di) {
+  if (_normAction(t, rs, type, value, di) == null) return _Tier.easy;
+  if (_isBoundary(t, rs, type, value, di)) return _Tier.hard;
+  final neighbors = <(HandType, Object, int)>[];
+  for (final ndi in [di - 1, di + 1]) {
+    if (ndi >= 0 && ndi <= 9) neighbors.add((type, value, ndi));
+  }
+  if (type != HandType.pair) {
+    final v = value as int;
+    neighbors.add((type, v - 1, di));
+    neighbors.add((type, v + 1, di));
+  }
+  for (final n in neighbors) {
+    if (_normAction(t, rs, n.$1, n.$2, n.$3) == null) continue;
+    if (_isBoundary(t, rs, n.$1, n.$2, n.$3)) return _Tier.medium;
+  }
+  return _Tier.easy;
+}
+
+/// Public classifier: 'easy' | 'medium' | 'hard' — how non-obvious the basic
+/// strategy decision is for the given starting hand. Derived from the
+/// (ruleset-adjusted) strategy chart via boundary distance.
+String decisionDifficulty(HandType type, Object value, String dealerRank, RuleSet ruleSet) {
+  final t = _tables(ruleSet);
+  return _cellTier(t, ruleSet, type, value, _dealerIndex(dealerRank)).name;
+}
+
+const Map<Difficulty, Map<_Tier, double>> _tierWeights = {
+  Difficulty.medium: {_Tier.easy: 0.30, _Tier.medium: 0.50, _Tier.hard: 0.20},
+  Difficulty.challenging: {_Tier.easy: 0.05, _Tier.medium: 0.25, _Tier.hard: 0.70},
+};
+
+/// Picks a target opening hand for the given difficulty, or null for Regular
+/// (natural random deal). The pools cover hard 8–17, soft 13–20, and all pairs
+/// against every dealer upcard, bucketed by decision difficulty.
+DealScenario? pickScenario(Difficulty difficulty, RuleSet ruleSet, Random rng) {
+  if (difficulty == Difficulty.regular) return null;
+  final t = _tables(ruleSet);
+  final pools = {
+    _Tier.easy: <DealScenario>[],
+    _Tier.medium: <DealScenario>[],
+    _Tier.hard: <DealScenario>[],
+  };
+  void add(HandType type, Object value) {
+    for (var di = 0; di < _dealerRanks.length; di++) {
+      pools[_cellTier(t, ruleSet, type, value, di)]!
+          .add(DealScenario(type, value, _dealerRanks[di]));
+    }
+  }
+
+  for (var total = 8; total <= 17; total++) {
+    add(HandType.hard, total);
+  }
+  for (var total = 13; total <= 20; total++) {
+    add(HandType.soft, total);
+  }
+  for (final r in ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'A']) {
+    add(HandType.pair, r);
+  }
+
+  final weights = _tierWeights[difficulty]!;
+  final available = weights.entries.where((e) => pools[e.key]!.isNotEmpty).toList();
+  final totalW = available.fold<double>(0, (s, e) => s + e.value);
+  var roll = rng.nextDouble() * totalW;
+  var chosen = available.first.key;
+  for (final e in available) {
+    if (roll < e.value) {
+      chosen = e.key;
+      break;
+    }
+    roll -= e.value;
+  }
+  final pool = pools[chosen]!;
+  return pool[rng.nextInt(pool.length)];
 }

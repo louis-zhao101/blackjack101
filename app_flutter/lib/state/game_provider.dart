@@ -148,9 +148,10 @@ class GameController extends Notifier<GameStoreState> {
   void deal() {
     final game = state.game;
     _maybeRotateSession(game);
+    final difficulty = ref.read(settingsProvider).difficulty;
     final originalBet = game.pendingBet;
     state = state.copyWith(
-      game: eng.dealHand(game),
+      game: eng.dealHand(game, difficulty: difficulty),
       clearLastHandInfo: true,
       handHadMistake: false,
       hasDealtInSession: true,
@@ -308,10 +309,11 @@ class GameController extends Notifier<GameStoreState> {
   void rebetAndDeal() {
     final game = state.game;
     _maybeRotateSession(game);
+    final difficulty = ref.read(settingsProvider).difficulty;
     var next = eng.newHand(game);
     final autobet = state.lastBet < next.bankroll ? state.lastBet : next.bankroll;
     if (autobet > 0) {
-      next = eng.dealHand(next.copyWith(pendingBet: autobet));
+      next = eng.dealHand(next.copyWith(pendingBet: autobet), difficulty: difficulty);
     }
     state = state.copyWith(
       game: next,

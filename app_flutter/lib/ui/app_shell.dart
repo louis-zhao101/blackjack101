@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../engine/strategy.dart';
 import '../engine/variants.dart';
 import '../state/app_providers.dart';
 import '../state/appearance_provider.dart';
@@ -270,6 +271,13 @@ class AccountPage extends ConsumerWidget {
               title: 'Game mode',
               subtitle: settings.ruleSet.name,
               onTap: () => _showSheet(context, title: 'Game mode', child: const _RuleSetSheet()),
+            ),
+            _SettingRow(
+              icon: Icons.trending_up,
+              title: 'Difficulty',
+              subtitle: difficultyLabel(settings.difficulty),
+              onTap: () =>
+                  _showSheet(context, title: 'Difficulty', child: const _DifficultySheet()),
             ),
             _SettingRow(
               icon: Icons.account_balance_wallet_outlined,
@@ -689,6 +697,55 @@ class _RuleSetSheet extends ConsumerWidget {
       );
     } else {
       ref.read(settingsProvider.notifier).setRuleSet(r);
+      Navigator.pop(context);
+    }
+  }
+}
+
+class _DifficultySheet extends ConsumerWidget {
+  const _DifficultySheet();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = ref.watch(appearanceProvider);
+    final selected = ref.watch(settingsProvider).difficulty;
+    final locked = ref.watch(gameProvider).hasDealtInSession;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (final d in difficultyPresets)
+          _SheetOption(
+            theme: theme,
+            selected: d == selected,
+            title: difficultyLabel(d),
+            subtitle: difficultyDescription(d),
+            onTap: () => _select(context, ref, d, selected, locked),
+          ),
+      ],
+    );
+  }
+
+  void _select(
+      BuildContext context, WidgetRef ref, Difficulty d, Difficulty selected, bool locked) {
+    if (d == selected) {
+      Navigator.pop(context);
+      return;
+    }
+    if (locked) {
+      _confirm(
+        context,
+        title: 'Switch difficulty?',
+        message:
+            'Switching to ${difficultyLabel(d)} starts a new session and resets the current hand.',
+        confirmLabel: 'Switch',
+        onConfirm: () {
+          ref.read(settingsProvider.notifier).setDifficulty(d);
+          ref.read(gameProvider.notifier).newSession();
+          Navigator.pop(context);
+        },
+      );
+    } else {
+      ref.read(settingsProvider.notifier).setDifficulty(d);
       Navigator.pop(context);
     }
   }
