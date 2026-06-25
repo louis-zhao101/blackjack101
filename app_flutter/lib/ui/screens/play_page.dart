@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../engine/engine.dart' as eng;
@@ -46,7 +45,7 @@ void _confirmAction(
 }
 
 void _showRuleInfo(BuildContext context, AppearanceTheme theme, RuleSet r) {
-  HapticFeedback.selectionClick();
+  selectionHaptic();
   final lines = ruleSetDescription(r).split('\n');
   showDialog(
     context: context,
@@ -218,7 +217,7 @@ class _StatsBar extends ConsumerWidget {
               tooltip: 'Game mode',
               position: PopupMenuPosition.under,
               onSelected: (id) {
-                HapticFeedback.selectionClick();
+                selectionHaptic();
                 if (id == currentRuleSet.id) return;
                 final rule = rulePresets.firstWhere((r) => r.id == id);
                 if (ruleSetLocked) {
@@ -433,15 +432,25 @@ class _TableCenter extends StatelessWidget {
           : net < 0
           ? const Color(0xFFFC8181)
           : AppTokens.textSecondary;
+      final String headline;
+      if (net > 0) {
+        headline = hasBlackjack ? 'Blackjack! +\$$net' : 'You won \$$net';
+      } else if (net < 0) {
+        headline = 'You lost \$${-net}';
+      } else {
+        final allPush =
+            game.playerHands.every((h) => h.result == eng.HandResult.push);
+        headline = allPush ? 'Push — bet returned' : 'Broke even';
+      }
       return AppearIn(
-        triggerKey: game.message,
+        triggerKey: headline,
         fromScale: 0.7,
         child: Text(
-          game.message,
+          headline,
           textAlign: TextAlign.center,
           style: TextStyle(
             color: color,
-            fontSize: 28,
+            fontSize: 30,
             fontWeight: FontWeight.bold,
             letterSpacing: 0.5,
           ),

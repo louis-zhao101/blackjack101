@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../engine/strategy.dart' as st;
 import '../../engine/variants.dart';
 import '../../state/settings_provider.dart';
 import '../theme/appearance.dart';
+import 'game_button.dart';
 
 const _dealerRanks = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'A'];
 const _hardTotals = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21];
@@ -103,7 +103,7 @@ class _StrategyChartState extends ConsumerState<StrategyChart> {
             label: Text(labels[t]!),
             selected: _tab == t,
             onSelected: (_) {
-              HapticFeedback.selectionClick();
+              selectionHaptic();
               setState(() {
                 _tab = t;
                 _selected = null;
@@ -166,7 +166,7 @@ class _StrategyChartState extends ConsumerState<StrategyChart> {
     final selected = _selected == key;
     return GestureDetector(
       onTap: () {
-        HapticFeedback.selectionClick();
+        selectionHaptic();
         setState(() => _selected = key);
       },
       child: Container(

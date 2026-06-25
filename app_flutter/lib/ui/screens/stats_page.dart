@@ -4,7 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../engine/stats.dart';
 import '../../engine/strategy.dart' as st;
+import '../../state/auth_provider.dart';
 import '../../state/stats_provider.dart';
+import '../auth_screen.dart';
 import '../theme/appearance.dart';
 import '../widgets/game_button.dart';
 
@@ -25,6 +27,9 @@ class StatsPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final loggedIn = ref.watch(authStateProvider).value != null;
+    if (!loggedIn) return const _StatsSignInGate();
+
     final stats = ref.watch(statsProvider);
     final hasLive = stats.currentSession != null && stats.currentSession!.hands.isNotEmpty;
     final allSessions = [
@@ -149,6 +154,45 @@ class StatsPage extends ConsumerWidget {
   Widget _sectionTitle(String t) => Text(t,
       style: const TextStyle(
           color: AppTokens.textPrimary, fontSize: 18, fontWeight: FontWeight.bold));
+}
+
+class _StatsSignInGate extends StatelessWidget {
+  const _StatsSignInGate();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 420),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.insights_outlined, size: 56, color: AppTokens.textSecondary),
+              const SizedBox(height: 16),
+              const Text(
+                'Track your progress',
+                style: TextStyle(
+                    color: AppTokens.textPrimary, fontSize: 22, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Sign in to save your hands and see accuracy, streaks, and your most common mistakes.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: AppTokens.textSecondary, fontSize: 15, height: 1.4),
+              ),
+              const SizedBox(height: 24),
+              FilledButton(
+                onPressed: withHaptic(() => showSignInSheet(context)),
+                child: const Text('Sign in'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _SummaryCard extends StatelessWidget {

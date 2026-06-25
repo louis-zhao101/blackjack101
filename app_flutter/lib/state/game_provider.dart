@@ -329,6 +329,15 @@ class GameController extends Notifier<GameStoreState> {
     _syncBankroll(newBankroll);
   }
 
+  /// Resets the live bankroll back to the configured starting amount, clearing
+  /// any pending bet so the next hand starts fresh.
+  void resetBankroll() {
+    final settings = ref.read(settingsProvider);
+    final game = eng.clearBet(state.game).copyWith(bankroll: settings.startingBankroll);
+    state = state.copyWith(game: game);
+    _syncBankroll(settings.startingBankroll);
+  }
+
   void loadBankroll(int bankroll) {
     state = state.copyWith(game: state.game.copyWith(bankroll: bankroll));
   }
