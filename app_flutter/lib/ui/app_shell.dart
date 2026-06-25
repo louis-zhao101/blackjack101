@@ -249,13 +249,37 @@ class AccountPage extends ConsumerWidget {
     final theme = ref.watch(appearanceProvider);
     final settings = ref.watch(settingsProvider);
     final bankroll = ref.watch(gameProvider).game.bankroll;
-    final signedIn = ref.watch(authStateProvider).value != null;
+    final user = ref.watch(authStateProvider).value;
+    final signedIn = user != null;
+    final phone = user?.phoneNumber ?? '';
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
       children: [
-        const _ProfileCard(),
-        const SizedBox(height: 20),
+        _SectionCard(
+          title: 'Account',
+          children: [
+            _SettingRow(
+              icon: signedIn ? Icons.logout : Icons.login,
+              title: signedIn ? 'Sign out' : 'Sign in',
+              subtitle: signedIn
+                  ? (phone.isNotEmpty ? phone : 'Synced to cloud')
+                  : 'Save & view your stats',
+              onTap: signedIn
+                  ? () => _confirm(
+                        context,
+                        title: 'Sign out?',
+                        message:
+                            'You can sign back in anytime. Your saved stats stay in the cloud.',
+                        confirmLabel: 'Sign out',
+                        onConfirm: () =>
+                            ref.read(phoneAuthControllerProvider.notifier).signOut(),
+                      )
+                  : () => showSignInSheet(context),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
         _SectionCard(
           title: 'General',
           children: [
@@ -332,75 +356,6 @@ class AccountPage extends ConsumerWidget {
           ],
         ),
       ],
-    );
-  }
-}
-
-class _ProfileCard extends ConsumerWidget {
-  const _ProfileCard();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final theme = ref.watch(appearanceProvider);
-    final user = ref.watch(authStateProvider).value;
-    final phone = user?.phoneNumber ?? '';
-    final signedIn = user != null;
-
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: _cardBg,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 52,
-            height: 52,
-            decoration: BoxDecoration(
-              color: theme.gold.withValues(alpha: 0.15),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(Icons.person, color: theme.gold, size: 28),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(signedIn ? 'Signed in' : 'Guest',
-                    style: const TextStyle(
-                        color: AppTokens.textPrimary, fontSize: 15, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 2),
-                Text(
-                  signedIn
-                      ? (phone.isNotEmpty ? phone : 'Synced to cloud')
-                      : 'Sign in to save & view stats',
-                  style: const TextStyle(color: AppTokens.textSecondary, fontSize: 12),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: withHaptic(() => signedIn
-                ? ref.read(phoneAuthControllerProvider.notifier).signOut()
-                : showSignInSheet(context)),
-            child: Container(
-              width: 46,
-              height: 46,
-              decoration: BoxDecoration(
-                color: _tileBg,
-                shape: BoxShape.circle,
-                border: Border.all(color: theme.feltBorder),
-              ),
-              child: Icon(signedIn ? Icons.logout : Icons.login,
-                  color: AppTokens.textPrimary, size: 20),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
