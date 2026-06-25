@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../theme/appearance.dart';
+import '../widgets/game_button.dart';
 import '../widgets/strategy_chart.dart';
 
 const _commonMistakes = [
@@ -84,7 +84,7 @@ class LearnPage extends ConsumerWidget {
         children: [
           TabBar(
             isScrollable: true,
-            onTap: (_) => HapticFeedback.selectionClick(),
+            onTap: (_) => selectionHaptic(),
             labelColor: classicGreen.gold,
             unselectedLabelColor: AppTokens.textSecondary,
             indicatorColor: classicGreen.gold,

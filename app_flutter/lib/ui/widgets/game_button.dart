@@ -3,6 +3,19 @@ import 'package:flutter/services.dart';
 
 import '../theme/appearance.dart';
 
+/// Global haptics switch, driven by the settings store. All app haptics route
+/// through [lightHaptic]/[selectionHaptic] so this one flag silences them.
+bool _hapticsEnabled = true;
+void setHapticsEnabled(bool enabled) => _hapticsEnabled = enabled;
+
+void lightHaptic() {
+  if (_hapticsEnabled) HapticFeedback.lightImpact();
+}
+
+void selectionHaptic() {
+  if (_hapticsEnabled) HapticFeedback.selectionClick();
+}
+
 /// Wraps any tappable child with a quick press-scale animation and a light
 /// haptic on tap. Disabled when [onPressed] is null.
 class TappableScale extends StatefulWidget {
@@ -29,7 +42,7 @@ class _TappableScaleState extends State<TappableScale> {
       onTapCancel: () => _set(1),
       onTap: _enabled
           ? () {
-              HapticFeedback.lightImpact();
+              lightHaptic();
               widget.onPressed!();
             }
           : null,
@@ -153,6 +166,6 @@ class GameButton extends StatelessWidget {
 VoidCallback? withHaptic(VoidCallback? cb) => cb == null
     ? null
     : () {
-        HapticFeedback.selectionClick();
+        selectionHaptic();
         cb();
       };

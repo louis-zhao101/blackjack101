@@ -28,6 +28,17 @@ class FirestoreSync {
     );
   }
 
+  /// Permanently removes the user's profile and all their sessions.
+  Future<void> deleteUserData(String uid) async {
+    final sessions = await _sessionsCol(uid).get();
+    final batch = _db.batch();
+    for (final doc in sessions.docs) {
+      batch.delete(doc.reference);
+    }
+    batch.delete(_userDoc(uid));
+    await batch.commit();
+  }
+
   Future<({int? bankroll, List<Session> sessions})> loadUserData(String uid) async {
     final profileFut = _userDoc(uid).get();
     final sessionsFut =

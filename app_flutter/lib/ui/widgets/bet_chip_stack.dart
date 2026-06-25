@@ -1,10 +1,10 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show HapticFeedback;
 
 import '../theme/appearance.dart';
 import 'chip_widget.dart';
+import 'game_button.dart';
 
 const _denoms = [500, 100, 25, 5];
 const _chipSize = 34.0;
@@ -178,7 +178,7 @@ class _DenomStackState extends State<_DenomStack>
   );
 
   void _riffle() {
-    HapticFeedback.lightImpact();
+    lightHaptic();
     _wiggleCtrl.forward(from: 0);
   }
 

@@ -95,6 +95,16 @@ class FirebaseAuthService {
 
   Future<void> signOut() => _auth.signOut();
 
+  /// Deletes the current Firebase user. May throw 'requires-recent-login' if the
+  /// session is stale, in which case the caller should prompt a fresh sign-in.
+  Future<void> deleteAccount() async {
+    try {
+      await _auth.currentUser?.delete();
+    } on FirebaseAuthException catch (e) {
+      throw _friendlyError(e);
+    }
+  }
+
   String _friendlyError(FirebaseAuthException e) {
     switch (e.code) {
       case 'invalid-phone-number':
@@ -105,6 +115,8 @@ class FirebaseAuthService {
         return 'Too many attempts. Please wait a bit and try again.';
       case 'session-expired':
         return 'The code expired. Request a new one.';
+      case 'requires-recent-login':
+        return 'For security, please sign out and sign in again, then retry.';
       default:
         return e.message ?? 'Authentication failed. Please try again.';
     }

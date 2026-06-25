@@ -49,20 +49,25 @@ class LocalStore {
 
   // --- settings ---
 
-  ({RuleSet ruleSet, int startingBankroll})? loadSettings() {
+  ({RuleSet ruleSet, int startingBankroll, bool hapticsEnabled})? loadSettings() {
     final raw = _prefs.getString(_settingsKey);
     if (raw == null) return null;
     final map = jsonDecode(raw) as Map<String, dynamic>;
     return (
       ruleSet: RuleSet.fromJson(Map<String, dynamic>.from(map['ruleSet'] as Map)),
       startingBankroll: (map['startingBankroll'] as num).toInt(),
+      hapticsEnabled: (map['hapticsEnabled'] as bool?) ?? true,
     );
   }
 
-  Future<void> saveSettings(RuleSet ruleSet, int startingBankroll) {
+  Future<void> saveSettings(RuleSet ruleSet, int startingBankroll, bool hapticsEnabled) {
     return _prefs.setString(
       _settingsKey,
-      jsonEncode({'ruleSet': ruleSet.toJson(), 'startingBankroll': startingBankroll}),
+      jsonEncode({
+        'ruleSet': ruleSet.toJson(),
+        'startingBankroll': startingBankroll,
+        'hapticsEnabled': hapticsEnabled,
+      }),
     );
   }
 }

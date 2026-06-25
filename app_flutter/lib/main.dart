@@ -13,7 +13,6 @@ import 'state/auth_provider.dart';
 import 'state/game_provider.dart';
 import 'state/stats_provider.dart';
 import 'ui/app_shell.dart';
-import 'ui/auth_screen.dart';
 import 'ui/theme/appearance.dart';
 
 Future<void> main() async {
@@ -72,7 +71,9 @@ class AuthGate extends ConsumerWidget {
     return auth.when(
       loading: () => const Scaffold(body: Center(child: CircularProgressIndicator())),
       error: (e, _) => Scaffold(body: Center(child: Text('Auth error: $e'))),
-      data: (user) => user == null ? const AuthScreen() : const AppShell(),
+      // The app is playable as a guest; signing in (from the Account tab) only
+      // unlocks saving and viewing stats. So always show the shell.
+      data: (_) => const AppShell(),
     );
   }
 
