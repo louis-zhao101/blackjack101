@@ -1,4 +1,7 @@
+import 'dart:math';
+
 import 'cards.dart';
+import 'strategy.dart';
 import 'variants.dart';
 
 enum GamePhase { idle, betting, dealing, playerTurn, dealerTurn, complete }
@@ -131,10 +134,59 @@ GameState _ensureDeck(GameState state) {
   return state;
 }
 
-GameState dealHand(GameState state) {
+final Random _dealRng = Random();
+
+(String, String) _playerRanksFor(DealScenario s) {
+  switch (s.handType) {
+    case HandType.soft:
+      return ('A', '${(s.value as int) - 11}');
+    case HandType.pair:
+      final r = s.value as String;
+      return (r, r);
+    case HandType.hard:
+      final total = s.value as int;
+      for (var a = 2; a <= 10; a++) {
+        final b = total - a;
+        if (b >= 2 && b <= 10 && b != a) return ('$a', '$b');
+      }
+      return ('10', '${total - 10}');
+  }
+}
+
+Card? _takeRank(List<Card> deck, String rank) {
+  final idx = deck.indexWhere((c) => c.rank == rank);
+  if (idx < 0) return null;
+  return deck.removeAt(idx);
+}
+
+// Front-loads the shoe so the opening deal realizes a difficulty-targeted
+// scenario: [player1, dealerUp, player2, ...rest]. The hole card (rest[0]) and
+// all later draws remain whatever the shuffled shoe holds, keeping outcomes
+// fair. Returns null to fall back to a natural deal (Regular, or a needed rank
+// being unavailable).
+List<Card>? _arrangeForDifficulty(
+    List<Card> deck, Difficulty difficulty, RuleSet ruleSet, Random rng) {
+  final scenario = pickScenario(difficulty, ruleSet, rng);
+  if (scenario == null) return null;
+  final (p1r, p2r) = _playerRanksFor(scenario);
+  final working = List<Card>.from(deck);
+  final p1 = _takeRank(working, p1r);
+  final up = _takeRank(working, scenario.dealerUpcard);
+  final p2 = _takeRank(working, p2r);
+  if (p1 == null || up == null || p2 == null) return null;
+  return [p1, up, p2, ...working];
+}
+
+GameState dealHand(GameState state,
+    {Difficulty difficulty = Difficulty.regular, Random? rng}) {
   if (state.phase != GamePhase.betting || state.pendingBet < 1) return state;
 
-  final s = _ensureDeck(state);
+  var s = _ensureDeck(state);
+  if (difficulty != Difficulty.regular) {
+    final arranged =
+        _arrangeForDifficulty(s.deck, difficulty, s.ruleSet, rng ?? _dealRng);
+    if (arranged != null) s = s.copyWith(deck: arranged);
+  }
   var deck = s.deck;
 
   Card deal([bool faceDown = false]) {

@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../engine/strategy.dart' show Difficulty;
 import '../engine/variants.dart';
 import '../ui/widgets/game_button.dart' show setHapticsEnabled;
 import 'app_providers.dart';
@@ -8,17 +9,25 @@ class SettingsState {
   final RuleSet ruleSet;
   final int startingBankroll;
   final bool hapticsEnabled;
+  final Difficulty difficulty;
   const SettingsState({
     required this.ruleSet,
     required this.startingBankroll,
     this.hapticsEnabled = true,
+    this.difficulty = Difficulty.regular,
   });
 
-  SettingsState copyWith({RuleSet? ruleSet, int? startingBankroll, bool? hapticsEnabled}) =>
+  SettingsState copyWith({
+    RuleSet? ruleSet,
+    int? startingBankroll,
+    bool? hapticsEnabled,
+    Difficulty? difficulty,
+  }) =>
       SettingsState(
         ruleSet: ruleSet ?? this.ruleSet,
         startingBankroll: startingBankroll ?? this.startingBankroll,
         hapticsEnabled: hapticsEnabled ?? this.hapticsEnabled,
+        difficulty: difficulty ?? this.difficulty,
       );
 }
 
@@ -32,11 +41,17 @@ class SettingsController extends Notifier<SettingsState> {
       ruleSet: loaded?.ruleSet ?? vegasStrip,
       startingBankroll: loaded?.startingBankroll ?? 1000,
       hapticsEnabled: hapticsEnabled,
+      difficulty: loaded?.difficulty ?? Difficulty.regular,
     );
   }
 
   void setRuleSet(RuleSet ruleSet) {
     state = state.copyWith(ruleSet: ruleSet);
+    _persist();
+  }
+
+  void setDifficulty(Difficulty difficulty) {
+    state = state.copyWith(difficulty: difficulty);
     _persist();
   }
 
@@ -52,9 +67,8 @@ class SettingsController extends Notifier<SettingsState> {
   }
 
   void _persist() {
-    ref
-        .read(localStoreProvider)
-        .saveSettings(state.ruleSet, state.startingBankroll, state.hapticsEnabled);
+    ref.read(localStoreProvider).saveSettings(
+        state.ruleSet, state.startingBankroll, state.hapticsEnabled, state.difficulty);
   }
 }
 

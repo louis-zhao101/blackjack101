@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../engine/stats.dart';
+import '../engine/strategy.dart' show Difficulty, difficultyFromId, difficultyId;
 import '../engine/variants.dart';
 
 /// Local persistence mirroring the web app's Zustand `persist` keys
@@ -49,7 +50,8 @@ class LocalStore {
 
   // --- settings ---
 
-  ({RuleSet ruleSet, int startingBankroll, bool hapticsEnabled})? loadSettings() {
+  ({RuleSet ruleSet, int startingBankroll, bool hapticsEnabled, Difficulty difficulty})?
+      loadSettings() {
     final raw = _prefs.getString(_settingsKey);
     if (raw == null) return null;
     final map = jsonDecode(raw) as Map<String, dynamic>;
@@ -57,16 +59,19 @@ class LocalStore {
       ruleSet: RuleSet.fromJson(Map<String, dynamic>.from(map['ruleSet'] as Map)),
       startingBankroll: (map['startingBankroll'] as num).toInt(),
       hapticsEnabled: (map['hapticsEnabled'] as bool?) ?? true,
+      difficulty: difficultyFromId((map['difficulty'] as String?) ?? 'regular'),
     );
   }
 
-  Future<void> saveSettings(RuleSet ruleSet, int startingBankroll, bool hapticsEnabled) {
+  Future<void> saveSettings(
+      RuleSet ruleSet, int startingBankroll, bool hapticsEnabled, Difficulty difficulty) {
     return _prefs.setString(
       _settingsKey,
       jsonEncode({
         'ruleSet': ruleSet.toJson(),
         'startingBankroll': startingBankroll,
         'hapticsEnabled': hapticsEnabled,
+        'difficulty': difficultyId(difficulty),
       }),
     );
   }
