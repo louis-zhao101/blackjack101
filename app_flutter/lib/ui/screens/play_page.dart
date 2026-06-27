@@ -26,7 +26,12 @@ void _reactToGameChange(GameStoreState? prev, GameStoreState next) {
   // A larger deck than the previous state means the shoe was reshuffled.
   if (pg != null && ng.deck.length > pg.deck.length) sound.shuffle();
 
-  if (ng.phase == eng.GamePhase.complete && pg?.phase != eng.GamePhase.complete) {
+  // Fire the outcome when a hand resolves: either the phase just turned
+  // complete, or a fresh deal (new roundId) landed straight on complete — e.g.
+  // a "Deal Again" blackjack, which goes complete -> complete.
+  final resolved = ng.phase == eng.GamePhase.complete &&
+      (pg?.phase != eng.GamePhase.complete || next.roundId != prev?.roundId);
+  if (resolved) {
     if (ng.playerHands.any((h) => h.result == eng.HandResult.blackjack)) {
       sound.blackjack();
     } else {
