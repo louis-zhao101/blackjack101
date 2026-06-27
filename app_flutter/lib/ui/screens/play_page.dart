@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../engine/engine.dart' as eng;
 import '../../engine/variants.dart';
+import '../../services/sound_service.dart';
 import '../../state/appearance_provider.dart';
 import '../../state/game_provider.dart';
 import '../../state/settings_provider.dart';
@@ -13,6 +14,46 @@ import '../widgets/chip_widget.dart';
 import '../widgets/game_button.dart';
 
 const _chipDenoms = [5, 25, 100, 500];
+
+int _visibleCards(eng.GameState g) =>
+    g.dealerCards.length + g.playerHands.fold<int>(0, (s, h) => s + h.cards.length);
+
+void _reactToGameChange(GameStoreState? prev, GameStoreState next) {
+  final sound = SoundService.instance;
+  final ng = next.game;
+  final pg = prev?.game;
+
+  // A larger deck than the previous state means the shoe was reshuffled.
+  if (pg != null && ng.deck.length > pg.deck.length) sound.shuffle();
+
+  if (ng.phase == eng.GamePhase.complete && pg?.phase != eng.GamePhase.complete) {
+    if (ng.playerHands.any((h) => h.result == eng.HandResult.blackjack)) {
+      sound.blackjack();
+    } else {
+      final net = ng.playerHands.fold<int>(0, (s, h) => s + h.payout - h.bet);
+      if (net > 0) {
+        sound.win();
+      } else if (net < 0) {
+        sound.lose();
+      } else {
+        sound.push();
+      }
+    }
+  } else if (ng.phase == eng.GamePhase.playerTurn) {
+    // A fresh deal lays down 4 cards (player, dealer, player, dealer) staggered
+    // by 160ms to match the deal animation; hits/splits add cards mid-turn.
+    final added = pg?.phase == eng.GamePhase.playerTurn
+        ? _visibleCards(ng) - _visibleCards(pg!)
+        : 4;
+    for (var i = 0; i < added; i++) {
+      if (i == 0) {
+        sound.cardDeal();
+      } else {
+        Future.delayed(Duration(milliseconds: i * 160), sound.cardDeal);
+      }
+    }
+  }
+}
 
 void _confirmAction(
   BuildContext context, {
@@ -48,6 +89,7 @@ class PlayPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.listen<GameStoreState>(gameProvider, _reactToGameChange);
     final theme = ref.watch(appearanceProvider);
     final store = ref.watch(gameProvider);
     final game = store.game;
@@ -519,7 +561,10 @@ class _BetPanel extends StatelessWidget {
                 amount: d,
                 theme: theme,
                 onTap: (game.pendingBet + d <= game.bankroll)
-                    ? () => notifier.placeBetChip(d)
+                    ? () {
+                        SoundService.instance.chipPlace();
+                        notifier.placeBetChip(d);
+                      }
                     : null,
               ),
           ],

@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../services/sound_service.dart';
 import '../theme/appearance.dart';
 import 'chip_widget.dart';
 import 'game_button.dart';
@@ -179,6 +180,7 @@ class _DenomStackState extends State<_DenomStack>
 
   void _riffle() {
     lightHaptic();
+    SoundService.instance.chipStack();
     _wiggleCtrl.forward(from: 0);
   }
 
