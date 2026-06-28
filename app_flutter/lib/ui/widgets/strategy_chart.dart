@@ -212,6 +212,7 @@ class _StrategyChartState extends ConsumerState<StrategyChart> {
       st.HandType.soft => 'Soft $rawValue',
       st.HandType.hard => 'Hard $rawValue',
     };
+    final explanation = st.chartExplanation(handType, value, dealer, ruleSet);
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -219,27 +220,36 @@ class _StrategyChartState extends ConsumerState<StrategyChart> {
         borderRadius: BorderRadius.circular(AppTokens.radius),
         border: Border.all(color: const Color(0x33FFFFFF)),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 30,
-            height: 30,
-            decoration:
-                BoxDecoration(color: style.bg, borderRadius: BorderRadius.circular(4)),
-            alignment: Alignment.center,
-            child: Text(st.actionCode(action),
-                style: TextStyle(color: style.fg, fontWeight: FontWeight.bold)),
+          Row(
+            children: [
+              Container(
+                width: 30,
+                height: 30,
+                decoration:
+                    BoxDecoration(color: style.bg, borderRadius: BorderRadius.circular(4)),
+                alignment: Alignment.center,
+                child: Text(st.actionCode(action),
+                    style: TextStyle(color: style.fg, fontWeight: FontWeight.bold)),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text('${_actionFull(action)} — $desc vs dealer $dealer',
+                    style: const TextStyle(
+                        color: AppTokens.textPrimary, fontWeight: FontWeight.w600)),
+              ),
+              IconButton(
+                icon: const Icon(Icons.close, color: AppTokens.textSecondary, size: 18),
+                onPressed: () => setState(() => _selected = null),
+              ),
+            ],
           ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text('${_actionFull(action)} — $desc vs dealer $dealer',
-                style: const TextStyle(
-                    color: AppTokens.textPrimary, fontWeight: FontWeight.w600)),
-          ),
-          IconButton(
-            icon: const Icon(Icons.close, color: AppTokens.textSecondary, size: 18),
-            onPressed: () => setState(() => _selected = null),
-          ),
+          const SizedBox(height: 8),
+          Text(explanation,
+              style: const TextStyle(
+                  color: AppTokens.textSecondary, fontSize: 13, height: 1.5)),
         ],
       ),
     );

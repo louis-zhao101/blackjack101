@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:soundpool/soundpool.dart';
 
@@ -30,19 +32,28 @@ class SoundService {
     options: const SoundpoolOptions(streamType: StreamType.music, maxStreams: 6),
   );
   final Map<String, Future<int>> _ids = {};
+  final Map<String, int> _lastPlayMs = {};
+  final Random _rng = Random();
 
   bool enabled = true;
 
-  void _play(String name) {
+  /// [vary] adds subtle pitch variation so repeated clicks feel organic.
+  /// [minGapMs] drops retriggers fired too close together, which is what makes
+  /// rapid dealing/betting sound harsh and machine-gunned.
+  void _play(String name, {bool vary = false, int minGapMs = 0}) {
     if (!enabled) return;
-    _ids[name]?.then((id) => _pool.play(id));
+    final now = DateTime.now().millisecondsSinceEpoch;
+    if (minGapMs > 0 && now - (_lastPlayMs[name] ?? 0) < minGapMs) return;
+    _lastPlayMs[name] = now;
+    final rate = vary ? 0.97 + _rng.nextDouble() * 0.09 : 1.0;
+    _ids[name]?.then((id) => _pool.play(id, rate: rate));
   }
 
-  void chipPlace() => _play('chip_place');
-  void chipStack() => _play('chip_stack');
-  void cardDeal() => _play('card_deal');
-  void cardFlip() => _play('card_flip');
-  void shuffle() => _play('shuffle');
+  void chipPlace() => _play('chip_place', vary: true, minGapMs: 40);
+  void chipStack() => _play('chip_stack', vary: true, minGapMs: 40);
+  void cardDeal() => _play('card_deal', vary: true, minGapMs: 40);
+  void cardFlip() => _play('card_flip', minGapMs: 40);
+  void shuffle() => _play('shuffle', minGapMs: 200);
   void win() => _play('win');
   void lose() => _play('lose');
   void push() => _play('push');

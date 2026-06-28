@@ -363,6 +363,34 @@ Action getChartAction(HandType handType, Object playerValue, String dealerRank, 
   return actionFromCode(action);
 }
 
+/// The full beginner-facing "why" for a chart cell — the same reasoning used in
+/// gameplay feedback, reused so the strategy chart can teach, not just label.
+String chartExplanation(HandType handType, Object value, String dealerRank, RuleSet ruleSet) {
+  final di = _dealerIndex(dealerRank);
+  final t = _tables(ruleSet);
+  if (handType == HandType.pair) {
+    final row = t.pairs[value.toString()];
+    var a = row != null ? row[di] : 'H';
+    if (a == 'R' && ruleSet.surrender == Surrender.none) a = 'H';
+    return _pairExplanation(value.toString(), dealerRank, a);
+  } else if (handType == HandType.soft) {
+    final total = int.parse(value.toString());
+    final row = t.soft[total];
+    final raw = row != null ? row[di] : 'H';
+    final isDs = raw == 'Ds';
+    var a = isDs ? 'D' : raw;
+    if (a == 'R' && ruleSet.surrender == Surrender.none) a = total >= 17 ? 'S' : 'H';
+    return _softExplanation(total, dealerRank, a, isDs);
+  } else {
+    final total = int.parse(value.toString());
+    final clamped = total.clamp(8, 17);
+    final row = t.hard[clamped];
+    var a = row != null ? row[di] : (total >= 17 ? 'S' : 'H');
+    if (a == 'R' && ruleSet.surrender == Surrender.none) a = total >= 17 ? 'S' : 'H';
+    return _hardExplanation(total, dealerRank, a);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Difficulty: how non-obvious the optimal decision is for the hands dealt.
 // This steers WHICH starting hands appear, not the odds of winning — the
