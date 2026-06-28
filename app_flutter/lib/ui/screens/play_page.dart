@@ -32,17 +32,12 @@ void _reactToGameChange(GameStoreState? prev, GameStoreState next) {
   final resolved = ng.phase == eng.GamePhase.complete &&
       (pg?.phase != eng.GamePhase.complete || next.roundId != prev?.roundId);
   if (resolved) {
-    if (ng.playerHands.any((h) => h.result == eng.HandResult.blackjack)) {
-      sound.blackjack();
+    // Reward optimal strategy, not luck: success if the hand had no mistakes,
+    // failure otherwise — independent of whether chips were won or lost.
+    if (next.handHadMistake) {
+      sound.failure();
     } else {
-      final net = ng.playerHands.fold<int>(0, (s, h) => s + h.payout - h.bet);
-      if (net > 0) {
-        sound.win();
-      } else if (net < 0) {
-        sound.lose();
-      } else {
-        sound.push();
-      }
+      sound.success();
     }
   } else if (ng.phase == eng.GamePhase.playerTurn) {
     // A fresh deal lays down 4 cards (player, dealer, player, dealer) staggered

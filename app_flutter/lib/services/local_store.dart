@@ -50,8 +50,13 @@ class LocalStore {
 
   // --- settings ---
 
-  ({RuleSet ruleSet, int startingBankroll, bool hapticsEnabled, Difficulty difficulty})?
-      loadSettings() {
+  ({
+    RuleSet ruleSet,
+    int startingBankroll,
+    bool hapticsEnabled,
+    bool soundEnabled,
+    Difficulty difficulty
+  })? loadSettings() {
     final raw = _prefs.getString(_settingsKey);
     if (raw == null) return null;
     final map = jsonDecode(raw) as Map<String, dynamic>;
@@ -59,18 +64,20 @@ class LocalStore {
       ruleSet: RuleSet.fromJson(Map<String, dynamic>.from(map['ruleSet'] as Map)),
       startingBankroll: (map['startingBankroll'] as num).toInt(),
       hapticsEnabled: (map['hapticsEnabled'] as bool?) ?? true,
+      soundEnabled: (map['soundEnabled'] as bool?) ?? true,
       difficulty: difficultyFromId((map['difficulty'] as String?) ?? 'regular'),
     );
   }
 
-  Future<void> saveSettings(
-      RuleSet ruleSet, int startingBankroll, bool hapticsEnabled, Difficulty difficulty) {
+  Future<void> saveSettings(RuleSet ruleSet, int startingBankroll, bool hapticsEnabled,
+      bool soundEnabled, Difficulty difficulty) {
     return _prefs.setString(
       _settingsKey,
       jsonEncode({
         'ruleSet': ruleSet.toJson(),
         'startingBankroll': startingBankroll,
         'hapticsEnabled': hapticsEnabled,
+        'soundEnabled': soundEnabled,
         'difficulty': difficultyId(difficulty),
       }),
     );

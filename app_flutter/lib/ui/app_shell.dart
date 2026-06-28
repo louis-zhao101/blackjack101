@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../engine/strategy.dart';
 import '../engine/variants.dart';
+import '../services/sound_service.dart';
 import '../state/app_providers.dart';
 import '../state/appearance_provider.dart';
 import '../state/auth_provider.dart';
@@ -325,6 +326,19 @@ class AccountPage extends ConsumerWidget {
                 onChanged: (v) {
                   ref.read(settingsProvider.notifier).setHaptics(v);
                   if (v) selectionHaptic();
+                },
+              ),
+            ),
+            _SettingRow(
+              icon: Icons.volume_up_outlined,
+              title: 'Sound effects',
+              subtitle: 'Cards, chips & outcome sounds',
+              trailing: Switch(
+                value: settings.soundEnabled,
+                activeThumbColor: theme.gold,
+                onChanged: (v) {
+                  ref.read(settingsProvider.notifier).setSound(v);
+                  if (v) SoundService.instance.chipPlace();
                 },
               ),
             ),
