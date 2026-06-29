@@ -123,9 +123,8 @@ class _Card extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0x1AFFFFFF),
-        borderRadius: BorderRadius.circular(AppTokens.radiusLg),
-        border: Border.all(color: const Color(0x22FFFFFF)),
+        color: const Color(0x14FFFFFF),
+        borderRadius: BorderRadius.circular(20),
       ),
       child: child,
     );
@@ -136,10 +135,10 @@ Widget _heading(String text) => Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Text(text,
           style: const TextStyle(
-              color: AppTokens.textPrimary, fontSize: 17, fontWeight: FontWeight.bold)),
+              color: AppTokens.textPrimary, fontSize: 15, fontWeight: FontWeight.bold)),
     );
 
-const _body = TextStyle(color: AppTokens.textSecondary, height: 1.5);
+const _body = TextStyle(color: AppTokens.textSecondary, fontSize: 13, height: 1.5);
 
 Widget _takeaway(String text) => Padding(
       padding: const EdgeInsets.only(top: 10),
@@ -153,6 +152,7 @@ Widget _takeaway(String text) => Padding(
                 style: TextStyle(
                     color: classicGreen.goldLight,
                     fontWeight: FontWeight.w600,
+                    fontSize: 13,
                     height: 1.4)),
           ),
         ],
@@ -372,15 +372,22 @@ class _StrategyTab extends StatelessWidget {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _heading('Basic Strategy'),
-          const Text(
-            'The mathematically optimal decision for every hand vs the dealer\'s upcard. Perfect basic strategy reduces the house edge to ~0.5% on a 6-deck game. Tap any cell for an explanation.',
-            style: _body,
+          _Card(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _heading('Basic Strategy'),
+                const Text(
+                  'The mathematically optimal decision for every hand vs the dealer\'s upcard. Perfect basic strategy reduces the house edge to ~0.5% on a 6-deck game. Tap any cell for an explanation.',
+                  style: _body,
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: 16),
-          const StrategyChart(),
+          const SizedBox(height: 12),
+          const _Card(child: StrategyChart()),
         ],
       ),
     );
@@ -420,13 +427,16 @@ class _MistakesTab extends StatelessWidget {
                         style: const TextStyle(
                             color: AppTokens.textPrimary,
                             fontWeight: FontWeight.bold,
-                            fontSize: 15)),
+                            fontSize: 14)),
                   ),
                 ],
               ),
               const SizedBox(height: 8),
               Text('Correct play: $correct',
-                  style: TextStyle(color: classicGreen.goldLight, fontWeight: FontWeight.w600)),
+                  style: TextStyle(
+                      color: classicGreen.goldLight,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13)),
               const SizedBox(height: 6),
               Text(why, style: _body),
             ],
@@ -442,23 +452,28 @@ class _GlossaryTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListView.separated(
+    return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
-      itemCount: _glossary.length,
-      separatorBuilder: (context, index) => const Divider(color: Color(0x22FFFFFF)),
-      itemBuilder: (context, i) {
-        final (term, def) = _glossary[i];
-        return Column(
+      child: _Card(
+        child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(term,
-                style: TextStyle(
-                    color: classicGreen.gold, fontWeight: FontWeight.bold, fontSize: 15)),
-            const SizedBox(height: 4),
-            Text(def, style: _body),
+            for (var i = 0; i < _glossary.length; i++) ...[
+              if (i > 0)
+                Container(
+                  height: 1,
+                  color: const Color(0x12FFFFFF),
+                  margin: const EdgeInsets.symmetric(vertical: 12),
+                ),
+              Text(_glossary[i].$1,
+                  style: TextStyle(
+                      color: classicGreen.gold, fontWeight: FontWeight.bold, fontSize: 14)),
+              const SizedBox(height: 4),
+              Text(_glossary[i].$2, style: _body),
+            ],
           ],
-        );
-      },
+        ),
+      ),
     );
   }
 }

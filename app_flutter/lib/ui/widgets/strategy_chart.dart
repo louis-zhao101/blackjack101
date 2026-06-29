@@ -15,15 +15,15 @@ const _pairRanks = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'A'];
 ({Color bg, Color fg}) _actionStyle(st.Action a) {
   switch (a) {
     case st.Action.hit:
-      return (bg: const Color(0x8CEAB308), fg: const Color(0xFF1A1A1A));
+      return (bg: const Color(0xFFD98C45), fg: const Color(0xFF21160A)); // amber
     case st.Action.stand:
-      return (bg: const Color(0x8C22C55E), fg: const Color(0xFF1A1A1A));
+      return (bg: const Color(0xFF49A178), fg: const Color(0xFF0C1A12)); // green
     case st.Action.double:
-      return (bg: const Color(0x8C3B82F6), fg: Colors.white);
+      return (bg: const Color(0xFF5285C4), fg: Colors.white); // blue
     case st.Action.split:
-      return (bg: const Color(0x8CA855F7), fg: Colors.white);
+      return (bg: const Color(0xFF9270C4), fg: Colors.white); // purple
     case st.Action.surrender:
-      return (bg: const Color(0x8CEF4444), fg: Colors.white);
+      return (bg: const Color(0xFFBE5A5A), fg: Colors.white); // red
   }
 }
 
@@ -71,15 +71,55 @@ class _StrategyChartState extends ConsumerState<StrategyChart> {
         const SizedBox(height: 10),
         _legend(ruleSet),
         const SizedBox(height: 10),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _headerRow(),
-              for (final row in rows) _dataRow(handType, row.label, row.value, ruleSet),
-            ],
-          ),
+        LayoutBuilder(
+          builder: (context, c) {
+            const headerW = 40.0;
+            final col = (c.maxWidth - headerW) / _dealerRanks.length;
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const SizedBox(width: headerW, height: 22),
+                    for (final r in _dealerRanks)
+                      Expanded(
+                        child: SizedBox(
+                          height: 22,
+                          child: Center(
+                            child: Text(r,
+                                style: const TextStyle(
+                                    color: AppTokens.textSecondary,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold)),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                for (final row in rows)
+                  Row(
+                    children: [
+                      SizedBox(
+                        width: headerW,
+                        height: col,
+                        child: Center(
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(row.label,
+                                style: const TextStyle(
+                                    color: AppTokens.textSecondary,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold)),
+                          ),
+                        ),
+                      ),
+                      for (final dr in _dealerRanks)
+                        Expanded(child: _actionCell(handType, row.value, dr, ruleSet, col)),
+                    ],
+                  ),
+              ],
+            );
+          },
         ),
         if (_selected != null) ...[
           const SizedBox(height: 12),
@@ -97,18 +137,36 @@ class _StrategyChartState extends ConsumerState<StrategyChart> {
     };
     return Wrap(
       spacing: 8,
+      runSpacing: 8,
       children: [
         for (final t in _ChartTab.values)
-          ChoiceChip(
-            label: Text(labels[t]!),
-            selected: _tab == t,
-            onSelected: (_) {
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () {
               selectionHaptic();
               setState(() {
                 _tab = t;
                 _selected = null;
               });
             },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: _tab == t
+                    ? classicGreen.gold.withValues(alpha: 0.16)
+                    : const Color(0x14FFFFFF),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: _tab == t ? classicGreen.gold : const Color(0x22FFFFFF),
+                  width: _tab == t ? 1.5 : 1,
+                ),
+              ),
+              child: Text(labels[t]!,
+                  style: TextStyle(
+                      color: _tab == t ? classicGreen.gold : AppTokens.textSecondary,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13)),
+            ),
           ),
       ],
     );
@@ -130,7 +188,14 @@ class _StrategyChartState extends ConsumerState<StrategyChart> {
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(width: 14, height: 14, color: _actionStyle(a).bg),
+              Container(
+                width: 14,
+                height: 14,
+                decoration: BoxDecoration(
+                  color: _actionStyle(a).bg,
+                  borderRadius: BorderRadius.circular(3),
+                ),
+              ),
               const SizedBox(width: 4),
               Text(label,
                   style: const TextStyle(color: AppTokens.textSecondary, fontSize: 12)),
@@ -140,26 +205,8 @@ class _StrategyChartState extends ConsumerState<StrategyChart> {
     );
   }
 
-  Widget _headerRow() {
-    return Row(
-      children: [
-        _cell('', isHeader: true),
-        for (final r in _dealerRanks) _cell(r, isHeader: true),
-      ],
-    );
-  }
-
-  Widget _dataRow(st.HandType handType, String label, Object value, RuleSet ruleSet) {
-    return Row(
-      children: [
-        _cell(label, isRowHeader: true),
-        for (final dr in _dealerRanks)
-          _actionCell(handType, value, dr, ruleSet),
-      ],
-    );
-  }
-
-  Widget _actionCell(st.HandType handType, Object value, String dealer, RuleSet ruleSet) {
+  Widget _actionCell(
+      st.HandType handType, Object value, String dealer, RuleSet ruleSet, double col) {
     final action = st.getChartAction(handType, value, dealer, ruleSet);
     final style = _actionStyle(action);
     final key = '${handType.name}|$value|$dealer';
@@ -169,33 +216,22 @@ class _StrategyChartState extends ConsumerState<StrategyChart> {
         selectionHaptic();
         setState(() => _selected = key);
       },
-      child: Container(
-        width: 30,
-        height: 30,
-        margin: const EdgeInsets.all(1),
-        decoration: BoxDecoration(
-          color: style.bg,
-          borderRadius: BorderRadius.circular(4),
-          border: selected ? Border.all(color: Colors.white, width: 2) : null,
+      child: SizedBox(
+        height: col,
+        child: Padding(
+          padding: const EdgeInsets.all(1.5),
+          child: Container(
+            decoration: BoxDecoration(
+              color: style.bg,
+              borderRadius: BorderRadius.circular(6),
+              border: selected ? Border.all(color: Colors.white, width: 2) : null,
+            ),
+            alignment: Alignment.center,
+            child: Text(st.actionCode(action),
+                style: TextStyle(color: style.fg, fontSize: 12, fontWeight: FontWeight.bold)),
+          ),
         ),
-        alignment: Alignment.center,
-        child: Text(st.actionCode(action),
-            style: TextStyle(color: style.fg, fontSize: 12, fontWeight: FontWeight.bold)),
       ),
-    );
-  }
-
-  Widget _cell(String text, {bool isHeader = false, bool isRowHeader = false}) {
-    return Container(
-      width: isRowHeader ? 44 : 30,
-      height: 30,
-      margin: const EdgeInsets.all(1),
-      alignment: Alignment.center,
-      child: Text(text,
-          style: TextStyle(
-              color: AppTokens.textSecondary,
-              fontSize: isRowHeader ? 11 : 12,
-              fontWeight: FontWeight.bold)),
     );
   }
 
@@ -216,9 +252,9 @@ class _StrategyChartState extends ConsumerState<StrategyChart> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0x1AFFFFFF),
-        borderRadius: BorderRadius.circular(AppTokens.radius),
-        border: Border.all(color: const Color(0x33FFFFFF)),
+        color: const Color(0x1FFFFFFF),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: classicGreen.gold.withValues(alpha: 0.35)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
