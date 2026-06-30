@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../engine/cards.dart' as bj;
 import '../theme/appearance.dart';
@@ -23,6 +24,7 @@ class PlayingCardView extends StatelessWidget {
   Widget build(BuildContext context) {
     final radius = BorderRadius.circular(AppTokens.radiusCard);
     if (card.faceDown) {
+      final asset = theme.cardBackAsset;
       return Container(
         width: width,
         height: _height,
@@ -33,9 +35,14 @@ class PlayingCardView extends StatelessWidget {
           border: Border.all(color: const Color(0x33000000)),
         ),
         clipBehavior: Clip.antiAlias,
-        child: card.faceDown && theme.cardBackPattern == CardBackPattern.diagonalHatch
-            ? CustomPaint(painter: _HatchPainter())
-            : null,
+        child: asset != null
+            ? (asset.endsWith('.svg')
+                ? SvgPicture.asset(asset, fit: BoxFit.cover, width: width, height: _height)
+                : Image.asset(asset, fit: BoxFit.cover, width: width, height: _height))
+            : theme.cardBackPattern == CardBackPattern.solid
+                ? null
+                : CustomPaint(
+                    painter: _CardBackPainter(theme.cardBackPattern, theme.cardBackAccent)),
       );
     }
 
@@ -92,20 +99,62 @@ class PlayingCardView extends StatelessWidget {
   ];
 }
 
-class _HatchPainter extends CustomPainter {
+class _CardBackPainter extends CustomPainter {
+  final CardBackPattern pattern;
+  final Color accent;
+  _CardBackPainter(this.pattern, this.accent);
+
   @override
   void paint(Canvas canvas, Size size) {
+    switch (pattern) {
+      case CardBackPattern.solid:
+        return;
+      case CardBackPattern.diagonalHatch:
+        _hatch(canvas, size, both: true);
+      case CardBackPattern.grid:
+        _grid(canvas, size);
+      case CardBackPattern.dots:
+        _dots(canvas, size);
+    }
+  }
+
+  void _hatch(Canvas canvas, Size size, {required bool both}) {
     final paint = Paint()
-      ..color = const Color(0x14FFFFFF)
+      ..color = accent
       ..strokeWidth = 2;
     const step = 8.0;
     for (double d = -size.height; d < size.width; d += step) {
       canvas.drawLine(Offset(d, 0), Offset(d + size.height, size.height), paint);
-      canvas.drawLine(
-          Offset(d, size.height), Offset(d + size.height, 0), paint);
+      if (both) {
+        canvas.drawLine(Offset(d, size.height), Offset(d + size.height, 0), paint);
+      }
+    }
+  }
+
+  void _grid(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = accent
+      ..strokeWidth = 1.4;
+    const step = 7.0;
+    for (double x = step; x < size.width; x += step) {
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
+    }
+    for (double y = step; y < size.height; y += step) {
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
+    }
+  }
+
+  void _dots(Canvas canvas, Size size) {
+    final paint = Paint()..color = accent;
+    const step = 8.0;
+    for (double y = step / 2; y < size.height; y += step) {
+      for (double x = step / 2; x < size.width; x += step) {
+        canvas.drawCircle(Offset(x, y), 1.4, paint);
+      }
     }
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _CardBackPainter old) =>
+      old.pattern != pattern || old.accent != accent;
 }

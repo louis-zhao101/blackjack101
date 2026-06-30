@@ -7,9 +7,11 @@ import '../../engine/strategy.dart' as st;
 import '../../state/appearance_provider.dart';
 import '../../state/auth_provider.dart';
 import '../../state/stats_provider.dart';
+import '../../state/store_provider.dart';
 import '../auth_screen.dart';
 import '../theme/appearance.dart';
 import '../widgets/game_button.dart';
+import 'shop_page.dart';
 
 const _good = Color(0xFF6EE7B7);
 const _ok = Color(0xFFF0C84A);
@@ -21,6 +23,7 @@ const _tileBg = Color(0x24FFFFFF);
 const _divider = Color(0x12FFFFFF);
 
 const _recentLimit = 5;
+const _freeHistoryLimit = 3;
 const _chartWindow = 10;
 
 String _actionName(st.Action a) => switch (a) {
@@ -42,6 +45,7 @@ class StatsPage extends ConsumerWidget {
     if (!loggedIn) return const _StatsSignInGate();
 
     final theme = ref.watch(appearanceProvider);
+    final isPremium = ref.watch(entitlementsProvider).isPremium;
     final stats = ref.watch(statsProvider);
     final hasLive = stats.currentSession != null && stats.currentSession!.hands.isNotEmpty;
     final allSessions = [
@@ -74,7 +78,9 @@ class StatsPage extends ConsumerWidget {
     final eligible = summaries.where((s) => s.handsPlayed >= 5).map((s) => s.correctPct);
     final bestSession = eligible.isEmpty ? 0.0 : eligible.reduce((a, b) => a > b ? a : b);
 
-    final shownSessions = recentFirst.take(_recentLimit).toList();
+    final historyLimit = isPremium ? _recentLimit : _freeHistoryLimit;
+    final shownSessions = recentFirst.take(historyLimit).toList();
+    final hiddenSessions = recentFirst.length - shownSessions.length;
     final topMistakes = mistakes.take(5).toList();
 
     // Chart shows only the most recent sessions so the axis stays readable.
@@ -122,19 +128,27 @@ class StatsPage extends ConsumerWidget {
           const SizedBox(height: 16),
           _Section(
             title: 'Accuracy over sessions',
-            trailing: summaries.length > _chartWindow
+            trailing: isPremium && summaries.length > _chartWindow
                 ? const Text('last $_chartWindow',
                     style: TextStyle(color: AppTokens.textSecondary, fontSize: 12))
                 : null,
             children: [
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: SizedBox(
-                  height: 200,
-                  child: _AccuracyChart(
-                      summaries: chartSummaries, startIndex: chartStart, color: theme.gold),
+              if (isPremium)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: SizedBox(
+                    height: 200,
+                    child: _AccuracyChart(
+                        summaries: chartSummaries, startIndex: chartStart, color: theme.gold),
+                  ),
+                )
+              else
+                _PremiumLock(
+                  theme: theme,
+                  label: 'See your accuracy trend',
+                  sublabel: 'Track how you improve across every session.',
+                  onTap: () => openGoPro(context),
                 ),
-              ),
             ],
           ),
         ],
@@ -148,13 +162,22 @@ class StatsPage extends ConsumerWidget {
               if (i > 0) const _Divider(),
               _SessionTile(s: shownSessions[i], theme: theme),
             ],
-            if (recentFirst.length > shownSessions.length) ...[
+            if (hiddenSessions > 0) ...[
               const _Divider(),
-              _StatRow(
-                icon: Icons.unfold_more,
-                label: 'View all ${recentFirst.length} sessions',
-                onTap: () => _showAllSessions(context, theme, recentFirst),
-              ),
+              if (isPremium)
+                _StatRow(
+                  icon: Icons.unfold_more,
+                  label: 'View all ${recentFirst.length} sessions',
+                  onTap: () => _showAllSessions(context, theme, recentFirst),
+                )
+              else
+                _StatRow(
+                  icon: Icons.lock_outline,
+                  label: 'Unlock full history ($hiddenSessions more)',
+                  value: 'Pro',
+                  valueColor: theme.goldLight,
+                  onTap: () => openGoPro(context),
+                ),
             ],
           ],
         ),
@@ -172,7 +195,11 @@ class StatsPage extends ConsumerWidget {
               ),
               for (final m in topMistakes) ...[
                 const _Divider(),
-                _MistakeTile(m: m),
+                _MistakeTile(
+                  m: m,
+                  unlocked: isPremium,
+                  onLockedTap: () => openGoPro(context),
+                ),
               ],
             ],
           ),
@@ -430,7 +457,10 @@ class _SessionTile extends StatelessWidget {
 
 class _MistakeTile extends StatefulWidget {
   final MistakeSummary m;
-  const _MistakeTile({required this.m});
+  final bool unlocked;
+  final VoidCallback onLockedTap;
+  const _MistakeTile(
+      {required this.m, required this.unlocked, required this.onLockedTap});
 
   @override
   State<_MistakeTile> createState() => _MistakeTileState();
@@ -445,7 +475,13 @@ class _MistakeTileState extends State<_MistakeTile> {
     final kind = m.soft ? 'Soft ' : (m.handType == st.HandType.pair ? 'Pair of ' : 'Hard ');
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: withHaptic(() => setState(() => _expanded = !_expanded)),
+      onTap: withHaptic(() {
+        if (widget.unlocked) {
+          setState(() => _expanded = !_expanded);
+        } else {
+          widget.onLockedTap();
+        }
+      }),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 9),
         child: Column(
@@ -467,11 +503,14 @@ class _MistakeTileState extends State<_MistakeTile> {
                       style: const TextStyle(
                           color: AppTokens.textPrimary, fontWeight: FontWeight.bold, fontSize: 14)),
                 ),
-                AnimatedRotation(
-                  turns: _expanded ? 0.5 : 0,
-                  duration: const Duration(milliseconds: 180),
-                  child: const Icon(Icons.expand_more, color: AppTokens.textSecondary, size: 20),
-                ),
+                if (widget.unlocked)
+                  AnimatedRotation(
+                    turns: _expanded ? 0.5 : 0,
+                    duration: const Duration(milliseconds: 180),
+                    child: const Icon(Icons.expand_more, color: AppTokens.textSecondary, size: 20),
+                  )
+                else
+                  Icon(Icons.lock_outline, color: classicGreen.goldLight, size: 17),
               ],
             ),
             const SizedBox(height: 5),
@@ -481,7 +520,7 @@ class _MistakeTileState extends State<_MistakeTile> {
               duration: const Duration(milliseconds: 180),
               curve: Curves.easeOut,
               alignment: Alignment.topCenter,
-              child: _expanded
+              child: widget.unlocked && _expanded
                   ? Padding(
                       padding: const EdgeInsets.only(top: 6),
                       child: Text(m.explanation,
@@ -489,6 +528,60 @@ class _MistakeTileState extends State<_MistakeTile> {
                               color: AppTokens.textSecondary, height: 1.4, fontSize: 12.5)),
                     )
                   : const SizedBox(width: double.infinity),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// A tappable "this is Premium" panel used inside a stats section.
+class _PremiumLock extends StatelessWidget {
+  final AppearanceTheme theme;
+  final String label;
+  final String sublabel;
+  final VoidCallback onTap;
+  const _PremiumLock(
+      {required this.theme,
+      required this.label,
+      required this.sublabel,
+      required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: withHaptic(onTap),
+      child: Container(
+        width: double.infinity,
+        margin: const EdgeInsets.symmetric(vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 22),
+        decoration: BoxDecoration(
+          color: theme.gold.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: theme.gold.withValues(alpha: 0.4)),
+        ),
+        child: Column(
+          children: [
+            Icon(Icons.lock_outline, color: theme.goldLight, size: 26),
+            const SizedBox(height: 8),
+            Text(label,
+                style: const TextStyle(
+                    color: AppTokens.textPrimary, fontWeight: FontWeight.w600, fontSize: 14)),
+            const SizedBox(height: 3),
+            Text(sublabel,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                    color: AppTokens.textSecondary, fontSize: 12, height: 1.3)),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+              decoration:
+                  BoxDecoration(color: theme.gold, borderRadius: BorderRadius.circular(10)),
+              child: Text('Unlock with Pro',
+                  style: TextStyle(
+                      color: theme.feltDark, fontWeight: FontWeight.bold, fontSize: 12.5)),
             ),
           ],
         ),

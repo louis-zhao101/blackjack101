@@ -7,11 +7,13 @@ import '../../services/sound_service.dart';
 import '../../state/appearance_provider.dart';
 import '../../state/game_provider.dart';
 import '../../state/settings_provider.dart';
+import '../../state/store_provider.dart';
 import '../theme/appearance.dart';
 import '../widgets/bet_chip_stack.dart';
 import '../widgets/blackjack_hand.dart';
 import '../widgets/chip_widget.dart';
 import '../widgets/game_button.dart';
+import 'shop_page.dart';
 
 const _chipDenoms = [5, 25, 100, 500];
 
@@ -105,10 +107,10 @@ class PlayPage extends ConsumerWidget {
           child: LayoutBuilder(
             builder: (context, constraints) {
               final cardWidth = constraints.maxWidth < 480
-                  ? 52.0
+                  ? 58.0
                   : constraints.maxWidth < 900
-                  ? 68.0
-                  : 80.0;
+                  ? 76.0
+                  : 88.0;
               final bet = game.phase == eng.GamePhase.betting
                   ? game.pendingBet
                   : game.playerHands.fold<int>(0, (s, h) => s + h.bet);
@@ -138,7 +140,7 @@ class PlayPage extends ConsumerWidget {
                           roundId: store.roundId,
                         ),
                         SizedBox(
-                          height: 36,
+                          height: 28,
                           width: double.infinity,
                           child: Align(
                             alignment: Alignment.topCenter,
@@ -407,7 +409,7 @@ class _TableCenter extends StatelessWidget {
           textAlign: TextAlign.center,
           style: TextStyle(
             color: color,
-            fontSize: 30,
+            fontSize: 22,
             fontWeight: FontWeight.bold,
             letterSpacing: 0.5,
           ),
@@ -781,29 +783,58 @@ class _CompleteActions extends StatelessWidget {
   }
 }
 
-class _StrategyHint extends StatelessWidget {
+class _StrategyHint extends ConsumerWidget {
   final LastHandInfo info;
   final AppearanceTheme theme;
   const _StrategyHint({required this.info, required this.theme});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final correct = info.wasCorrect;
+    final locked = !correct && !ref.watch(entitlementsProvider).isPremium;
     return GestureDetector(
       onTap: withHaptic(
         () => showDialog(
           context: context,
-          builder: (_) => AlertDialog(
+          builder: (dialogCtx) => AlertDialog(
             title: Text(
               correct ? 'Optimal play ✓' : 'Optimal: ${info.optimal.label}',
             ),
-            content: Text(info.optimal.explanation),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Got it'),
-              ),
-            ],
+            content: locked
+                ? Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Icon(Icons.lock_outline, size: 18, color: theme.goldLight),
+                      const SizedBox(width: 10),
+                      const Expanded(
+                        child: Text(
+                          'Unlock the reasoning behind every mistake to learn faster.',
+                          style: TextStyle(color: AppTokens.textSecondary, height: 1.4),
+                        ),
+                      ),
+                    ],
+                  )
+                : Text(info.optimal.explanation),
+            actions: locked
+                ? [
+                    TextButton(
+                      onPressed: () => Navigator.pop(dialogCtx),
+                      child: const Text('Not now'),
+                    ),
+                    FilledButton(
+                      onPressed: () {
+                        Navigator.pop(dialogCtx);
+                        openGoPro(context);
+                      },
+                      child: const Text('Go Pro'),
+                    ),
+                  ]
+                : [
+                    TextButton(
+                      onPressed: () => Navigator.pop(dialogCtx),
+                      child: const Text('Got it'),
+                    ),
+                  ],
           ),
         ),
       ),

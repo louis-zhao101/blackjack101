@@ -11,6 +11,9 @@ class LocalStore {
   static const _statsKey = 'bj101-stats';
   static const _settingsKey = 'bj101-settings';
   static const _appearanceKey = 'bj101-appearance';
+  static const _cardBackKey = 'bj101-card-back';
+  static const _chipStyleKey = 'bj101-chip-style';
+  static const _ownedKey = 'bj101-owned-products';
 
   final SharedPreferences _prefs;
   LocalStore(this._prefs);
@@ -20,6 +23,21 @@ class LocalStore {
   String? loadAppearanceId() => _prefs.getString(_appearanceKey);
 
   Future<void> saveAppearanceId(String id) => _prefs.setString(_appearanceKey, id);
+
+  String? loadCardBackId() => _prefs.getString(_cardBackKey);
+
+  Future<void> saveCardBackId(String id) => _prefs.setString(_cardBackKey, id);
+
+  String? loadChipStyleId() => _prefs.getString(_chipStyleKey);
+
+  Future<void> saveChipStyleId(String id) => _prefs.setString(_chipStyleKey, id);
+
+  // --- store entitlements (owned product ids) ---
+
+  Set<String> loadOwnedProducts() => _prefs.getStringList(_ownedKey)?.toSet() ?? <String>{};
+
+  Future<void> saveOwnedProducts(Set<String> ids) =>
+      _prefs.setStringList(_ownedKey, ids.toList());
 
   // --- stats ---
 

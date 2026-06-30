@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 /// Card-back visual style. Add new patterns here as more skins are introduced.
-enum CardBackPattern { diagonalHatch, solid }
+enum CardBackPattern { diagonalHatch, solid, grid, dots }
 
 /// All user-customizable table visuals live here. Swapping skins (table felt,
 /// card back, chips, accents) later is just selecting a different
@@ -30,6 +30,8 @@ class AppearanceTheme {
   // Card back.
   final Color cardBackColor;
   final CardBackPattern cardBackPattern;
+  final Color cardBackAccent;
+  final String? cardBackAsset;
 
   // Chips by denomination → (gradient inner, gradient outer).
   final Map<int, (Color, Color)> chipColors;
@@ -49,8 +51,33 @@ class AppearanceTheme {
     required this.cardBlack,
     required this.cardBackColor,
     required this.cardBackPattern,
+    this.cardBackAccent = const Color(0x14FFFFFF),
+    this.cardBackAsset,
     required this.chipColors,
   });
+
+  /// Overlays a [CardBack] and/or [ChipStyle] cosmetic onto this table theme.
+  /// Card backs and chips are sold independently of the felt, so the active
+  /// look is the selected table theme composed with the chosen cosmetics.
+  AppearanceTheme copyWith({CardBack? cardBack, ChipStyle? chipStyle}) => AppearanceTheme(
+        id: id,
+        name: name,
+        feltLight: feltLight,
+        felt: felt,
+        feltDark: feltDark,
+        feltBorder: feltBorder,
+        gold: gold,
+        goldLight: goldLight,
+        goldDark: goldDark,
+        cardFace: cardFace,
+        cardRed: cardRed,
+        cardBlack: cardBlack,
+        cardBackColor: cardBack?.color ?? cardBackColor,
+        cardBackPattern: cardBack?.pattern ?? cardBackPattern,
+        cardBackAccent: cardBack?.accent ?? cardBackAccent,
+        cardBackAsset: cardBack != null ? cardBack.asset : cardBackAsset,
+        chipColors: chipStyle?.colors ?? chipColors,
+      );
 
   Gradient get feltGradient => RadialGradient(
         center: const Alignment(0, -0.2),
@@ -134,10 +161,197 @@ const AppearanceTheme crimson = AppearanceTheme(
   },
 );
 
-const List<AppearanceTheme> appearancePresets = [classicGreen, midnightBlue, crimson];
+const AppearanceTheme obsidian = AppearanceTheme(
+  id: 'obsidian',
+  name: 'Obsidian',
+  feltLight: Color(0xFF2C2C32),
+  felt: Color(0xFF1C1C21),
+  feltDark: Color(0xFF101013),
+  feltBorder: Color(0xFF3D3D45),
+  gold: Color(0xFFD4A843),
+  goldLight: Color(0xFFF0C84A),
+  goldDark: Color(0xFFB8862A),
+  cardFace: Color(0xFFFFFEF9),
+  cardRed: Color(0xFFC0392B),
+  cardBlack: Color(0xFF1A1A1A),
+  cardBackColor: Color(0xFF2E2E36),
+  cardBackPattern: CardBackPattern.solid,
+  chipColors: {
+    5: (Color(0xFFE74C3C), Color(0xFFC0392B)),
+    25: (Color(0xFF3498DB), Color(0xFF2980B9)),
+    100: (Color(0xFF2ECC71), Color(0xFF27AE60)),
+    500: (Color(0xFFD4A843), Color(0xFFB8862A)),
+  },
+);
+
+const AppearanceTheme royalPurple = AppearanceTheme(
+  id: 'royal-purple',
+  name: 'Royal Purple',
+  feltLight: Color(0xFF4A2A6E),
+  felt: Color(0xFF341E4F),
+  feltDark: Color(0xFF1E1230),
+  feltBorder: Color(0xFF5E3A8A),
+  gold: Color(0xFFE2C067),
+  goldLight: Color(0xFFF3D98A),
+  goldDark: Color(0xFFB8973F),
+  cardFace: Color(0xFFFFFEF9),
+  cardRed: Color(0xFFC0392B),
+  cardBlack: Color(0xFF1A1A1A),
+  cardBackColor: Color(0xFF2B1A4A),
+  cardBackPattern: CardBackPattern.diagonalHatch,
+  chipColors: {
+    5: (Color(0xFFE74C3C), Color(0xFFC0392B)),
+    25: (Color(0xFF9B72CE), Color(0xFF7E54B5)),
+    100: (Color(0xFF2ECC71), Color(0xFF27AE60)),
+    500: (Color(0xFF2C2C2C), Color(0xFF1A1A1A)),
+  },
+);
+
+const List<AppearanceTheme> appearancePresets = [
+  classicGreen,
+  midnightBlue,
+  crimson,
+  obsidian,
+  royalPurple,
+];
 
 AppearanceTheme appearanceById(String id) =>
     appearancePresets.firstWhere((t) => t.id == id, orElse: () => classicGreen);
+
+// ---------------------------------------------------------------------------
+// Card backs — sold independently of the table felt.
+// ---------------------------------------------------------------------------
+
+@immutable
+class CardBack {
+  final String id;
+  final String name;
+  final Color color;
+  final Color accent;
+  final CardBackPattern pattern;
+
+  /// Optional SVG asset path. When set, the face-down card renders this vector
+  /// art (cover-fit, clipped to the card) instead of the procedural pattern.
+  final String? asset;
+
+  const CardBack({
+    required this.id,
+    required this.name,
+    required this.color,
+    required this.pattern,
+    this.accent = const Color(0x14FFFFFF),
+    this.asset,
+  });
+}
+
+// Image-based backs. The PNG art is full-bleed with its own pre-rounded
+// transparent corners; [color] is the edge tint shown in the corner sliver
+// behind the rounded clip while the asset loads.
+const CardBack cardBackRoyalBlue = CardBack(
+  id: 'back-royal-blue',
+  name: 'Royal Blue',
+  color: Color(0xFF1C39A8),
+  pattern: CardBackPattern.solid,
+  asset: 'assets/card_backs/royal_blue.png',
+);
+const CardBack cardBackCoral = CardBack(
+  id: 'back-coral',
+  name: 'Coral Club',
+  color: Color(0xFFEC6A52),
+  pattern: CardBackPattern.solid,
+  asset: 'assets/card_backs/coral_club.png',
+);
+const CardBack cardBackRose = CardBack(
+  id: 'back-rose',
+  name: 'Rose',
+  color: Color(0xFFD98C95),
+  pattern: CardBackPattern.solid,
+  asset: 'assets/card_backs/rose.png',
+);
+const CardBack cardBackBlackGold = CardBack(
+  id: 'back-black-gold',
+  name: 'Black & Gold',
+  color: Color(0xFF12100C),
+  pattern: CardBackPattern.solid,
+  asset: 'assets/card_backs/black_gold.png',
+);
+const CardBack cardBackEmerald = CardBack(
+  id: 'back-emerald',
+  name: 'Emerald',
+  color: Color(0xFF0F5132),
+  pattern: CardBackPattern.solid,
+  asset: 'assets/card_backs/emerald.png',
+);
+
+const List<CardBack> cardBackPresets = [
+  cardBackRoyalBlue,
+  cardBackCoral,
+  cardBackRose,
+  cardBackBlackGold,
+  cardBackEmerald,
+];
+
+const String kFreeCardBackId = 'back-royal-blue';
+
+CardBack cardBackById(String id) =>
+    cardBackPresets.firstWhere((b) => b.id == id, orElse: () => cardBackRoyalBlue);
+
+// ---------------------------------------------------------------------------
+// Chip styles — the denomination palette, sold independently.
+// ---------------------------------------------------------------------------
+
+@immutable
+class ChipStyle {
+  final String id;
+  final String name;
+  final Map<int, (Color, Color)> colors;
+  const ChipStyle({required this.id, required this.name, required this.colors});
+
+  /// Representative swatch color for shop/picker rows (the $25 chip).
+  Color get swatch => colors[25]?.$1 ?? colors.values.first.$1;
+}
+
+const ChipStyle chipStyleClassic = ChipStyle(
+  id: 'chips-classic',
+  name: 'Classic',
+  colors: {
+    5: (Color(0xFFE74C3C), Color(0xFFC0392B)),
+    25: (Color(0xFF3498DB), Color(0xFF2980B9)),
+    100: (Color(0xFF2ECC71), Color(0xFF27AE60)),
+    500: (Color(0xFF2C2C2C), Color(0xFF1A1A1A)),
+  },
+);
+const ChipStyle chipStyleMonochrome = ChipStyle(
+  id: 'chips-monochrome',
+  name: 'Ivory & Onyx',
+  colors: {
+    5: (Color(0xFFE8E4DA), Color(0xFFB8B2A4)),
+    25: (Color(0xFF9AA0A6), Color(0xFF6B7177)),
+    100: (Color(0xFF4A4F55), Color(0xFF2E3236)),
+    500: (Color(0xFF1C1C1C), Color(0xFF0A0A0A)),
+  },
+);
+const ChipStyle chipStyleSunset = ChipStyle(
+  id: 'chips-sunset',
+  name: 'Sunset',
+  colors: {
+    5: (Color(0xFFFFD166), Color(0xFFE0A82E)),
+    25: (Color(0xFFFF9E64), Color(0xFFE2682B)),
+    100: (Color(0xFFEF476F), Color(0xFFC42E54)),
+    500: (Color(0xFF6D2E46), Color(0xFF45172B)),
+  },
+);
+
+const List<ChipStyle> chipStylePresets = [
+  chipStyleClassic,
+  chipStyleMonochrome,
+  chipStyleSunset,
+];
+
+const String kFreeChipStyleId = 'chips-classic';
+
+ChipStyle chipStyleById(String id) =>
+    chipStylePresets.firstWhere((c) => c.id == id, orElse: () => chipStyleClassic);
 
 /// Builds a [ThemeData] from the active skin so Material surfaces — dialogs,
 /// popup menus, buttons, text fields — all match the table. Rebuilt whenever
