@@ -1,7 +1,11 @@
+import 'package:flutter/services.dart' show PlatformException;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:purchases_flutter/purchases_flutter.dart';
 
+import '../services/purchases_service.dart';
 import '../ui/theme/appearance.dart';
 import 'app_providers.dart';
+import 'auth_provider.dart';
 
 /// The default skin every player owns for free.
 const String kFreeThemeId = 'classic-green';
@@ -104,6 +108,30 @@ const List<StoreProduct> storeProducts = [
       cosmeticId: 'back-emerald',
       name: 'Emerald',
       priceLabel: _cosmeticPrice),
+  StoreProduct(
+      id: 'back_sapphire',
+      kind: CosmeticKind.cardBack,
+      cosmeticId: 'back-sapphire',
+      name: 'Sapphire',
+      priceLabel: _cosmeticPrice),
+  StoreProduct(
+      id: 'back_jade',
+      kind: CosmeticKind.cardBack,
+      cosmeticId: 'back-jade',
+      name: 'Jade',
+      priceLabel: _cosmeticPrice),
+  StoreProduct(
+      id: 'back_garnet',
+      kind: CosmeticKind.cardBack,
+      cosmeticId: 'back-garnet',
+      name: 'Garnet',
+      priceLabel: _cosmeticPrice),
+  StoreProduct(
+      id: 'back_platinum',
+      kind: CosmeticKind.cardBack,
+      cosmeticId: 'back-platinum',
+      name: 'Platinum',
+      priceLabel: _cosmeticPrice),
   // Chip styles.
   StoreProduct(
       id: 'chips_monochrome',
@@ -169,25 +197,44 @@ class LocalPurchaseBackend implements PurchaseBackend {
   Future<Set<String>> restore() async => <String>{};
 }
 
-/// RevenueCat adapter — fill in once `purchases_flutter` is added and products
-/// exist. Steps:
-///   1. `flutter pub add purchases_flutter`
-///   2. At startup: `await Purchases.configure(PurchasesConfiguration(apiKey))`
-///      (use `--dart-define=RC_API_KEY=...`; mobile only — web uses RevenueCat's
-///      Stripe billing via their JS, so keep the local backend for web).
-///   3. purchase(): look up the package in the current `Offering`, call
-///      `Purchases.purchasePackage(pkg)`, then read `customerInfo` to confirm.
-///   4. restore(): `Purchases.restorePurchases()` and map active entitlements
-///      back to product ids.
+/// RevenueCat adapter for à la carte cosmetics (non-consumables). Pro itself is
+/// bought through the hosted paywall (see [PurchasesService]); this backend
+/// powers the per-cosmetic "Unlock" buttons in the Shop. Used on iOS/Android;
+/// web/desktop stay on [LocalPurchaseBackend].
 class RevenueCatPurchaseBackend implements PurchaseBackend {
   @override
   Future<PurchaseResult> purchase(String productId) async {
-    throw UnimplementedError('Wire RevenueCat — see RevenueCatPurchaseBackend doc.');
+    try {
+      final products = await Purchases.getProducts(
+        [productId],
+        productCategory: ProductCategory.nonSubscription,
+      );
+      if (products.isEmpty) return PurchaseResult.error;
+      // Throws on failure/cancellation; reaching the next line means success.
+      await Purchases.purchase(PurchaseParams.storeProduct(products.first));
+      return PurchaseResult.success;
+    } on PlatformException catch (e) {
+      final code = PurchasesErrorHelper.getErrorCode(e);
+      return code == PurchasesErrorCode.purchaseCancelledError
+          ? PurchaseResult.cancelled
+          : PurchaseResult.error;
+    }
   }
 
   @override
   Future<Set<String>> restore() async {
-    throw UnimplementedError('Wire RevenueCat — see RevenueCatPurchaseBackend doc.');
+    try {
+      final info = await Purchases.restorePurchases();
+      final owned = {...info.allPurchasedProductIdentifiers};
+      // An active Blackjack Pro entitlement unlocks everything, surfaced to the
+      // app as the lifetime product it already treats as premium.
+      if (info.entitlements.active.containsKey(kProEntitlement)) {
+        owned.add(kLifetimeProductId);
+      }
+      return owned;
+    } on PlatformException {
+      return <String>{};
+    }
   }
 }
 
@@ -222,12 +269,17 @@ class EntitlementsState {
 }
 
 class EntitlementsController extends Notifier<EntitlementsState> {
-  // Swap to RevenueCatPurchaseBackend() on mobile once RevenueCat is configured.
-  final PurchaseBackend _backend = LocalPurchaseBackend();
+  final PurchaseBackend _backend = PurchasesService.isSupported
+      ? RevenueCatPurchaseBackend()
+      : LocalPurchaseBackend();
 
   @override
   EntitlementsState build() {
-    final owned = ref.read(localStoreProvider).loadOwnedProducts();
+    final owned = {...ref.read(localStoreProvider).loadOwnedProducts()};
+    // An active Blackjack Pro subscription (or lifetime) unlocks everything, so
+    // fold it into the owned set as the lifetime product the rest of the app
+    // already treats as premium.
+    if (ref.watch(proStatusProvider).isPro) owned.add(kLifetimeProductId);
     return EntitlementsState(owned: owned);
   }
 
@@ -252,9 +304,35 @@ class EntitlementsController extends Notifier<EntitlementsState> {
 
   void _grant(Set<String> productIds) {
     final owned = {...state.owned, ...productIds};
-    ref.read(localStoreProvider).saveOwnedProducts(owned);
+    _persist(owned);
     state = EntitlementsState(owned: owned, busy: false);
   }
+
+  /// Merges cosmetics loaded from the user's cloud profile (on login) into the
+  /// owned set, so à la carte unlocks follow the account across devices without
+  /// needing a Restore tap.
+  void mergeOwnedFromCloud(Set<String> cloudOwned) {
+    final incoming = cloudOwned.difference(_proOnly);
+    if (incoming.isEmpty) return;
+    final owned = {...state.owned, ...incoming};
+    _persist(owned);
+    state = state.copyWith(owned: owned);
+  }
+
+  /// Persists cosmetic ownership locally and (if signed in) to the cloud. The
+  /// Pro/lifetime id is never persisted — Pro is always resolved live from
+  /// RevenueCat, so persisting it would leave a lapsed subscriber looking
+  /// premium forever.
+  void _persist(Set<String> owned) {
+    final cosmetics = owned.difference(_proOnly);
+    ref.read(localStoreProvider).saveOwnedProducts(cosmetics);
+    final uid = ref.read(authServiceProvider).currentUser?.uid;
+    if (uid != null) {
+      ref.read(firestoreSyncProvider).upsertOwnedProducts(uid, cosmetics);
+    }
+  }
+
+  static const Set<String> _proOnly = {kLifetimeProductId};
 
   /// Debug only: clears all owned products so the locked/free states can be
   /// re-tested. Has no effect on real store receipts (RevenueCat restores those).
@@ -266,3 +344,38 @@ class EntitlementsController extends Notifier<EntitlementsState> {
 
 final entitlementsProvider =
     NotifierProvider<EntitlementsController, EntitlementsState>(EntitlementsController.new);
+
+/// Live Blackjack Pro entitlement state, sourced from RevenueCat's CustomerInfo
+/// update listener (the single source of truth — it fires on purchase, restore,
+/// renewal, expiry, and cross-device changes).
+class ProStatus {
+  final bool isPro;
+  final CustomerInfo? info;
+  const ProStatus({this.isPro = false, this.info});
+}
+
+class ProStatusController extends Notifier<ProStatus> {
+  @override
+  ProStatus build() {
+    if (PurchasesService.isSupported) {
+      void listener(CustomerInfo info) {
+        state = ProStatus(isPro: PurchasesService.isProActive(info), info: info);
+      }
+
+      Purchases.addCustomerInfoUpdateListener(listener);
+      ref.onDispose(() => Purchases.removeCustomerInfoUpdateListener(listener));
+      _hydrate();
+    }
+    return const ProStatus();
+  }
+
+  Future<void> _hydrate() async {
+    final info = await PurchasesService.currentInfo();
+    state = ProStatus(isPro: PurchasesService.isProActive(info), info: info);
+  }
+
+  Future<void> refresh() => _hydrate();
+}
+
+final proStatusProvider =
+    NotifierProvider<ProStatusController, ProStatus>(ProStatusController.new);

@@ -42,6 +42,8 @@ dependencies:
   fl_chart: ^1.2.0
   soundpool: ^2.4.1
   flutter_svg: ^2.3.0
+  purchases_flutter: ^10.3.0
+  purchases_ui_flutter: ^10.3.0
 
 dev_dependencies:
   flutter_test:

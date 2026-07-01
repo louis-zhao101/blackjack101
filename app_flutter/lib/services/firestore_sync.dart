@@ -5,7 +5,7 @@ import '../engine/stats.dart';
 /// Cloud persistence on Firestore, replacing the Supabase `sync.ts` layer.
 ///
 /// Data model:
-///   users/{uid}                       -> { bankroll, updatedAt }
+///   users/{uid}                       -> { bankroll, ownedProducts, updatedAt }
 ///   users/{uid}/sessions/{sessionId}  -> Session.toJson()
 class FirestoreSync {
   final FirebaseFirestore _db;
@@ -28,6 +28,20 @@ class FirestoreSync {
     );
   }
 
+  /// Mirrors the user's owned à la carte cosmetics into their profile so they
+  /// sync across devices. RevenueCat remains the payment source of truth; this
+  /// is a convenience cache. The Pro/lifetime entitlement is intentionally NOT
+  /// stored here — Pro is always resolved live from RevenueCat.
+  Future<void> upsertOwnedProducts(String uid, Set<String> ownedProducts) {
+    return _userDoc(uid).set(
+      {
+        'ownedProducts': ownedProducts.toList(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
+      SetOptions(merge: true),
+    );
+  }
+
   /// Permanently removes the user's profile and all their sessions.
   Future<void> deleteUserData(String uid) async {
     final sessions = await _sessionsCol(uid).get();
@@ -39,7 +53,8 @@ class FirestoreSync {
     await batch.commit();
   }
 
-  Future<({int? bankroll, List<Session> sessions})> loadUserData(String uid) async {
+  Future<({int? bankroll, List<Session> sessions, Set<String> ownedProducts})> loadUserData(
+      String uid) async {
     final profileFut = _userDoc(uid).get();
     final sessionsFut =
         _sessionsCol(uid).orderBy('startTime', descending: true).limit(50).get();
@@ -49,11 +64,16 @@ class FirestoreSync {
     final sessionsSnap = results[1] as QuerySnapshot<Map<String, dynamic>>;
 
     final bankroll = profile.data()?['bankroll'];
+    final owned = (profile.data()?['ownedProducts'] as List?)
+            ?.map((e) => e as String)
+            .toSet() ??
+        <String>{};
     final sessions = sessionsSnap.docs.map((d) => Session.fromJson(d.data())).toList();
 
     return (
       bankroll: bankroll == null ? null : (bankroll as num).toInt(),
       sessions: sessions,
+      ownedProducts: owned,
     );
   }
 }

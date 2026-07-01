@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../engine/strategy.dart';
 import '../engine/variants.dart';
+import '../services/purchases_service.dart';
 import '../services/sound_service.dart';
 import '../state/app_providers.dart';
 import '../state/appearance_provider.dart';
@@ -298,6 +299,13 @@ class AccountPage extends ConsumerWidget {
                   : 'Unlock everything for $kLifetimePrice',
               onTap: () => openGoPro(context),
             ),
+            if (ref.watch(proStatusProvider).isPro)
+              _SettingRow(
+                icon: Icons.manage_accounts_outlined,
+                title: 'Manage subscription',
+                subtitle: 'Billing, plan & restore',
+                onTap: () => PurchasesService.presentCustomerCenter(),
+              ),
             _SettingRow(
               icon: Icons.storefront_outlined,
               title: 'Shop',
@@ -577,6 +585,7 @@ class _SheetOption extends StatelessWidget {
   final String title;
   final String? subtitle;
   final IconData? subtitleIcon;
+  final bool owned;
   final bool selected;
   final VoidCallback onTap;
   final AppearanceTheme theme;
@@ -585,6 +594,7 @@ class _SheetOption extends StatelessWidget {
     required this.title,
     this.subtitle,
     this.subtitleIcon,
+    this.owned = false,
     required this.selected,
     required this.onTap,
     required this.theme,
@@ -624,7 +634,10 @@ class _SheetOption extends StatelessWidget {
                           color: selected ? theme.goldLight : AppTokens.textPrimary,
                           fontSize: 15,
                           fontWeight: FontWeight.bold)),
-                  if (subtitle != null) ...[
+                  if (owned) ...[
+                    const SizedBox(height: 5),
+                    ownedTag(theme),
+                  ] else if (subtitle != null) ...[
                     const SizedBox(height: 4),
                     Row(
                       children: [
@@ -694,47 +707,23 @@ class _CustomizeScreenState extends State<_CustomizeScreen> {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 40),
             children: [
-              Container(
-                padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(
-                  color: const Color(0x14FFFFFF),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  children: [
-                    for (var i = 0; i < _labels.length; i++)
-                      Expanded(
-                        child: GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onTap: withHaptic(() => setState(() => _tab = i)),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(vertical: 10),
-                            decoration: BoxDecoration(
-                              color: _tab == i ? theme.gold : Colors.transparent,
-                              borderRadius: BorderRadius.circular(9),
-                            ),
-                            child: Text(
-                              _labels[i],
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                color: _tab == i ? theme.feltDark : AppTokens.textSecondary,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
+              AppSegmentedTabs(
+                labels: _labels,
+                current: _tab,
+                onSelect: (i) => setState(() => _tab = i),
               ),
               const SizedBox(height: 16),
-              if (_tab == 0)
-                const _SkinSheet()
-              else if (_tab == 1)
-                const _CardBackSheet()
-              else
-                const _ChipStyleSheet(),
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 260),
+                child: KeyedSubtree(
+                  key: ValueKey(_tab),
+                  child: _tab == 0
+                      ? const _SkinSheet()
+                      : _tab == 1
+                          ? const _CardBackSheet()
+                          : const _ChipStyleSheet(),
+                ),
+              ),
             ],
           ),
         ),
@@ -770,6 +759,7 @@ class _SkinSheet extends ConsumerWidget {
                 ),
               ),
               title: p.name,
+              owned: unlocked && productForCosmeticId(p.id) != null,
               subtitle: unlocked ? null : 'Locked${price != null ? ' · $price' : ''}',
               subtitleIcon: unlocked ? null : Icons.lock_outline,
               onTap: () {
@@ -810,15 +800,11 @@ class _CardBackSheet extends ConsumerWidget {
                 width: 28,
               ),
               title: b.name,
+              owned: unlocked && productForCosmeticId(b.id) != null,
               subtitle: unlocked ? null : 'Locked${price != null ? ' · $price' : ''}',
               subtitleIcon: unlocked ? null : Icons.lock_outline,
-              onTap: () {
-                if (unlocked) {
-                  ref.read(cardBackProvider.notifier).setCardBack(b.id);
-                } else {
-                  openShop(context);
-                }
-              },
+              onTap: () => showCosmeticPreview(context,
+                  kind: CosmeticKind.cardBack, cosmeticId: b.id, name: b.name),
             );
           }(),
       ],
@@ -857,15 +843,11 @@ class _ChipStyleSheet extends ConsumerWidget {
                 ),
               ),
               title: c.name,
+              owned: unlocked && productForCosmeticId(c.id) != null,
               subtitle: unlocked ? null : 'Locked${price != null ? ' · $price' : ''}',
               subtitleIcon: unlocked ? null : Icons.lock_outline,
-              onTap: () {
-                if (unlocked) {
-                  ref.read(chipStyleProvider.notifier).setChipStyle(c.id);
-                } else {
-                  openShop(context);
-                }
-              },
+              onTap: () => showCosmeticPreview(context,
+                  kind: CosmeticKind.chipStyle, cosmeticId: c.id, name: c.name),
             );
           }(),
       ],
