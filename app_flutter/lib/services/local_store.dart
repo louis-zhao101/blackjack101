@@ -11,6 +11,7 @@ class LocalStore {
   static const _statsKey = 'bj101-stats';
   static const _settingsKey = 'bj101-settings';
   static const _appearanceKey = 'bj101-appearance';
+  static const _learnKey = 'bj101-learn';
 
   final SharedPreferences _prefs;
   LocalStore(this._prefs);
@@ -20,6 +21,13 @@ class LocalStore {
   String? loadAppearanceId() => _prefs.getString(_appearanceKey);
 
   Future<void> saveAppearanceId(String id) => _prefs.setString(_appearanceKey, id);
+
+  // --- learn progress (completed lesson ids) ---
+
+  Set<String> loadLearnProgress() => _prefs.getStringList(_learnKey)?.toSet() ?? <String>{};
+
+  Future<void> saveLearnProgress(Set<String> ids) =>
+      _prefs.setStringList(_learnKey, ids.toList());
 
   // --- stats ---
 
