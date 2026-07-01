@@ -5,6 +5,7 @@ import 'package:purchases_flutter/purchases_flutter.dart' show Offering, Package
 import '../../engine/cards.dart' as bj;
 import '../../services/purchases_service.dart';
 import '../../state/appearance_provider.dart';
+import '../../state/auth_provider.dart';
 import '../../state/store_provider.dart';
 import '../theme/appearance.dart';
 import '../widgets/chip_widget.dart';
@@ -96,13 +97,16 @@ class _GoProScreenState extends ConsumerState<GoProScreen> {
     final package = _selected;
     if (package == null || _purchasing) return;
     final messenger = ScaffoldMessenger.of(context);
-    final navigator = Navigator.of(context);
     setState(() => _purchasing = true);
     try {
+      final uid = ref.read(authServiceProvider).currentUser?.uid;
+      if (uid != null) await PurchasesService.logIn(uid);
       final nowPro = await PurchasesService.purchasePackage(package);
       if (nowPro) {
         await ref.read(proStatusProvider.notifier).refresh();
-        if (mounted) navigator.pop();
+        if (!mounted) return;
+        await _showSuccessDialog();
+        if (mounted) Navigator.of(context).pop();
         return;
       }
     } catch (e) {
@@ -117,6 +121,47 @@ class _GoProScreenState extends ConsumerState<GoProScreen> {
   String _ctaLabel(Package p) => p.packageType == PackageType.lifetime
       ? 'Unlock Lifetime · ${p.storeProduct.priceString}'
       : 'Subscribe · ${p.storeProduct.priceString}';
+
+  Future<void> _showSuccessDialog() {
+    final theme = ref.read(appearanceProvider);
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogCtx) => AlertDialog(
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 72,
+              height: 72,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: theme.gold.withValues(alpha: 0.14),
+                border: Border.all(color: theme.gold, width: 1.5),
+              ),
+              child: Icon(Icons.workspace_premium, color: theme.goldLight, size: 38),
+            ),
+            const SizedBox(height: 18),
+            Text("You're Pro!",
+                style: TextStyle(
+                    color: theme.goldLight, fontSize: 22, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            const Text('Every theme and Pro feature is unlocked.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: AppTokens.textSecondary, fontSize: 14, height: 1.4)),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: () => Navigator.of(dialogCtx).pop(),
+                child: const Text('Start playing'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -419,32 +464,65 @@ class _ShopScreenState extends ConsumerState<ShopScreen> {
   }
 
   List<Widget> _rowsForTab(AppearanceTheme theme) {
+    // The free default heads each list so players can always switch back to it.
     switch (_tab) {
       case 0:
         return [
+          _CosmeticRow(
+            kind: CosmeticKind.theme,
+            cosmeticId: classicGreen.id,
+            name: classicGreen.name,
+            swatch: _swatch(classicGreen, size: 40),
+            isActive: theme.id == classicGreen.id,
+            onUse: () => ref.read(tableThemeProvider.notifier).setPreset(classicGreen.id),
+          ),
           for (final p in themeProducts)
             _CosmeticRow(
-              product: p,
+              kind: p.kind,
+              cosmeticId: p.cosmeticId,
+              name: p.name,
               swatch: _swatch(appearanceById(p.cosmeticId), size: 40),
               isActive: theme.id == p.cosmeticId,
               onUse: () => ref.read(tableThemeProvider.notifier).setPreset(p.cosmeticId),
             ),
         ];
       case 1:
+        final freeBack = cardBackById(kFreeCardBackId);
         return [
+          _CosmeticRow(
+            kind: CosmeticKind.cardBack,
+            cosmeticId: freeBack.id,
+            name: freeBack.name,
+            swatch: _cardBackSwatch(theme, freeBack),
+            isActive: ref.watch(cardBackProvider).id == freeBack.id,
+            onUse: () => ref.read(cardBackProvider.notifier).setCardBack(freeBack.id),
+          ),
           for (final p in cardBackProducts)
             _CosmeticRow(
-              product: p,
+              kind: p.kind,
+              cosmeticId: p.cosmeticId,
+              name: p.name,
               swatch: _cardBackSwatch(theme, cardBackById(p.cosmeticId)),
               isActive: ref.watch(cardBackProvider).id == p.cosmeticId,
               onUse: () => ref.read(cardBackProvider.notifier).setCardBack(p.cosmeticId),
             ),
         ];
       default:
+        final freeChips = chipStyleById(kFreeChipStyleId);
         return [
+          _CosmeticRow(
+            kind: CosmeticKind.chipStyle,
+            cosmeticId: freeChips.id,
+            name: freeChips.name,
+            swatch: _chipSwatch(theme, freeChips),
+            isActive: ref.watch(chipStyleProvider).id == freeChips.id,
+            onUse: () => ref.read(chipStyleProvider.notifier).setChipStyle(freeChips.id),
+          ),
           for (final p in chipStyleProducts)
             _CosmeticRow(
-              product: p,
+              kind: p.kind,
+              cosmeticId: p.cosmeticId,
+              name: p.name,
               swatch: _chipSwatch(theme, chipStyleById(p.cosmeticId)),
               isActive: ref.watch(chipStyleProvider).id == p.cosmeticId,
               onUse: () => ref.read(chipStyleProvider.notifier).setChipStyle(p.cosmeticId),
@@ -594,14 +672,16 @@ Widget _chipSwatch(AppearanceTheme active, ChipStyle style) => PokerChipFace(
       showLabel: false,
     );
 
-/// Subtle "Owned" line shown under a cosmetic's name once it's unlocked.
-/// Shared by the shop rows and the Customize list.
-Widget ownedTag(AppearanceTheme t) => Text('Owned',
+/// Subtle status line shown under a cosmetic's name (e.g. "Owned", "Free").
+Widget _cosmeticTag(String label, AppearanceTheme t) => Text(label,
     style: TextStyle(
       color: t.gold.withValues(alpha: 0.75),
       fontSize: 11.5,
       fontWeight: FontWeight.w600,
     ));
+
+/// "Owned" line shown once a cosmetic is unlocked. Shared with the Customize list.
+Widget ownedTag(AppearanceTheme t) => _cosmeticTag('Owned', t);
 
 /// Opens a large preview of a card back or chip style with an equip/unlock
 /// action. Card backs and chips are detail-rich, so seeing them full size
@@ -862,12 +942,16 @@ class _FeatureRow extends StatelessWidget {
 /// One purchasable cosmetic row (theme, card back, or chip style). [isActive]
 /// and [onUse] are supplied by the caller so the same row serves all kinds.
 class _CosmeticRow extends ConsumerWidget {
-  final StoreProduct product;
+  final CosmeticKind kind;
+  final String cosmeticId;
+  final String name;
   final Widget swatch;
   final bool isActive;
   final VoidCallback onUse;
   const _CosmeticRow({
-    required this.product,
+    required this.kind,
+    required this.cosmeticId,
+    required this.name,
     required this.swatch,
     required this.isActive,
     required this.onUse,
@@ -877,18 +961,18 @@ class _CosmeticRow extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final active = ref.watch(appearanceProvider);
     final ent = ref.watch(entitlementsProvider);
-    final unlocked = ent.isCosmeticUnlocked(product.cosmeticId);
+    final unlocked = ent.isCosmeticUnlocked(cosmeticId);
+    // A free default (Classic Green, Royal Blue, Classic chips) has no product.
+    final product = productForCosmeticId(cosmeticId);
 
     // Cards and chips open a full-size preview on tap (where they're equipped
     // or bought); themes apply instantly since the whole table is the preview.
-    final previewable = product.kind == CosmeticKind.cardBack ||
-        product.kind == CosmeticKind.chipStyle;
+    final previewable = kind == CosmeticKind.cardBack || kind == CosmeticKind.chipStyle;
     final VoidCallback? onTap = previewable
-        ? () => showCosmeticPreview(context,
-            kind: product.kind, cosmeticId: product.cosmeticId, name: product.name)
+        ? () => showCosmeticPreview(context, kind: kind, cosmeticId: cosmeticId, name: name)
         : unlocked
             ? (isActive ? null : onUse)
-            : (ent.busy ? null : () => _buy(context, ref, product));
+            : (ent.busy || product == null ? null : () => _buy(context, ref, product));
 
     Widget trailing;
     if (unlocked) {
@@ -913,7 +997,7 @@ class _CosmeticRow extends ConsumerWidget {
           color: active.gold,
           borderRadius: BorderRadius.circular(8),
         ),
-        child: Text(product.priceLabel,
+        child: Text(product?.priceLabel ?? '',
             style: TextStyle(
                 color: active.feltDark, fontWeight: FontWeight.bold, fontSize: 14)),
       );
@@ -944,12 +1028,15 @@ class _CosmeticRow extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(product.name,
+                  Text(name,
                       style: const TextStyle(
                           color: AppTokens.textPrimary,
                           fontSize: 14,
                           fontWeight: FontWeight.w600)),
-                  if (unlocked) ...[
+                  if (product == null) ...[
+                    const SizedBox(height: 4),
+                    _cosmeticTag('Free', active),
+                  ] else if (unlocked) ...[
                     const SizedBox(height: 4),
                     ownedTag(active),
                   ],

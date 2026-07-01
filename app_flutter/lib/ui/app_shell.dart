@@ -422,10 +422,15 @@ class AccountPage extends ConsumerWidget {
                 context,
                 title: 'Reset purchases?',
                 message:
-                    'Clears all unlocked themes and Pro so you can re-test the locked states. '
-                    'Local debug only — does not affect real store receipts.',
+                    'Locks Pro and clears unlocked themes so you can re-test the locked states. '
+                    'Signs out of RevenueCat locally — your real purchase is not deleted and '
+                    'returns when you sign in again.',
                 confirmLabel: 'Reset',
-                onConfirm: () => ref.read(entitlementsProvider.notifier).resetForDebug(),
+                onConfirm: () async {
+                  ref.read(entitlementsProvider.notifier).resetForDebug();
+                  await PurchasesService.debugResetIdentity();
+                  await ref.read(proStatusProvider.notifier).refresh();
+                },
               ),
             ),
           ],

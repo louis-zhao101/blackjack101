@@ -108,4 +108,17 @@ class PurchasesService {
     if (!isSupported) return;
     await RevenueCatUI.presentCustomerCenter();
   }
+
+  /// Dev-only: drops the current identified user for a fresh anonymous customer
+  /// with no entitlements, so the locked/free state can be re-tested. Does NOT
+  /// delete the real purchase (that's a server-side op) — signing back in
+  /// restores Pro. No-op when the user is already anonymous.
+  static Future<void> debugResetIdentity() async {
+    if (!isSupported) return;
+    try {
+      await Purchases.logOut();
+    } on PlatformException {
+      // Current user is already anonymous — logOut isn't allowed; nothing to do.
+    }
+  }
 }

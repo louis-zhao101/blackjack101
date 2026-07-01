@@ -8,12 +8,14 @@ class PlayingCardView extends StatelessWidget {
   final bj.Card card;
   final AppearanceTheme theme;
   final double width;
+  final bool showShadow;
 
   const PlayingCardView({
     super.key,
     required this.card,
     required this.theme,
     this.width = 72,
+    this.showShadow = true,
   });
 
   double get _height => width * (100 / 72);
@@ -33,7 +35,7 @@ class PlayingCardView extends StatelessWidget {
         return Container(
           width: width,
           height: _height,
-          decoration: BoxDecoration(borderRadius: cardRadius, boxShadow: _shadow),
+          decoration: BoxDecoration(borderRadius: cardRadius, boxShadow: showShadow ? _shadow : null),
           child: ClipRRect(
             borderRadius: cardRadius,
             child: asset.endsWith('.svg')
@@ -48,7 +50,7 @@ class PlayingCardView extends StatelessWidget {
         decoration: BoxDecoration(
           color: theme.cardBackColor,
           borderRadius: radius,
-          boxShadow: _shadow,
+          boxShadow: showShadow ? _shadow : null,
           border: Border.all(color: const Color(0x33000000)),
         ),
         clipBehavior: Clip.antiAlias,
@@ -70,7 +72,7 @@ class PlayingCardView extends StatelessWidget {
       decoration: BoxDecoration(
         color: theme.cardFace,
         borderRadius: radius,
-        boxShadow: _shadow,
+        boxShadow: showShadow ? _shadow : null,
         border: Border.all(color: const Color(0xFFCCCCCC)),
       ),
       child: Stack(

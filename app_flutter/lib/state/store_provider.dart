@@ -286,6 +286,7 @@ class EntitlementsController extends Notifier<EntitlementsState> {
   Future<PurchaseResult> purchase(StoreProduct product) async {
     if (state.busy) return PurchaseResult.error;
     state = state.copyWith(busy: true);
+    await _syncIdentity();
     final result = await _backend.purchase(product.id);
     if (result == PurchaseResult.success) {
       _grant({product.id});
@@ -298,8 +299,17 @@ class EntitlementsController extends Notifier<EntitlementsState> {
   Future<void> restore() async {
     if (state.busy) return;
     state = state.copyWith(busy: true);
+    await _syncIdentity();
     final restored = await _backend.restore();
     _grant(restored);
+  }
+
+  /// Ensures RevenueCat's identity matches the signed-in Firebase user before a
+  /// purchase/restore, so it's never attributed to a stale anonymous id (e.g.
+  /// after a dev logOut). No-op for guests and on web.
+  Future<void> _syncIdentity() async {
+    final uid = ref.read(authServiceProvider).currentUser?.uid;
+    if (uid != null) await PurchasesService.logIn(uid);
   }
 
   void _grant(Set<String> productIds) {
