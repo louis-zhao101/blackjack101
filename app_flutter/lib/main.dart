@@ -8,17 +8,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'firebase_options.dart';
+import 'services/purchases_service.dart';
 import 'state/app_providers.dart';
 import 'state/appearance_provider.dart';
 import 'state/auth_provider.dart';
 import 'state/game_provider.dart';
 import 'state/stats_provider.dart';
+import 'state/store_provider.dart';
 import 'ui/app_shell.dart';
 import 'ui/theme/appearance.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  await PurchasesService.configure();
   // Android emulators have no Play Integrity, so in debug let configured test
   // numbers bypass verification. iOS uses the reCAPTCHA fallback instead (the
   // disable flag doesn't attach a client identifier on iOS). No effect on
@@ -73,6 +76,8 @@ class AuthGate extends ConsumerWidget {
       final user = next.value;
       if (user != null && prev?.value?.uid != user.uid) {
         _onLogin(ref, user.uid);
+      } else if (user == null && prev?.value != null) {
+        PurchasesService.logOut();
       }
     });
 
@@ -87,6 +92,8 @@ class AuthGate extends ConsumerWidget {
   }
 
   Future<void> _onLogin(WidgetRef ref, String uid) async {
+    await PurchasesService.logIn(uid);
+    ref.read(proStatusProvider.notifier).refresh();
     final sync = ref.read(firestoreSyncProvider);
     final data = await sync.loadUserData(uid);
 
@@ -106,6 +113,14 @@ class AuthGate extends ConsumerWidget {
       ref.read(gameProvider.notifier).loadBankroll(data.bankroll!);
     } else {
       sync.upsertProfile(uid, ref.read(gameProvider).game.bankroll);
+    }
+
+    if (data.ownedProducts.isNotEmpty) {
+      ref.read(entitlementsProvider.notifier).mergeOwnedFromCloud(data.ownedProducts);
+    } else {
+      final localCosmetics =
+          ref.read(entitlementsProvider).owned.difference({kLifetimeProductId});
+      if (localCosmetics.isNotEmpty) sync.upsertOwnedProducts(uid, localCosmetics);
     }
   }
 }

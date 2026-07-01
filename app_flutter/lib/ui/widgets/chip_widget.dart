@@ -23,24 +23,36 @@ class PokerChipFace extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (inner, outer) = theme.chipColor(amount);
+    final (inner, _) = theme.chipColor(amount);
     final isBlack = amount >= 500;
-    final edge = isBlack ? theme.gold : const Color(0xF0FFFFFF);
+    final lightBody = inner.computeLuminance() > 0.55;
+    // Gold detailing for dark high-value chips, onyx for pale chips (so the rim
+    // and rings read), cream for everything else.
+    final accent = isBlack
+        ? theme.goldLight
+        : (lightBody ? const Color(0xFF3A3A40) : const Color(0xFFF2EAD8));
+    final labelColor = isBlack
+        ? theme.goldLight
+        : (lightBody ? const Color(0xFF2A2A2A) : Colors.white);
+
     return SizedBox(
       width: size,
       height: size,
       child: CustomPaint(
-        painter: _ChipPainter(inner: inner, outer: outer, edge: edge),
+        painter: _ChipPainter(body: inner, accent: accent),
         child: showLabel
             ? Center(
                 child: Text(
                   '$amount',
                   style: TextStyle(
-                    color: isBlack ? theme.goldLight : Colors.white,
+                    color: labelColor,
                     fontWeight: FontWeight.bold,
                     fontSize: size * 0.26,
-                    shadows: const [
-                      Shadow(color: Color(0x99000000), blurRadius: 2, offset: Offset(0, 1)),
+                    shadows: [
+                      Shadow(
+                          color: lightBody ? const Color(0x33FFFFFF) : const Color(0x99000000),
+                          blurRadius: 2,
+                          offset: const Offset(0, 1)),
                     ],
                   ),
                 ),
@@ -87,76 +99,93 @@ class ChipWidget extends StatelessWidget {
   }
 }
 
+/// Flat, detailed poker-chip: a solid body with a cream notched rim, concentric
+/// rings, a ring of dots/diamonds, and a clean center inlay. No glossy gradient.
 class _ChipPainter extends CustomPainter {
-  final Color inner;
-  final Color outer;
-  final Color edge;
-  _ChipPainter({required this.inner, required this.outer, required this.edge});
+  final Color body;
+  final Color accent;
+  _ChipPainter({required this.body, required this.accent});
 
   @override
   void paint(Canvas canvas, Size size) {
     final c = Offset(size.width / 2, size.height / 2);
     final r = size.width / 2;
 
-    // Chip body with a top-left highlight for a slight 3D feel.
-    canvas.drawCircle(
-      c,
-      r,
-      Paint()
-        ..shader = RadialGradient(
-          center: const Alignment(-0.3, -0.3),
-          radius: 1.0,
-          colors: [Color.lerp(inner, Colors.white, 0.18)!, outer],
-        ).createShader(Rect.fromCircle(center: c, radius: r)),
-    );
+    final bodyPaint = Paint()..color = body;
+    final accentPaint = Paint()..color = accent;
 
-    // Edge spots — 6 light segments around the rim.
-    const n = 6;
-    final spotWidth = r * 0.22;
-    final spotR = r - spotWidth / 2 - r * 0.04;
-    final spotPaint = Paint()
+    // Cream base — shows through the notches to form the toothed edge.
+    canvas.drawCircle(c, r, accentPaint);
+
+    // Toothed rim: body-colored teeth reaching the edge, cream gaps between.
+    const teeth = 16;
+    final bodyR = r * 0.87;
+    final toothMid = (bodyR + r) / 2;
+    final toothPaint = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = spotWidth
+      ..strokeWidth = r - bodyR
       ..strokeCap = StrokeCap.butt
-      ..color = edge;
-    final sweep = (2 * pi / n) * 0.5;
-    for (var i = 0; i < n; i++) {
-      final start = (2 * pi / n) * i - sweep / 2;
+      ..color = body;
+    final step = 2 * pi / teeth;
+    final toothSweep = step * 0.56;
+    for (var i = 0; i < teeth; i++) {
+      final start = step * i - toothSweep / 2;
       canvas.drawArc(
-          Rect.fromCircle(center: c, radius: spotR), start, sweep, false, spotPaint);
+          Rect.fromCircle(center: c, radius: toothMid), start, toothSweep, false, toothPaint);
     }
 
-    // Thin dark outline for definition.
+    // Solid body disc.
+    canvas.drawCircle(c, bodyR, bodyPaint);
+
+    // Thin cream ring just inside the rim.
+    canvas.drawCircle(
+      c,
+      r * 0.80,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = r * 0.035
+        ..color = accent,
+    );
+
+    // Decorative band: alternating dots and diamonds.
+    final markR = r * 0.66;
+    const marks = 8;
+    final mstep = 2 * pi / marks;
+    for (var i = 0; i < marks; i++) {
+      final a = -pi / 2 + mstep * i;
+      final p = c + Offset(cos(a), sin(a)) * markR;
+      if (i.isEven) {
+        canvas.drawCircle(p, r * 0.024, accentPaint);
+      } else {
+        _diamond(canvas, p, r * 0.034, accentPaint);
+      }
+    }
+
+    // Center inlay disc (the printed face the value sits on).
+    canvas.drawCircle(c, r * 0.52, bodyPaint);
+
+    // Subtle dark outline for definition against light backgrounds.
     canvas.drawCircle(
       c,
       r - 0.75,
       Paint()
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.5
-        ..color = const Color(0x33000000),
+        ..strokeWidth = 1
+        ..color = const Color(0x22000000),
     );
+  }
 
-    // Center inlay disc + ring (the printed "label" the value sits on).
-    final faceR = r * 0.6;
-    canvas.drawCircle(
-      c,
-      faceR,
-      Paint()
-        ..shader = RadialGradient(
-          colors: [Color.lerp(inner, Colors.white, 0.1)!, outer],
-        ).createShader(Rect.fromCircle(center: c, radius: faceR)),
-    );
-    canvas.drawCircle(
-      c,
-      faceR,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = r * 0.045
-        ..color = edge.withValues(alpha: 0.9),
-    );
+  void _diamond(Canvas canvas, Offset p, double s, Paint paint) {
+    final path = Path()
+      ..moveTo(p.dx, p.dy - s)
+      ..lineTo(p.dx + s, p.dy)
+      ..lineTo(p.dx, p.dy + s)
+      ..lineTo(p.dx - s, p.dy)
+      ..close();
+    canvas.drawPath(path, paint);
   }
 
   @override
   bool shouldRepaint(covariant _ChipPainter old) =>
-      old.inner != inner || old.outer != outer || old.edge != edge;
+      old.body != body || old.accent != accent;
 }

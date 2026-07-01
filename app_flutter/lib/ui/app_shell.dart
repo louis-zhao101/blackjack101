@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../engine/strategy.dart';
 import '../engine/variants.dart';
+import '../services/purchases_service.dart';
 import '../services/sound_service.dart';
 import '../state/app_providers.dart';
 import '../state/appearance_provider.dart';
@@ -10,12 +11,17 @@ import '../state/auth_provider.dart';
 import '../state/game_provider.dart';
 import '../state/settings_provider.dart';
 import '../state/stats_provider.dart';
+import '../state/store_provider.dart';
 import 'auth_screen.dart';
 import 'screens/learn_page.dart';
 import 'screens/play_page.dart';
+import 'screens/shop_page.dart';
 import 'screens/stats_page.dart';
+import '../engine/cards.dart' as bj;
 import 'theme/appearance.dart';
+import 'widgets/chip_widget.dart';
 import 'widgets/game_button.dart';
+import 'widgets/playing_card.dart';
 
 const _navTitles = ['Play', 'Learn', 'Stats', 'Account'];
 const _navIcons = [
@@ -286,10 +292,34 @@ class AccountPage extends ConsumerWidget {
           title: 'General',
           children: [
             _SettingRow(
+              icon: Icons.workspace_premium_outlined,
+              title: ref.watch(entitlementsProvider).isPremium ? 'Pro' : 'Go Pro',
+              subtitle: ref.watch(entitlementsProvider).isPremium
+                  ? 'Everything unlocked'
+                  : 'Unlock everything for $kLifetimePrice',
+              onTap: () => openGoPro(context),
+            ),
+            if (ref.watch(proStatusProvider).isPro)
+              _SettingRow(
+                icon: Icons.manage_accounts_outlined,
+                title: 'Manage subscription',
+                subtitle: 'Billing, plan & restore',
+                onTap: () => PurchasesService.presentCustomerCenter(),
+              ),
+            _SettingRow(
+              icon: Icons.storefront_outlined,
+              title: 'Shop',
+              subtitle: 'Table themes & cosmetics',
+              onTap: () => openShop(context),
+            ),
+            _SettingRow(
               icon: Icons.palette_outlined,
-              title: 'Table theme',
-              subtitle: theme.name,
-              onTap: () => _showSheet(context, title: 'Table theme', child: const _SkinSheet()),
+              title: 'Customize',
+              subtitle: 'Table, cards & chips',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                    fullscreenDialog: true, builder: (_) => const _CustomizeScreen()),
+              ),
             ),
             _SettingRow(
               icon: Icons.casino_outlined,
@@ -375,6 +405,29 @@ class AccountPage extends ConsumerWidget {
                   onConfirm: () => _deleteAccount(context, ref),
                 ),
               ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        // TODO: remove (or gate behind kDebugMode) before App Store release.
+        _SectionCard(
+          title: 'Developer',
+          children: [
+            _SettingRow(
+              icon: Icons.bug_report_outlined,
+              title: 'Reset purchases',
+              subtitle: ref.watch(entitlementsProvider).isPremium
+                  ? 'Pro active — tap to lock everything again'
+                  : 'No purchases to reset',
+              onTap: () => _confirm(
+                context,
+                title: 'Reset purchases?',
+                message:
+                    'Clears all unlocked themes and Pro so you can re-test the locked states. '
+                    'Local debug only — does not affect real store receipts.',
+                confirmLabel: 'Reset',
+                onConfirm: () => ref.read(entitlementsProvider.notifier).resetForDebug(),
+              ),
+            ),
           ],
         ),
       ],
@@ -531,6 +584,8 @@ class _SheetOption extends StatelessWidget {
   final Widget? leading;
   final String title;
   final String? subtitle;
+  final IconData? subtitleIcon;
+  final bool owned;
   final bool selected;
   final VoidCallback onTap;
   final AppearanceTheme theme;
@@ -538,6 +593,8 @@ class _SheetOption extends StatelessWidget {
     this.leading,
     required this.title,
     this.subtitle,
+    this.subtitleIcon,
+    this.owned = false,
     required this.selected,
     required this.onTap,
     required this.theme,
@@ -548,7 +605,9 @@ class _SheetOption extends StatelessWidget {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: withHaptic(onTap),
-      child: Container(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
@@ -556,13 +615,16 @@ class _SheetOption extends StatelessWidget {
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: selected ? theme.gold : const Color(0x18FFFFFF),
-            width: selected ? 1.5 : 1,
+            width: 1.5,
           ),
         ),
         child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            if (leading != null) ...[leading!, const SizedBox(width: 14)],
+            if (leading != null) ...[
+              SizedBox(width: 40, height: 40, child: Center(child: leading!)),
+              const SizedBox(width: 14),
+            ],
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -572,22 +634,101 @@ class _SheetOption extends StatelessWidget {
                           color: selected ? theme.goldLight : AppTokens.textPrimary,
                           fontSize: 15,
                           fontWeight: FontWeight.bold)),
-                  if (subtitle != null) ...[
+                  if (owned) ...[
+                    const SizedBox(height: 5),
+                    ownedTag(theme),
+                  ] else if (subtitle != null) ...[
                     const SizedBox(height: 4),
-                    Text(subtitle!,
-                        style: const TextStyle(
-                            color: AppTokens.textSecondary, fontSize: 12, height: 1.4)),
+                    Row(
+                      children: [
+                        if (subtitleIcon != null) ...[
+                          Icon(subtitleIcon,
+                              size: 13, color: AppTokens.textSecondary),
+                          const SizedBox(width: 5),
+                        ],
+                        Flexible(
+                          child: Text(subtitle!,
+                              style: const TextStyle(
+                                  color: AppTokens.textSecondary,
+                                  fontSize: 12,
+                                  height: 1.4)),
+                        ),
+                      ],
+                    ),
                   ],
                 ],
               ),
             ),
             const SizedBox(width: 8),
-            Icon(selected ? Icons.check_circle : Icons.circle_outlined,
-                color: selected ? theme.gold : AppTokens.textSecondary, size: 20),
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 200),
+              transitionBuilder: (child, anim) =>
+                  ScaleTransition(scale: anim, child: FadeTransition(opacity: anim, child: child)),
+              child: Icon(selected ? Icons.check_circle : Icons.circle_outlined,
+                  key: ValueKey(selected),
+                  color: selected ? theme.gold : AppTokens.textSecondary,
+                  size: 20),
+            ),
           ],
         ),
       ),
     );
+  }
+}
+
+/// Full-screen cosmetics customizer, switching between Table / Cards / Chips.
+class _CustomizeScreen extends StatefulWidget {
+  const _CustomizeScreen();
+
+  @override
+  State<_CustomizeScreen> createState() => _CustomizeScreenState();
+}
+
+class _CustomizeScreenState extends State<_CustomizeScreen> {
+  int _tab = 0;
+  static const _labels = ['Table', 'Cards', 'Chips'];
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer(builder: (context, ref, _) {
+      final theme = ref.watch(appearanceProvider);
+      return Scaffold(
+        backgroundColor: theme.feltDark,
+        appBar: AppBar(
+          backgroundColor: theme.feltDark,
+          surfaceTintColor: Colors.transparent,
+          foregroundColor: AppTokens.textPrimary,
+          elevation: 0,
+          title: Text('Customize',
+              style: TextStyle(color: theme.gold, fontWeight: FontWeight.bold)),
+        ),
+        body: SafeArea(
+          top: false,
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 40),
+            children: [
+              AppSegmentedTabs(
+                labels: _labels,
+                current: _tab,
+                onSelect: (i) => setState(() => _tab = i),
+              ),
+              const SizedBox(height: 16),
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 260),
+                child: KeyedSubtree(
+                  key: ValueKey(_tab),
+                  child: _tab == 0
+                      ? const _SkinSheet()
+                      : _tab == 1
+                          ? const _CardBackSheet()
+                          : const _ChipStyleSheet(),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    });
   }
 }
 
@@ -597,28 +738,118 @@ class _SkinSheet extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = ref.watch(appearanceProvider);
+    final ent = ref.watch(entitlementsProvider);
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         for (final p in appearancePresets)
-          _SheetOption(
-            theme: theme,
-            selected: p.id == theme.id,
-            leading: Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: p.felt,
-                shape: BoxShape.circle,
-                border: Border.all(color: p.gold, width: 2),
+          () {
+            final unlocked = ent.isCosmeticUnlocked(p.id);
+            final price = productForCosmeticId(p.id)?.priceLabel;
+            return _SheetOption(
+              theme: theme,
+              selected: p.id == ref.watch(tableThemeProvider).id,
+              leading: Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: p.felt,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: p.gold, width: 2),
+                ),
               ),
-            ),
-            title: p.name,
-            onTap: () {
-              ref.read(appearanceProvider.notifier).setPreset(p.id);
-              Navigator.pop(context);
-            },
-          ),
+              title: p.name,
+              owned: unlocked && productForCosmeticId(p.id) != null,
+              subtitle: unlocked ? null : 'Locked${price != null ? ' · $price' : ''}',
+              subtitleIcon: unlocked ? null : Icons.lock_outline,
+              onTap: () {
+                if (unlocked) {
+                  ref.read(tableThemeProvider.notifier).setPreset(p.id);
+                } else {
+                  openShop(context);
+                }
+              },
+            );
+          }(),
+      ],
+    );
+  }
+}
+
+class _CardBackSheet extends ConsumerWidget {
+  const _CardBackSheet();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = ref.watch(appearanceProvider);
+    final ent = ref.watch(entitlementsProvider);
+    final selectedId = ref.watch(cardBackProvider).id;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (final b in cardBackPresets)
+          () {
+            final unlocked = ent.isCosmeticUnlocked(b.id);
+            final price = productForCosmeticId(b.id)?.priceLabel;
+            return _SheetOption(
+              theme: theme,
+              selected: b.id == selectedId,
+              leading: PlayingCardView(
+                card: const bj.Card(rank: 'A', suit: '♠', faceDown: true),
+                theme: theme.copyWith(cardBack: b),
+                width: 28,
+              ),
+              title: b.name,
+              owned: unlocked && productForCosmeticId(b.id) != null,
+              subtitle: unlocked ? null : 'Locked${price != null ? ' · $price' : ''}',
+              subtitleIcon: unlocked ? null : Icons.lock_outline,
+              onTap: () => showCosmeticPreview(context,
+                  kind: CosmeticKind.cardBack, cosmeticId: b.id, name: b.name),
+            );
+          }(),
+      ],
+    );
+  }
+}
+
+class _ChipStyleSheet extends ConsumerWidget {
+  const _ChipStyleSheet();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = ref.watch(appearanceProvider);
+    final ent = ref.watch(entitlementsProvider);
+    final selectedId = ref.watch(chipStyleProvider).id;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (final c in chipStylePresets)
+          () {
+            final unlocked = ent.isCosmeticUnlocked(c.id);
+            final price = productForCosmeticId(c.id)?.priceLabel;
+            return _SheetOption(
+              theme: theme,
+              selected: c.id == selectedId,
+              leading: SizedBox(
+                width: 36,
+                height: 36,
+                child: Center(
+                  child: PokerChipFace(
+                    amount: 25,
+                    theme: theme.copyWith(chipStyle: c),
+                    size: 34,
+                    showLabel: false,
+                  ),
+                ),
+              ),
+              title: c.name,
+              owned: unlocked && productForCosmeticId(c.id) != null,
+              subtitle: unlocked ? null : 'Locked${price != null ? ' · $price' : ''}',
+              subtitleIcon: unlocked ? null : Icons.lock_outline,
+              onTap: () => showCosmeticPreview(context,
+                  kind: CosmeticKind.chipStyle, cosmeticId: c.id, name: c.name),
+            );
+          }(),
       ],
     );
   }
@@ -627,22 +858,33 @@ class _SkinSheet extends ConsumerWidget {
 class _RuleSetSheet extends ConsumerWidget {
   const _RuleSetSheet();
 
+  static const String _freeRuleSetId = 'vegas-strip';
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = ref.watch(appearanceProvider);
     final selectedId = ref.watch(settingsProvider).ruleSet.id;
     final locked = ref.watch(gameProvider).hasDealtInSession;
+    final isPremium = ref.watch(entitlementsProvider).isPremium;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         for (final r in rulePresets)
-          _SheetOption(
-            theme: theme,
-            selected: r.id == selectedId,
-            title: r.name,
-            subtitle: ruleSetDescription(r),
-            onTap: () => _select(context, ref, r, selectedId, locked),
-          ),
+          () {
+            final premiumLocked = r.id != _freeRuleSetId && !isPremium;
+            return _SheetOption(
+              theme: theme,
+              selected: r.id == selectedId,
+              title: r.name,
+              subtitle: premiumLocked
+                  ? '${ruleSetDescription(r)}  ·  Pro'
+                  : ruleSetDescription(r),
+              subtitleIcon: premiumLocked ? Icons.lock_outline : null,
+              onTap: premiumLocked
+                  ? () => openGoPro(context)
+                  : () => _select(context, ref, r, selectedId, locked),
+            );
+          }(),
       ],
     );
   }
@@ -679,17 +921,26 @@ class _DifficultySheet extends ConsumerWidget {
     final theme = ref.watch(appearanceProvider);
     final selected = ref.watch(settingsProvider).difficulty;
     final locked = ref.watch(gameProvider).hasDealtInSession;
+    final isPremium = ref.watch(entitlementsProvider).isPremium;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         for (final d in difficultyPresets)
-          _SheetOption(
-            theme: theme,
-            selected: d == selected,
-            title: difficultyLabel(d),
-            subtitle: difficultyDescription(d),
-            onTap: () => _select(context, ref, d, selected, locked),
-          ),
+          () {
+            final premiumLocked = d != Difficulty.regular && !isPremium;
+            return _SheetOption(
+              theme: theme,
+              selected: d == selected,
+              title: difficultyLabel(d),
+              subtitle: premiumLocked
+                  ? '${difficultyDescription(d)}  ·  Pro'
+                  : difficultyDescription(d),
+              subtitleIcon: premiumLocked ? Icons.lock_outline : null,
+              onTap: premiumLocked
+                  ? () => openGoPro(context)
+                  : () => _select(context, ref, d, selected, locked),
+            );
+          }(),
       ],
     );
   }
@@ -730,6 +981,7 @@ class _BankrollSheet extends ConsumerStatefulWidget {
 class _BankrollSheetState extends ConsumerState<_BankrollSheet> {
   late final TextEditingController _ctrl =
       TextEditingController(text: '${ref.read(settingsProvider).startingBankroll}');
+  bool _applyNow = true;
 
   @override
   void dispose() {
@@ -741,13 +993,14 @@ class _BankrollSheetState extends ConsumerState<_BankrollSheet> {
     final fallback = ref.read(settingsProvider).startingBankroll;
     final parsed = int.tryParse(_ctrl.text.trim()) ?? fallback;
     ref.read(settingsProvider.notifier).setStartingBankroll(parsed.clamp(1, 1000000).toInt());
+    if (_applyNow) {
+      ref.read(gameProvider.notifier).resetBankroll();
+    }
     Navigator.pop(context);
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = ref.watch(appearanceProvider);
-    final start = ref.watch(settingsProvider).startingBankroll;
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -768,19 +1021,22 @@ class _BankrollSheetState extends ConsumerState<_BankrollSheet> {
               ActionChip(label: Text('\$$v'), onPressed: () => _ctrl.text = '$v'),
           ],
         ),
-        const SizedBox(height: 16),
-        FilledButton(
-          onPressed: withHaptic(_save),
-          child: const Text('Save starting bankroll'),
+        const SizedBox(height: 8),
+        CheckboxListTile(
+          value: _applyNow,
+          onChanged: (v) => setState(() => _applyNow = v ?? false),
+          controlAffinity: ListTileControlAffinity.leading,
+          contentPadding: EdgeInsets.zero,
+          dense: true,
+          title: const Text('Set my balance to this now',
+              style: TextStyle(color: AppTokens.textPrimary, fontSize: 14)),
+          subtitle: const Text('Otherwise this only changes future resets',
+              style: TextStyle(color: AppTokens.textSecondary, fontSize: 12)),
         ),
         const SizedBox(height: 8),
-        OutlinedButton(
-          onPressed: withHaptic(() {
-            ref.read(gameProvider.notifier).resetBankroll();
-            Navigator.pop(context);
-          }),
-          style: OutlinedButton.styleFrom(side: BorderSide(color: theme.feltBorder)),
-          child: Text('Reset balance to \$$start'),
+        FilledButton(
+          onPressed: withHaptic(_save),
+          child: Text(_applyNow ? 'Save & reset balance' : 'Save starting bankroll'),
         ),
       ],
     );
