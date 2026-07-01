@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../engine/strategy.dart' as st;
 import '../../engine/variants.dart';
+import '../../state/appearance_provider.dart';
 import '../../state/settings_provider.dart';
 import '../theme/appearance.dart';
 import 'game_button.dart';
@@ -135,6 +136,7 @@ class _StrategyChartState extends ConsumerState<StrategyChart> {
       _ChartTab.soft: 'Soft Totals',
       _ChartTab.pair: 'Pairs',
     };
+    final gold = ref.watch(appearanceProvider).gold;
     return Wrap(
       spacing: 8,
       runSpacing: 8,
@@ -153,17 +155,17 @@ class _StrategyChartState extends ConsumerState<StrategyChart> {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
                 color: _tab == t
-                    ? classicGreen.gold.withValues(alpha: 0.16)
+                    ? gold.withValues(alpha: 0.16)
                     : const Color(0x14FFFFFF),
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(
-                  color: _tab == t ? classicGreen.gold : const Color(0x22FFFFFF),
+                  color: _tab == t ? gold : const Color(0x22FFFFFF),
                   width: _tab == t ? 1.5 : 1,
                 ),
               ),
               child: Text(labels[t]!,
                   style: TextStyle(
-                      color: _tab == t ? classicGreen.gold : AppTokens.textSecondary,
+                      color: _tab == t ? gold : AppTokens.textSecondary,
                       fontWeight: FontWeight.w600,
                       fontSize: 13)),
             ),
@@ -254,7 +256,7 @@ class _StrategyChartState extends ConsumerState<StrategyChart> {
       decoration: BoxDecoration(
         color: const Color(0x1FFFFFFF),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: classicGreen.gold.withValues(alpha: 0.35)),
+        border: Border.all(color: ref.watch(appearanceProvider).gold.withValues(alpha: 0.35)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

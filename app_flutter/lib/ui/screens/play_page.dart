@@ -51,12 +51,18 @@ void _reactToGameChange(GameStoreState? prev, GameStoreState next) {
   final resolved = ng.phase == eng.GamePhase.complete &&
       (pg?.phase != eng.GamePhase.complete || next.roundId != prev?.roundId);
   if (resolved) {
-    // Reward optimal strategy, not luck: success if the hand had no mistakes,
-    // failure otherwise — independent of whether chips were won or lost.
-    if (next.handHadMistake) {
-      sound.failure();
+    // Jingle reflects the hand's outcome (money won/lost), matching the
+    // headline — blackjack, then net win / loss / push.
+    final hands = ng.playerHands;
+    final net = hands.fold<int>(0, (s, h) => s + h.payout - h.bet);
+    if (hands.any((h) => h.result == eng.HandResult.blackjack)) {
+      sound.blackjack();
+    } else if (net > 0) {
+      sound.win();
+    } else if (net < 0) {
+      sound.lose();
     } else {
-      sound.success();
+      sound.push();
     }
   } else if (ng.phase == eng.GamePhase.playerTurn) {
     // A fresh deal lays down 4 cards (player, dealer, player, dealer) staggered
@@ -604,6 +610,8 @@ class _TableCenter extends StatelessWidget {
       final hasBlackjack = game.playerHands.any(
         (h) => h.result == eng.HandResult.blackjack,
       );
+      final dealerBlackjack =
+          game.dealerCards.length == 2 && bj.isBlackjack(game.dealerCards);
       final net = game.playerHands.fold<int>(0, (s, h) => s + h.payout - h.bet);
       final color = hasBlackjack
           ? theme.goldLight
@@ -616,11 +624,17 @@ class _TableCenter extends StatelessWidget {
       if (net > 0) {
         headline = hasBlackjack ? 'Blackjack! +\$$net' : 'You won \$$net';
       } else if (net < 0) {
-        headline = 'You lost \$${-net}';
+        headline = dealerBlackjack
+            ? 'Dealer Blackjack  -\$${-net}'
+            : 'You lost \$${-net}';
       } else {
         final allPush =
             game.playerHands.every((h) => h.result == eng.HandResult.push);
-        headline = allPush ? 'Push — bet returned' : 'Broke even';
+        headline = dealerBlackjack
+            ? 'Dealer Blackjack — push'
+            : allPush
+            ? 'Push — bet returned'
+            : 'Broke even';
       }
       return AppearIn(
         triggerKey: headline,

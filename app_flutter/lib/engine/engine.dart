@@ -216,9 +216,14 @@ GameState dealHand(GameState state,
     message: '',
   );
 
+  // The dealer peeks for a natural (only possible on an Ace/10 upcard). A dealer
+  // blackjack ends the hand immediately — the player can't hit/double/split into
+  // an already-lost hand. A player blackjack also resolves at once (3:2, or a
+  // push if the dealer also has one). Handled together via _resolveHands.
   final playerHasBlackjack = isBlackjack([playerCard1, playerCard2]);
-  if (playerHasBlackjack) {
-    final revealedDealer = newState.dealerCards.map((c) => c.copyWith(faceDown: false)).toList();
+  final revealedDealer = newState.dealerCards.map((c) => c.copyWith(faceDown: false)).toList();
+  final dealerHasBlackjack = isBlackjack(revealedDealer);
+  if (playerHasBlackjack || dealerHasBlackjack) {
     return _resolveHands(newState.copyWith(dealerCards: revealedDealer, phase: GamePhase.complete));
   }
 

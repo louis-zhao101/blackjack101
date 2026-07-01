@@ -23,7 +23,6 @@ class SoundService {
     'chip_place': 'assets/sounds/chip_place.wav',
     'chip_stack': 'assets/sounds/chip_stack.wav',
     'shuffle': 'assets/sounds/shuffle.wav',
-    'correct': 'assets/sounds/correct.wav',
     'win': 'assets/sounds/win.wav',
     'lose': 'assets/sounds/lose.wav',
     'push': 'assets/sounds/push.wav',
@@ -58,9 +57,10 @@ class SoundService {
   void cardFlip() => _play('card_flip', minGapMs: 40);
   void shuffle() => _play('shuffle', minGapMs: 200);
 
-  // Outcome jingles reflect strategy, not money: success when the hand was
-  // played optimally, failure when it wasn't. (win/push/blackjack clips stay
-  // loaded but unused for now.)
-  void success() => _play('correct');
-  void failure() => _play('lose');
+  // Outcome jingles reflect the result of the hand (money won/lost), matching
+  // the on-table headline — not whether the play was strategically optimal.
+  void win() => _play('win');
+  void lose() => _play('lose');
+  void push() => _play('push');
+  void blackjack() => _play('blackjack');
 }

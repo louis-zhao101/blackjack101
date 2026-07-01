@@ -11,6 +11,7 @@ class LocalStore {
   static const _statsKey = 'bj101-stats';
   static const _settingsKey = 'bj101-settings';
   static const _appearanceKey = 'bj101-appearance';
+  static const _learnKey = 'bj101-learn';
   static const _cardBackKey = 'bj101-card-back';
   static const _chipStyleKey = 'bj101-chip-style';
   static const _ownedKey = 'bj101-owned-products';
@@ -23,6 +24,15 @@ class LocalStore {
   String? loadAppearanceId() => _prefs.getString(_appearanceKey);
 
   Future<void> saveAppearanceId(String id) => _prefs.setString(_appearanceKey, id);
+
+  // --- learn progress (completed lesson ids) ---
+
+  Set<String> loadLearnProgress() => _prefs.getStringList(_learnKey)?.toSet() ?? <String>{};
+
+  Future<void> saveLearnProgress(Set<String> ids) =>
+      _prefs.setStringList(_learnKey, ids.toList());
+
+  // --- cosmetics (selected card back / chip style) ---
 
   String? loadCardBackId() => _prefs.getString(_cardBackKey);
 
