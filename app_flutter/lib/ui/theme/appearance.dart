@@ -282,6 +282,34 @@ const CardBack cardBackEmerald = CardBack(
   pattern: CardBackPattern.solid,
   asset: 'assets/card_backs/emerald.png',
 );
+const CardBack cardBackSapphire = CardBack(
+  id: 'back-sapphire',
+  name: 'Sapphire',
+  color: Color(0xFF1B2B4A),
+  pattern: CardBackPattern.solid,
+  asset: 'assets/card_backs/sapphire.png',
+);
+const CardBack cardBackJade = CardBack(
+  id: 'back-jade',
+  name: 'Jade',
+  color: Color(0xFF14532D),
+  pattern: CardBackPattern.solid,
+  asset: 'assets/card_backs/jade.png',
+);
+const CardBack cardBackGarnet = CardBack(
+  id: 'back-garnet',
+  name: 'Garnet',
+  color: Color(0xFF6E1414),
+  pattern: CardBackPattern.solid,
+  asset: 'assets/card_backs/garnet.png',
+);
+const CardBack cardBackPlatinum = CardBack(
+  id: 'back-platinum',
+  name: 'Platinum',
+  color: Color(0xFF3A3A40),
+  pattern: CardBackPattern.solid,
+  asset: 'assets/card_backs/platinum.png',
+);
 
 const List<CardBack> cardBackPresets = [
   cardBackRoyalBlue,
@@ -289,6 +317,10 @@ const List<CardBack> cardBackPresets = [
   cardBackRose,
   cardBackBlackGold,
   cardBackEmerald,
+  cardBackSapphire,
+  cardBackJade,
+  cardBackGarnet,
+  cardBackPlatinum,
 ];
 
 const String kFreeCardBackId = 'back-royal-blue';

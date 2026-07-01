@@ -25,6 +25,23 @@ class PlayingCardView extends StatelessWidget {
     final radius = BorderRadius.circular(AppTokens.radiusCard);
     if (card.faceDown) {
       final asset = theme.cardBackAsset;
+      // Image backs carry their own art (border + pre-rounded transparent
+      // corners), so we clip the image to a proportional radius and paint
+      // nothing behind it — the corners reveal the felt, not a fill color.
+      if (asset != null) {
+        final cardRadius = BorderRadius.circular(width * 0.06);
+        return Container(
+          width: width,
+          height: _height,
+          decoration: BoxDecoration(borderRadius: cardRadius, boxShadow: _shadow),
+          child: ClipRRect(
+            borderRadius: cardRadius,
+            child: asset.endsWith('.svg')
+                ? SvgPicture.asset(asset, fit: BoxFit.cover, width: width, height: _height)
+                : Image.asset(asset, fit: BoxFit.cover, width: width, height: _height),
+          ),
+        );
+      }
       return Container(
         width: width,
         height: _height,
@@ -35,14 +52,10 @@ class PlayingCardView extends StatelessWidget {
           border: Border.all(color: const Color(0x33000000)),
         ),
         clipBehavior: Clip.antiAlias,
-        child: asset != null
-            ? (asset.endsWith('.svg')
-                ? SvgPicture.asset(asset, fit: BoxFit.cover, width: width, height: _height)
-                : Image.asset(asset, fit: BoxFit.cover, width: width, height: _height))
-            : theme.cardBackPattern == CardBackPattern.solid
-                ? null
-                : CustomPaint(
-                    painter: _CardBackPainter(theme.cardBackPattern, theme.cardBackAccent)),
+        child: theme.cardBackPattern == CardBackPattern.solid
+            ? null
+            : CustomPaint(
+                painter: _CardBackPainter(theme.cardBackPattern, theme.cardBackAccent)),
       );
     }
 
