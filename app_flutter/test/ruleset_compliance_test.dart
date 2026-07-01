@@ -196,17 +196,18 @@ void main() {
   // 3. SURRENDER
   // -------------------------------------------------------------------------
   group('surrender', () {
-    // Classic surrender hand: hard 16 vs dealer A.
+    // Classic surrender hand: hard 16 vs dealer A. Dealer hole is a 6 (soft 17,
+    // not a natural) so the dealer doesn't peek to blackjack and end the hand.
     // Player: 9+7=16, Dealer: A up.
 
     test('Atlantic City: late surrender is allowed', () {
-      final s = deal(atlanticCity, '9', 'A', '7', 'K');
+      final s = deal(atlanticCity, '9', 'A', '7', '6');
       expect(s.phase, GamePhase.playerTurn);
       expect(canSurrender(s), true);
     });
 
     test('Atlantic City: surrender returns half bet', () {
-      var s = deal(atlanticCity, '9', 'A', '7', 'K');
+      var s = deal(atlanticCity, '9', 'A', '7', '6');
       s = surrender(s);
       expect(s.phase, GamePhase.complete);
       expect(s.playerHands[0].result, HandResult.surrender);
@@ -215,7 +216,7 @@ void main() {
     });
 
     test('Vegas Strip: surrender is not allowed', () {
-      final s = deal(vegasStrip, '9', 'A', '7', 'K');
+      final s = deal(vegasStrip, '9', 'A', '7', '6');
       expect(canSurrender(s), false);
       // Calling surrender() should be a no-op
       final after = surrender(s);
@@ -223,17 +224,17 @@ void main() {
     });
 
     test('Vegas Strip H17: surrender is not allowed', () {
-      final s = deal(vegasStripH17, '9', 'A', '7', 'K');
+      final s = deal(vegasStripH17, '9', 'A', '7', '6');
       expect(canSurrender(s), false);
     });
 
     test('Single Deck: surrender is not allowed', () {
-      final s = deal(singleDeck, '9', 'A', '7', 'K');
+      final s = deal(singleDeck, '9', 'A', '7', '6');
       expect(canSurrender(s), false);
     });
 
     test('surrender not available after a hit (late only)', () {
-      var s = deal(atlanticCity, '5', 'A', '6', 'K'); // 11
+      var s = deal(atlanticCity, '5', 'A', '6', '9'); // player 11, dealer A+9 soft 20
       s = hit(s); // now 3+ cards
       expect(canSurrender(s), false);
     });
@@ -243,6 +244,58 @@ void main() {
       var s = deal(atlanticCity, '8', '5', '8', 'K', ['3', '4']);
       s = split(s);
       expect(canSurrender(s), false);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // 3b. DEALER BLACKJACK — IMMEDIATE RESOLUTION (dealer peek)
+  // -------------------------------------------------------------------------
+  group('dealer blackjack ends the hand at deal', () {
+    test('dealer natural resolves immediately — player loses base bet, no turn', () {
+      // Player 9+8=17; dealer A up, K hole = blackjack.
+      final s = deal(vegasStrip, '9', 'A', '8', 'K');
+      expect(s.phase, GamePhase.complete);
+      expect(s.playerHands[0].result, HandResult.lose);
+      expect(s.playerHands[0].payout, 0);
+      expect(s.bankroll, 900); // only the original 100 is lost
+      expect(canDouble(s), false);
+      expect(canSplit(s), false);
+    });
+
+    test('dealer natural with 10 upcard + Ace hole also resolves at deal', () {
+      final s = deal(vegasStrip, '9', 'K', '8', 'A'); // dealer K+A = blackjack
+      expect(s.phase, GamePhase.complete);
+      expect(s.playerHands[0].result, HandResult.lose);
+    });
+
+    test('player cannot split/double into a dealer blackjack', () {
+      // Pair of 8s would normally split, but the dealer has a natural.
+      var s = deal(vegasStrip, '8', 'A', '8', 'Q'); // dealer A+Q = blackjack
+      expect(s.phase, GamePhase.complete);
+      expect(canSplit(s), false);
+      final afterSplit = split(s); // no-op
+      expect(afterSplit.playerHands.length, 1);
+      final afterDouble = doubleDown(s); // no-op
+      expect(afterDouble.bankroll, 900); // no extra bet lost either way
+    });
+
+    test('player blackjack vs dealer blackjack pushes at deal', () {
+      final s = deal(vegasStrip, 'A', 'A', 'K', 'K'); // both naturals
+      expect(s.phase, GamePhase.complete);
+      expect(s.playerHands[0].result, HandResult.push);
+      expect(s.bankroll, 1000);
+    });
+
+    test('dealer 10 upcard without a natural still lets the player act', () {
+      final s = deal(vegasStrip, '9', '10', '7', '5'); // dealer 10+5 = 15, no BJ
+      expect(s.phase, GamePhase.playerTurn);
+    });
+
+    test('6:5 game: dealer blackjack still only takes the base bet', () {
+      final s = deal(singleDeck, '9', 'A', '8', 'K');
+      expect(s.phase, GamePhase.complete);
+      expect(s.playerHands[0].result, HandResult.lose);
+      expect(s.bankroll, 900);
     });
   });
 
