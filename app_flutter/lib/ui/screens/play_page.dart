@@ -1,7 +1,9 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../engine/cards.dart' show isBlackjack;
+import '../../engine/cards.dart' as bj;
 import '../../engine/engine.dart' as eng;
 import '../../engine/variants.dart';
 import '../../services/sound_service.dart';
@@ -14,6 +16,7 @@ import '../widgets/bet_chip_stack.dart';
 import '../widgets/blackjack_hand.dart';
 import '../widgets/chip_widget.dart';
 import '../widgets/game_button.dart';
+import '../widgets/playing_card.dart';
 import 'shop_page.dart';
 
 const _chipDenoms = [5, 25, 100, 500];
@@ -28,6 +31,19 @@ void _reactToGameChange(GameStoreState? prev, GameStoreState next) {
 
   // A larger deck than the previous state means the shoe was reshuffled.
   if (pg != null && ng.deck.length > pg.deck.length) sound.shuffle();
+
+  // Fling one card off the deck for every card the engine just drew: a fresh
+  // deal is always 4 (player, dealer, player, dealer); otherwise it's however
+  // many cards appeared — 1 for a hit/double, N for the dealer drawing out.
+  final int drawn;
+  if (next.roundId != prev?.roundId && ng.phase != eng.GamePhase.betting) {
+    drawn = 4;
+  } else if (pg != null) {
+    drawn = (_visibleCards(ng) - _visibleCards(pg)).clamp(0, 12);
+  } else {
+    drawn = 0;
+  }
+  if (drawn > 0) _flourishKey.currentState?.fly(drawn);
 
   // Fire the outcome when a hand resolves: either the phase just turned
   // complete, or a fresh deal (new roundId) landed straight on complete — e.g.
@@ -51,14 +67,17 @@ void _reactToGameChange(GameStoreState? prev, GameStoreState next) {
   } else if (ng.phase == eng.GamePhase.playerTurn) {
     // A fresh deal lays down 4 cards (player, dealer, player, dealer) staggered
     // by 160ms to match the deal animation; hits/splits add cards mid-turn.
-    final added = pg?.phase == eng.GamePhase.playerTurn
-        ? _visibleCards(ng) - _visibleCards(pg!)
-        : 4;
+    // The opening deal waits kDealLeadMs so the click stays in sync with the
+    // cards, which hold back for the deck flourish; hits fire immediately.
+    final freshDeal = pg?.phase != eng.GamePhase.playerTurn;
+    final added = freshDeal ? 4 : _visibleCards(ng) - _visibleCards(pg!);
+    final lead = freshDeal ? kDealLeadMs : 0;
     for (var i = 0; i < added; i++) {
-      if (i == 0) {
-        sound.cardDeal();
+      final delay = lead + i * 160;
+      if (delay <= 0) {
+        sound.cardSlide();
       } else {
-        Future.delayed(Duration(milliseconds: i * 160), sound.cardDeal);
+        Future.delayed(Duration(milliseconds: delay), sound.cardSlide);
       }
     }
   }
@@ -124,9 +143,28 @@ class PlayPage extends ConsumerWidget {
               return Container(
                 width: double.infinity,
                 decoration: BoxDecoration(gradient: theme.feltGradient),
+                clipBehavior: Clip.hardEdge,
                 padding: const EdgeInsets.all(16),
                 child: Stack(
+                  clipBehavior: Clip.none,
                   children: [
+                    Positioned(
+                      left: -cardWidth * 0.35,
+                      top: 2,
+                      child: Transform.rotate(
+                        angle: -0.25,
+                        child: _DeckStack(theme: theme, width: cardWidth),
+                      ),
+                    ),
+                    Positioned(
+                      left: -cardWidth * 0.35,
+                      top: 2,
+                      child: _DealFlourish(
+                        key: _flourishKey,
+                        theme: theme,
+                        width: cardWidth,
+                      ),
+                    ),
                     Column(
                       children: [
                         _DealerZone(
@@ -378,6 +416,188 @@ class _DealerZone extends StatelessWidget {
   }
 }
 
+/// Decorative shoe/deck in the corner of the table — a few offset card-paper
+/// edges behind a face-down card showing the player's chosen back. Tapping it
+/// fans the top card out with a card-slide sound, for a bit of fidget delight.
+class _DeckStack extends StatefulWidget {
+  final AppearanceTheme theme;
+  final double width;
+  const _DeckStack({required this.theme, required this.width});
+
+  @override
+  State<_DeckStack> createState() => _DeckStackState();
+}
+
+class _DeckStackState extends State<_DeckStack> with SingleTickerProviderStateMixin {
+  static const _layers = 9;
+  static const _step = 1.3;
+  // A touch of leftward drift per layer so the pile reads correctly against the
+  // deck's rotation.
+  static const _stepX = 0.4;
+
+  late final AnimationController _fan =
+      AnimationController(vsync: this, duration: const Duration(milliseconds: 420));
+
+  void _tap() {
+    lightHaptic();
+    SoundService.instance.cardSlide();
+    _fan.forward(from: 0);
+  }
+
+  @override
+  void dispose() {
+    _fan.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final width = widget.width;
+    final theme = widget.theme;
+    final height = width * (100 / 72);
+    final radius = BorderRadius.circular(width * 0.06);
+    return GestureDetector(
+      onTap: _tap,
+      behavior: HitTestBehavior.opaque,
+      child: SizedBox(
+        width: width,
+        height: height + _layers * _step,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            for (var i = _layers; i >= 1; i--)
+              Positioned(
+                left: -i * _stepX,
+                top: i * _step,
+                child: Container(
+                  width: width,
+                  height: height,
+                  decoration: BoxDecoration(
+                    color: theme.cardFace,
+                    borderRadius: radius,
+                    border: Border.all(color: const Color(0x33000000)),
+                  ),
+                ),
+              ),
+            // The next card down, so fanning the top card reveals a real back.
+            Positioned(
+              left: -_stepX,
+              top: _step,
+              child: PlayingCardView(
+                card: const bj.Card(rank: 'A', suit: '♠', faceDown: true),
+                theme: theme,
+                width: width,
+                showShadow: false,
+              ),
+            ),
+            AnimatedBuilder(
+              animation: _fan,
+              child: PlayingCardView(
+                card: const bj.Card(rank: 'A', suit: '♠', faceDown: true),
+                theme: theme,
+                width: width,
+                showShadow: false,
+              ),
+              builder: (context, child) {
+                // Top card slides out and rotates a touch, then settles back.
+                final wave = math.sin(_fan.value * math.pi);
+                return Transform.translate(
+                  offset: Offset(wave * width * 0.16, wave * -width * 0.05),
+                  child: Transform.rotate(
+                    angle: wave * 0.18,
+                    alignment: Alignment.bottomCenter,
+                    child: child,
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Drives the deal flourish — one card back flung off the top of the deck, off
+/// screen to the left, for every card the engine draws (see [_reactToGameChange]).
+final GlobalKey<_DealFlourishState> _flourishKey = GlobalKey<_DealFlourishState>();
+
+class _DealFlourish extends StatefulWidget {
+  final AppearanceTheme theme;
+  final double width;
+  const _DealFlourish({super.key, required this.theme, required this.width});
+
+  @override
+  State<_DealFlourish> createState() => _DealFlourishState();
+}
+
+class _DealFlourishState extends State<_DealFlourish> with TickerProviderStateMixin {
+  final List<AnimationController> _active = [];
+
+  /// Flings [count] card backs off the deck, staggered so they trail each other.
+  void fly(int count) {
+    for (var i = 0; i < count; i++) {
+      final c = AnimationController(vsync: this, duration: const Duration(milliseconds: 360));
+      _active.add(c);
+      c.addStatusListener((status) {
+        if (status == AnimationStatus.completed) {
+          _active.remove(c);
+          c.dispose();
+          if (mounted) setState(() {});
+        }
+      });
+      Future.delayed(Duration(milliseconds: i * 70), () {
+        if (mounted && _active.contains(c)) c.forward();
+      });
+    }
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    for (final c in _active) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final screenW = MediaQuery.of(context).size.width;
+    return IgnorePointer(
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          // Paint newest-first so the earliest-launched (first to fly) card sits
+          // on top — the top of the deck always leaves first.
+          for (final c in _active.reversed)
+            AnimatedBuilder(
+              animation: c,
+              builder: (context, _) {
+                final e = Curves.easeIn.transform(c.value);
+                return Transform.translate(
+                  offset: Offset(-e * screenW, -e * widget.width * 0.25),
+                  child: Transform.rotate(
+                    angle: -0.25 - e * 0.6,
+                    child: Opacity(
+                      opacity: (1 - e).clamp(0.0, 1.0),
+                      child: PlayingCardView(
+                        card: const bj.Card(rank: 'A', suit: '♠', faceDown: true),
+                        theme: widget.theme,
+                        width: widget.width,
+                        showShadow: false,
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 class _TableCenter extends StatelessWidget {
   final eng.GameState game;
   final AppearanceTheme theme;
@@ -391,7 +611,7 @@ class _TableCenter extends StatelessWidget {
         (h) => h.result == eng.HandResult.blackjack,
       );
       final dealerBlackjack =
-          game.dealerCards.length == 2 && isBlackjack(game.dealerCards);
+          game.dealerCards.length == 2 && bj.isBlackjack(game.dealerCards);
       final net = game.playerHands.fold<int>(0, (s, h) => s + h.payout - h.bet);
       final color = hasBlackjack
           ? theme.goldLight

@@ -18,6 +18,7 @@ class SoundService {
 
   static const _clips = {
     'card_deal': 'assets/sounds/card_deal.wav',
+    'card_slide': 'assets/sounds/card_slide.mp3',
     'card_flip': 'assets/sounds/card_flip.wav',
     'chip_place': 'assets/sounds/chip_place.wav',
     'chip_stack': 'assets/sounds/chip_stack.wav',
@@ -52,6 +53,7 @@ class SoundService {
   void chipPlace() => _play('chip_place', vary: true, minGapMs: 40);
   void chipStack() => _play('chip_stack', vary: true, minGapMs: 40);
   void cardDeal() => _play('card_deal', vary: true, minGapMs: 40);
+  void cardSlide() => _play('card_slide', vary: true, minGapMs: 40);
   void cardFlip() => _play('card_flip', minGapMs: 40);
   void shuffle() => _play('shuffle', minGapMs: 200);
 

@@ -6,6 +6,11 @@ import '../theme/appearance.dart';
 import 'game_button.dart';
 import 'playing_card.dart';
 
+/// A short head start before the opening deal slides in, so the deck's fly-off
+/// flourish has time to clear the deck first. Shared with the deal sound in the
+/// play page so the click stays in sync with the cards.
+const int kDealLeadMs = 280;
+
 class BlackjackHandView extends StatelessWidget {
   final List<bj.Card> cards;
   final AppearanceTheme theme;
@@ -85,7 +90,7 @@ class BlackjackHandView extends StatelessWidget {
                     child: _DealtCard(
                       // Interleave the opening deal (player, dealer, player,
                       // dealer); later cards (hit, double) animate immediately.
-                      delayMs: i < 2 ? (2 * i + dealOffset) * 160 : 0,
+                      delayMs: i < 2 ? (2 * i + dealOffset) * 160 + kDealLeadMs : 0,
                       // Replays the entrance when the round changes (every
                       // deal) or the card at this slot changes (split). Ignores
                       // faceDown so revealing the hole card doesn't re-trigger.
