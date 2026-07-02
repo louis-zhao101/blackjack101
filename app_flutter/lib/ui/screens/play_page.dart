@@ -32,11 +32,16 @@ void _reactToGameChange(GameStoreState? prev, GameStoreState next) {
   // A larger deck than the previous state means the shoe was reshuffled.
   if (pg != null && ng.deck.length > pg.deck.length) sound.shuffle();
 
+  // A fresh deal (new roundId) always lays down 4 cards — even one that lands
+  // straight on complete, e.g. a dealt / "Deal Again" blackjack.
+  final freshDeal =
+      next.roundId != prev?.roundId && ng.phase != eng.GamePhase.betting;
+
   // Fling one card off the deck for every card the engine just drew: a fresh
-  // deal is always 4 (player, dealer, player, dealer); otherwise it's however
-  // many cards appeared — 1 for a hit/double, N for the dealer drawing out.
+  // deal is 4 (player, dealer, player, dealer); otherwise it's however many
+  // cards appeared — 1 for a hit/double, N for the dealer drawing out.
   final int drawn;
-  if (next.roundId != prev?.roundId && ng.phase != eng.GamePhase.betting) {
+  if (freshDeal) {
     drawn = 4;
   } else if (pg != null) {
     drawn = (_visibleCards(ng) - _visibleCards(pg)).clamp(0, 12);
@@ -45,40 +50,53 @@ void _reactToGameChange(GameStoreState? prev, GameStoreState next) {
   }
   if (drawn > 0) _flourishKey.currentState?.fly(drawn);
 
-  // Fire the outcome when a hand resolves: either the phase just turned
-  // complete, or a fresh deal (new roundId) landed straight on complete — e.g.
-  // a "Deal Again" blackjack, which goes complete -> complete.
+  // Card-deal clicks for player-facing cards, staggered by 160ms. The opening
+  // deal (4) waits kDealLeadMs so it stays in sync with the flourish; hits and
+  // splits fire immediately. Decoupled from the resolution branch below so a
+  // dealt blackjack (which skips playerTurn) still clicks.
+  final int dealt;
+  if (freshDeal) {
+    dealt = 4;
+  } else if (ng.phase == eng.GamePhase.playerTurn &&
+      pg?.phase == eng.GamePhase.playerTurn) {
+    dealt = (_visibleCards(ng) - _visibleCards(pg!)).clamp(0, 12);
+  } else {
+    dealt = 0;
+  }
+  final lead = freshDeal ? kDealLeadMs : 0;
+  for (var i = 0; i < dealt; i++) {
+    final delay = lead + i * 160;
+    if (delay <= 0) {
+      sound.cardDeal();
+    } else {
+      Future.delayed(Duration(milliseconds: delay), sound.cardDeal);
+    }
+  }
+
+  // Outcome jingle when a hand resolves: either the phase just turned complete,
+  // or a fresh deal landed straight on complete (a "Deal Again" blackjack goes
+  // complete -> complete). Reflects money won/lost, matching the headline —
+  // blackjack, then net win / loss / push.
   final resolved = ng.phase == eng.GamePhase.complete &&
       (pg?.phase != eng.GamePhase.complete || next.roundId != prev?.roundId);
   if (resolved) {
-    // Jingle reflects the hand's outcome (money won/lost), matching the
-    // headline — blackjack, then net win / loss / push.
     final hands = ng.playerHands;
     final net = hands.fold<int>(0, (s, h) => s + h.payout - h.bet);
+    final void Function() jingle;
     if (hands.any((h) => h.result == eng.HandResult.blackjack)) {
-      sound.blackjack();
+      jingle = sound.blackjack;
     } else if (net > 0) {
-      sound.win();
+      jingle = sound.win;
     } else if (net < 0) {
-      sound.lose();
+      jingle = sound.lose;
     } else {
-      sound.push();
+      jingle = sound.push;
     }
-  } else if (ng.phase == eng.GamePhase.playerTurn) {
-    // A fresh deal lays down 4 cards (player, dealer, player, dealer) staggered
-    // by 160ms to match the deal animation; hits/splits add cards mid-turn.
-    // The opening deal waits kDealLeadMs so the click stays in sync with the
-    // cards, which hold back for the deck flourish; hits fire immediately.
-    final freshDeal = pg?.phase != eng.GamePhase.playerTurn;
-    final added = freshDeal ? 4 : _visibleCards(ng) - _visibleCards(pg!);
-    final lead = freshDeal ? kDealLeadMs : 0;
-    for (var i = 0; i < added; i++) {
-      final delay = lead + i * 160;
-      if (delay <= 0) {
-        sound.cardSlide();
-      } else {
-        Future.delayed(Duration(milliseconds: delay), sound.cardSlide);
-      }
+    // On an instant (dealt) blackjack, let the cards land before celebrating.
+    if (freshDeal) {
+      Future.delayed(const Duration(milliseconds: 700), jingle);
+    } else {
+      jingle();
     }
   }
 }
