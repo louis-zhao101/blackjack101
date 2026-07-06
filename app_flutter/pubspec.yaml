@@ -40,11 +40,18 @@ dependencies:
   flutter_riverpod: ^3.3.2
   shared_preferences: ^2.5.5
   fl_chart: ^1.2.0
-  soundpool: ^2.4.1
+  audioplayers: ^6.0.0
   flutter_svg: ^2.3.0
   purchases_flutter: ^10.3.0
   purchases_ui_flutter: ^10.3.0
   in_app_review: ^2.0.9
+
+dependency_overrides:
+  # path_provider_foundation 2.6.0 (pulled in transitively by audioplayers)
+  # switched to the objective_c FFI package, which needs Flutter's experimental
+  # native-assets and crashes iOS at startup ("DOBJC_initializeApi"). Pin to the
+  # last method-channel release until native assets ship on stable.
+  path_provider_foundation: 2.4.1
 
 dev_dependencies:
   flutter_test:

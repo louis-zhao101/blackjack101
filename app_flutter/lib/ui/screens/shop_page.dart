@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:purchases_flutter/purchases_flutter.dart' show Offering, Package, PackageType;
@@ -15,7 +16,22 @@ import '../widgets/playing_card.dart';
 /// Opens the custom Go Pro paywall — a themed selector over the current
 /// RevenueCat Offering (Monthly / Yearly / Lifetime). The CustomerInfo listener
 /// drives entitlement state, so no manual refresh is needed after a purchase.
+/// Real purchases only run on iOS/Android (RevenueCat). The web build is a
+/// companion — rather than fake a purchase through the local dev backend, we
+/// point people to the mobile app.
+bool get _purchasesMobileOnly => kIsWeb;
+
+void _notifyMobileOnly(BuildContext context) {
+  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+    content: Text('Purchases are available in the Blackjack 101 mobile app.'),
+  ));
+}
+
 Future<void> openGoPro(BuildContext context) {
+  if (_purchasesMobileOnly) {
+    _notifyMobileOnly(context);
+    return Future<void>.value();
+  }
   return Navigator.of(context).push(
     MaterialPageRoute<void>(fullscreenDialog: true, builder: (_) => const GoProScreen()),
   );
@@ -47,6 +63,10 @@ PreferredSizeWidget _shopAppBar(AppearanceTheme theme, String title) => AppBar(
     );
 
 Future<void> _restore(BuildContext context, WidgetRef ref) async {
+  if (_purchasesMobileOnly) {
+    _notifyMobileOnly(context);
+    return;
+  }
   final messenger = ScaffoldMessenger.of(context);
   await ref.read(entitlementsProvider.notifier).restore();
   messenger.showSnackBar(const SnackBar(content: Text('Purchases restored')));
@@ -622,6 +642,10 @@ class _PolicyNote extends StatelessWidget {
 }
 
 Future<void> _buy(BuildContext context, WidgetRef ref, StoreProduct product) async {
+  if (_purchasesMobileOnly) {
+    _notifyMobileOnly(context);
+    return;
+  }
   final messenger = ScaffoldMessenger.of(context);
   final result = await ref.read(entitlementsProvider.notifier).purchase(product);
   if (result == PurchaseResult.success) {

@@ -6,15 +6,18 @@ import 'auth_provider.dart';
 
 /// Mirrors the full current cosmetic selection to the cloud. Always sends all
 /// three ids so the coalescing sync queue (latest-wins per key) never drops a
-/// field that changed in a separate call.
+/// field that changed in a separate call. Reads the just-saved ids from local
+/// storage rather than the cosmetic providers — a controller can't depend on
+/// its own provider (and each setter persists before calling this).
 void _pushCosmetics(Ref ref) {
   final uid = ref.read(authServiceProvider).currentUser?.uid;
   if (uid == null) return;
+  final store = ref.read(localStoreProvider);
   ref.read(syncQueueProvider.notifier).cosmeticSelection(
         uid,
-        appearance: ref.read(tableThemeProvider).id,
-        cardBack: ref.read(cardBackProvider).id,
-        chipStyle: ref.read(chipStyleProvider).id,
+        appearance: store.loadAppearanceId(),
+        cardBack: store.loadCardBackId(),
+        chipStyle: store.loadChipStyleId(),
       );
 }
 

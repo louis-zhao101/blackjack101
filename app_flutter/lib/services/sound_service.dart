@@ -1,38 +1,40 @@
 import 'dart:math';
 
-import 'package:flutter/services.dart' show rootBundle;
-import 'package:soundpool/soundpool.dart';
+import 'package:audioplayers/audioplayers.dart';
 
-/// Fire-and-forget sound effects. Uses soundpool (AVAudioPlayer on iOS,
-/// SoundPool on Android) which is built for short overlapping clips, unlike
-/// AVPlayer-based players that fail to load bundled audio on iOS.
+/// Fire-and-forget sound effects. Uses audioplayers with a small round-robin
+/// pool of players so short clips can overlap (dealing, chip stacks) without
+/// cutting each other off — the equivalent of soundpool's `maxStreams`.
 class SoundService {
   SoundService._() {
-    for (final entry in _clips.entries) {
-      _ids[entry.key] =
-          rootBundle.load(entry.value).then((data) => _pool.load(data));
+    // Copy the bundled clips into audioplayers' cache up front so the first
+    // play of each doesn't stutter while the asset is unpacked.
+    AudioCache.instance.loadAll(_clips.values.toList());
+    for (var i = 0; i < _poolSize; i++) {
+      _pool.add(AudioPlayer()..setReleaseMode(ReleaseMode.stop));
     }
   }
 
   static final SoundService instance = SoundService._();
 
+  static const _poolSize = 6;
+
+  // Paths are relative to audioplayers' default asset prefix ('assets/').
   static const _clips = {
-    'card_deal': 'assets/sounds/card_deal.wav',
-    'card_slide': 'assets/sounds/card_slide.mp3',
-    'card_flip': 'assets/sounds/card_flip.wav',
-    'chip_place': 'assets/sounds/chip_place.wav',
-    'chip_stack': 'assets/sounds/chip_stack.wav',
-    'shuffle': 'assets/sounds/shuffle.wav',
-    'win': 'assets/sounds/win.wav',
-    'lose': 'assets/sounds/lose.wav',
-    'push': 'assets/sounds/push.wav',
-    'blackjack': 'assets/sounds/blackjack.wav',
+    'card_deal': 'sounds/card_deal.wav',
+    'card_slide': 'sounds/card_slide.mp3',
+    'card_flip': 'sounds/card_flip.wav',
+    'chip_place': 'sounds/chip_place.wav',
+    'chip_stack': 'sounds/chip_stack.wav',
+    'shuffle': 'sounds/shuffle.wav',
+    'win': 'sounds/win.wav',
+    'lose': 'sounds/lose.wav',
+    'push': 'sounds/push.wav',
+    'blackjack': 'sounds/blackjack.wav',
   };
 
-  final Soundpool _pool = Soundpool.fromOptions(
-    options: const SoundpoolOptions(streamType: StreamType.music, maxStreams: 6),
-  );
-  final Map<String, Future<int>> _ids = {};
+  final List<AudioPlayer> _pool = [];
+  int _next = 0;
   final Map<String, int> _lastPlayMs = {};
   final Random _rng = Random();
 
@@ -43,11 +45,17 @@ class SoundService {
   /// rapid dealing/betting sound harsh and machine-gunned.
   void _play(String name, {bool vary = false, int minGapMs = 0}) {
     if (!enabled) return;
+    final path = _clips[name];
+    if (path == null) return;
     final now = DateTime.now().millisecondsSinceEpoch;
     if (minGapMs > 0 && now - (_lastPlayMs[name] ?? 0) < minGapMs) return;
     _lastPlayMs[name] = now;
+
     final rate = vary ? 0.97 + _rng.nextDouble() * 0.09 : 1.0;
-    _ids[name]?.then((id) => _pool.play(id, rate: rate));
+    final player = _pool[_next];
+    _next = (_next + 1) % _pool.length;
+    player.setPlaybackRate(rate);
+    player.play(AssetSource(path));
   }
 
   void chipPlace() => _play('chip_place', vary: true, minGapMs: 40);
