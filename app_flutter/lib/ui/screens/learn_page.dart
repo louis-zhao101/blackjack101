@@ -1,13 +1,22 @@
-import 'package:flutter/material.dart';
+import 'dart:math';
+
+import 'package:flutter/material.dart' hide Action;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../engine/cards.dart' as bj;
+import '../../engine/strategy.dart';
 import '../../engine/variants.dart';
+import '../../state/achievements_provider.dart';
 import '../../state/appearance_provider.dart';
 import '../../state/learn_provider.dart';
 import '../../state/settings_provider.dart';
+import '../../state/stats_provider.dart';
+import '../../state/store_provider.dart';
 import '../theme/appearance.dart';
 import '../widgets/game_button.dart';
+import '../widgets/playing_card.dart';
 import '../widgets/strategy_chart.dart';
+import 'shop_page.dart';
 
 // ---------------------------------------------------------------------------
 // Shared card / text helpers
@@ -72,7 +81,10 @@ class _Lesson {
   final String title;
   final String subtitle;
   final IconData icon;
-  final bool comingSoon;
+
+  /// Opens the interactive scenario drill instead of the paged lesson, and is
+  /// excluded from the lesson-completion progress (it's a tool, not a lesson).
+  final bool isPractice;
   final List<_Step> Function(RuleSet rs) build;
   const _Lesson({
     required this.id,
@@ -80,7 +92,7 @@ class _Lesson {
     required this.subtitle,
     required this.icon,
     required this.build,
-    this.comingSoon = false,
+    this.isPractice = false,
   });
 }
 
@@ -99,6 +111,11 @@ List<_Step> _basics(RuleSet rs) {
           '• 2–9: their face value\n• 10, J, Q, K: worth 10\n• Ace: worth 1 or 11 — whichever helps, and it can switch automatically as you draw.',
       takeaway:
           'An Ace + any 10-value card on your first two cards is a "blackjack" — the best hand.',
+      widget: const _ExampleHand([
+        ('worth 9', [bj.Card(rank: '9', suit: '♦')]),
+        ('worth 10', [bj.Card(rank: 'Q', suit: '♠')]),
+        ('1 or 11', [bj.Card(rank: 'A', suit: '♥')]),
+      ]),
     ),
     _Step(
       heading: 'How a hand plays out',
@@ -127,6 +144,10 @@ List<_Step> _dealer(RuleSet rs) => [
         body:
             "Every decision starts with the dealer's face-up card:\n\n• 2–6 = weak. The dealer is likely to bust — play it safe and let them.\n• 7, 8, 9, 10, Ace = strong. The dealer will probably make a good hand — you need to improve yours.",
         takeaway: 'Weak dealer (2–6): be cautious. Strong dealer (7–A): be aggressive.',
+        widget: const _ExampleHand([
+          ('Weak', [bj.Card(rank: '6', suit: '♦')]),
+          ('Strong', [bj.Card(rank: 'K', suit: '♠')]),
+        ]),
       ),
       _Step(
         heading: 'Assume the hole card is a 10',
@@ -148,12 +169,20 @@ List<_Step> _hitStand(RuleSet rs) => [
         body:
             "With a 'stiff' total (12–16) against a dealer showing 2–6, stand. Yes, 16 is a bad hand — but if you hit you'll often bust and lose instantly. Standing makes the weak dealer draw and bust first.",
         takeaway: 'Stiff hand + weak dealer = stand and let them bust.',
+        widget: const _ExampleHand([
+          ('You have', [bj.Card(rank: '10', suit: '♠'), bj.Card(rank: '6', suit: '♥')]),
+          ('Dealer', [bj.Card(rank: '6', suit: '♦')]),
+        ]),
       ),
       _Step(
         heading: 'Hit when the dealer is strong',
         body:
             "Against a dealer showing 7–A, standing on a stiff total just loses — the dealer will usually make 17 or better. You have to draw and try to improve, even at the risk of busting.",
         takeaway: 'Stiff hand + strong dealer = hit and try to improve.',
+        widget: const _ExampleHand([
+          ('You have', [bj.Card(rank: '10', suit: '♠'), bj.Card(rank: '6', suit: '♥')]),
+          ('Dealer', [bj.Card(rank: '9', suit: '♣')]),
+        ]),
       ),
       _Step(
         heading: 'The easy calls',
@@ -168,12 +197,20 @@ List<_Step> _doubleSplit(RuleSet rs) => [
         body:
             "Double when you're in a strong spot and the dealer is weak — above all on 11, and on 10 (except against a 10 or Ace). You put more money out exactly when the odds favor you, and take one more card.",
         takeaway: 'Always double 11 (except against an Ace).',
+        widget: const _ExampleHand([
+          ('You have', [bj.Card(rank: '6', suit: '♦'), bj.Card(rank: '5', suit: '♠')]),
+          ('Dealer', [bj.Card(rank: '5', suit: '♥')]),
+        ]),
       ),
       _Step(
         heading: 'The always-and-nevers of splitting',
         body:
             '• Always split Aces and 8s.\n• Never split 10s (you already have 20) or 5s (treat them as a strong 10 and double instead).\n• Other pairs depend on the dealer — the chart has the details.',
         takeaway: 'Split A/8, never 10/5. Lock these in and you\'ll rarely make a big mistake.',
+        widget: const _ExampleHand([
+          ('Always split', [bj.Card(rank: '8', suit: '♠'), bj.Card(rank: '8', suit: '♥')]),
+          ('Never split', [bj.Card(rank: '10', suit: '♦'), bj.Card(rank: 'K', suit: '♣')]),
+        ]),
       ),
     ];
 
@@ -185,6 +222,67 @@ List<_Step> _chartLesson(RuleSet rs) => [
         widget: const StrategyChart(),
       ),
     ];
+
+/// One or more labeled example hands rendered in the current theme, shown
+/// inside a lesson step to make the idea concrete. The total is shown for
+/// multi-card hands; single cards rely on their label.
+class _ExampleHand extends ConsumerWidget {
+  final List<(String, List<bj.Card>)> groups;
+  const _ExampleHand(this.groups);
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = ref.watch(appearanceProvider);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+      decoration: BoxDecoration(
+        color: const Color(0x14FFFFFF),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: theme.feltBorder),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (final (label, cards) in groups) _group(theme, label, cards),
+        ],
+      ),
+    );
+  }
+
+  Widget _group(AppearanceTheme theme, String label, List<bj.Card> cards) {
+    final hv = bj.handValue(cards);
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(label.toUpperCase(),
+            style: const TextStyle(
+                color: AppTokens.textSecondary,
+                fontSize: 11,
+                letterSpacing: 1,
+                fontWeight: FontWeight.w600)),
+        const SizedBox(height: 8),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (var i = 0; i < cards.length; i++)
+              Padding(
+                padding: EdgeInsets.only(right: i < cards.length - 1 ? 4 : 0),
+                child: PlayingCardView(card: cards[i], theme: theme, width: 42),
+              ),
+          ],
+        ),
+        if (cards.length >= 2) ...[
+          const SizedBox(height: 8),
+          Text(hv.soft && hv.total != 21 ? 'Soft ${hv.total}' : '${hv.total}',
+              style: const TextStyle(
+                  color: AppTokens.textPrimary, fontWeight: FontWeight.bold, fontSize: 14)),
+        ],
+      ],
+    );
+  }
+}
 
 final List<_Lesson> _lessons = [
   _Lesson(
@@ -225,10 +323,10 @@ final List<_Lesson> _lessons = [
   _Lesson(
     id: 'quiz',
     title: 'Test Yourself',
-    subtitle: 'Coming soon',
+    subtitle: 'Drill any hand vs any dealer',
     icon: Icons.quiz_outlined,
     build: (_) => const [],
-    comingSoon: true,
+    isPractice: true,
   ),
 ];
 
@@ -243,8 +341,9 @@ class LearnPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = ref.watch(appearanceProvider);
     final done = ref.watch(learnProvider);
+    final isPremium = ref.watch(entitlementsProvider).isPremium;
 
-    final teachable = _lessons.where((l) => !l.comingSoon).toList();
+    final teachable = _lessons.where((l) => !l.isPractice).toList();
     final completed = teachable.where((l) => done.contains(l.id)).length;
     final nextId = teachable
         .cast<_Lesson?>()
@@ -273,9 +372,41 @@ class LearnPage extends ConsumerWidget {
         const SizedBox(height: 8),
         _ProgressCard(theme: theme, completed: completed, total: teachable.length),
         const SizedBox(height: 12),
-        _CheatSheetTile(theme: theme),
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: _ActionCard(
+                  theme: theme,
+                  icon: _lessons.firstWhere((l) => l.isPractice).icon,
+                  title: 'Test Yourself',
+                  subtitle: 'Drill any hand',
+                  locked: !isPremium,
+                  onTap: isPremium
+                      ? () => Navigator.of(context).push(
+                            MaterialPageRoute(builder: (_) => const PracticeScreen()),
+                          )
+                      : () => openGoPro(context),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _ActionCard(
+                  theme: theme,
+                  icon: Icons.bolt,
+                  title: 'Cheat Sheet',
+                  subtitle: 'The 95% in one page',
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const CheatSheetScreen()),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
         const SizedBox(height: 16),
-        for (final lesson in _lessons)
+        for (final lesson in teachable)
           Padding(
             padding: const EdgeInsets.only(bottom: 10),
             child: _LessonTile(
@@ -283,11 +414,9 @@ class LearnPage extends ConsumerWidget {
               lesson: lesson,
               done: done.contains(lesson.id),
               recommended: lesson.id == nextId,
-              onTap: lesson.comingSoon
-                  ? null
-                  : () => Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => _LessonScreen(lesson: lesson)),
-                      ),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => _LessonScreen(lesson: lesson)),
+              ),
             ),
           ),
       ],
@@ -371,62 +500,65 @@ class _LessonTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final soon = lesson.comingSoon;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap == null ? null : withHaptic(onTap!),
-      child: Opacity(
-        opacity: soon ? 0.5 : 1,
-        child: Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: const Color(0x14FFFFFF),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: recommended ? theme.gold : const Color(0x18FFFFFF),
-              width: recommended ? 1.5 : 1,
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: const Color(0x14FFFFFF),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: recommended ? theme.gold : const Color(0x18FFFFFF),
+            width: recommended ? 1.5 : 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: done ? theme.gold.withValues(alpha: 0.18) : const Color(0x24FFFFFF),
+                borderRadius: BorderRadius.circular(11),
+              ),
+              child: Icon(lesson.icon, size: 20, color: done ? theme.gold : AppTokens.textPrimary),
             ),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: done ? theme.gold.withValues(alpha: 0.18) : const Color(0x24FFFFFF),
-                  borderRadius: BorderRadius.circular(11),
-                ),
-                child: Icon(lesson.icon, size: 20, color: done ? theme.gold : AppTokens.textPrimary),
+            const SizedBox(width: 13),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(lesson.title,
+                      style: const TextStyle(
+                          color: AppTokens.textPrimary,
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 2),
+                  Text(lesson.subtitle,
+                      style: const TextStyle(color: AppTokens.textSecondary, fontSize: 12.5)),
+                ],
               ),
-              const SizedBox(width: 13),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(lesson.title,
-                        style: const TextStyle(
-                            color: AppTokens.textPrimary,
-                            fontSize: 15,
-                            fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 2),
-                    Text(lesson.subtitle,
-                        style: const TextStyle(color: AppTokens.textSecondary, fontSize: 12.5)),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              _trailing(),
-            ],
-          ),
+            ),
+            const SizedBox(width: 8),
+            _trailing(),
+          ],
         ),
       ),
     );
   }
 
   Widget _trailing() {
-    if (lesson.comingSoon) {
-      return const Text('Soon',
-          style: TextStyle(color: AppTokens.textSecondary, fontSize: 12, fontWeight: FontWeight.w600));
+    if (lesson.isPractice) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: theme.gold, width: 1.5),
+        ),
+        child: Text('Practice',
+            style: TextStyle(color: theme.gold, fontSize: 12, fontWeight: FontWeight.bold)),
+      );
     }
     if (done) return Icon(Icons.check_circle, color: theme.gold, size: 22);
     if (recommended) {
@@ -490,8 +622,21 @@ class _LessonScreenState extends ConsumerState<_LessonScreen> {
                       height: 4,
                       margin: EdgeInsets.only(right: i == steps.length - 1 ? 0 : 6),
                       decoration: BoxDecoration(
-                        color: i <= _index ? theme.gold : const Color(0x22FFFFFF),
+                        color: const Color(0x22FFFFFF),
                         borderRadius: BorderRadius.circular(2),
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(2),
+                        child: AnimatedFractionallySizedBox(
+                          duration: const Duration(milliseconds: 320),
+                          curve: Curves.easeOut,
+                          alignment: Alignment.centerLeft,
+                          widthFactor: i <= _index ? 1.0 : 0.0,
+                          heightFactor: 1.0,
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(color: theme.gold),
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -528,6 +673,7 @@ class _LessonScreenState extends ConsumerState<_LessonScreen> {
                   onPressed: withHaptic(() {
                     if (last) {
                       ref.read(learnProvider.notifier).markComplete(widget.lesson.id);
+                      ref.read(achievementsProvider.notifier).evaluate();
                       Navigator.of(context).pop();
                     } else {
                       _controller.nextPage(
@@ -658,6 +804,70 @@ class ReferenceScreen extends ConsumerWidget {
 // ---------------------------------------------------------------------------
 // Cheat sheet — the ~95% of blackjack intuition on one scannable screen
 // ---------------------------------------------------------------------------
+
+/// Compact tappable tile used for the side-by-side Test Yourself / Cheat Sheet
+/// shortcuts on the Learn home. Flat gold-tinted card, no gradient.
+class _ActionCard extends StatelessWidget {
+  final AppearanceTheme theme;
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final bool locked;
+  final VoidCallback onTap;
+  const _ActionCard({
+    required this.theme,
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+    this.locked = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: withHaptic(onTap),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: theme.gold.withValues(alpha: 0.10),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: theme.gold.withValues(alpha: 0.45)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: theme.gold.withValues(alpha: 0.20),
+                    borderRadius: BorderRadius.circular(11),
+                  ),
+                  child: Icon(icon, size: 22, color: theme.goldLight),
+                ),
+                const Spacer(),
+                if (locked)
+                  Icon(Icons.lock_outline, size: 16, color: theme.gold.withValues(alpha: 0.85)),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Text(title,
+                style: const TextStyle(
+                    color: AppTokens.textPrimary, fontSize: 15, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 2),
+            Text(subtitle,
+                style: const TextStyle(color: AppTokens.textSecondary, fontSize: 12)),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
 class _CheatSheetTile extends StatelessWidget {
   final AppearanceTheme theme;
@@ -836,4 +1046,520 @@ class _CheatSheet extends StatelessWidget {
           ],
         ),
       );
+}
+
+// ---------------------------------------------------------------------------
+// Test Yourself — endless, procedurally-generated single-decision drills
+// ---------------------------------------------------------------------------
+
+const _feltGreen = Color(0xFF27AE60);
+const _lightGreen = Color(0xFF6EE7B7);
+const _feltRed = Color(0xFFC0392B);
+const _lightRed = Color(0xFFFC8181);
+
+const _dealers = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'A'];
+
+String _actionLabel(Action a) => switch (a) {
+      Action.hit => 'Hit',
+      Action.stand => 'Stand',
+      Action.double => 'Double',
+      Action.split => 'Split',
+      Action.surrender => 'Surrender',
+    };
+
+List<DealScenario> _hardPool(int lo, int hi) => [
+      for (var t = lo; t <= hi; t++)
+        for (final d in _dealers) DealScenario(HandType.hard, t, d),
+    ];
+
+List<DealScenario> _softPool(int lo, int hi) => [
+      for (var t = lo; t <= hi; t++)
+        for (final d in _dealers) DealScenario(HandType.soft, t, d),
+    ];
+
+List<DealScenario> _pairPool() => [
+      for (final r in ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'A'])
+        for (final d in _dealers) DealScenario(HandType.pair, r, d),
+    ];
+
+/// A themed drill defined by a *pool* of chart cells rather than a fixed list —
+/// the runner samples from it endlessly, so practice never runs out. The right
+/// answer for each hand comes from basic strategy for the current rules.
+class _DrillSet {
+  final String id;
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final List<DealScenario> Function() pool;
+
+  /// Traps: sample only decision-boundary cells (drop the obvious ones).
+  final bool trickyOnly;
+
+  const _DrillSet({
+    required this.id,
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.pool,
+    this.trickyOnly = false,
+  });
+}
+
+final List<_DrillSet> _drillSets = [
+  _DrillSet(
+    id: 'stiff',
+    title: 'Stiff Hands',
+    subtitle: 'Hit or stand on 12–16',
+    icon: Icons.back_hand_outlined,
+    pool: () => _hardPool(12, 16),
+  ),
+  _DrillSet(
+    id: 'soft',
+    title: 'Soft Hands',
+    subtitle: 'Playing an Ace as 11',
+    icon: Icons.auto_awesome_outlined,
+    pool: () => _softPool(13, 19),
+  ),
+  _DrillSet(
+    id: 'double',
+    title: 'Doubling Down',
+    subtitle: 'When to press your bet',
+    icon: Icons.trending_up,
+    pool: () => [..._hardPool(8, 11), ..._softPool(13, 18)],
+  ),
+  _DrillSet(
+    id: 'split',
+    title: 'Splitting Pairs',
+    subtitle: 'Which pairs to split',
+    icon: Icons.call_split,
+    pool: _pairPool,
+  ),
+  _DrillSet(
+    id: 'traps',
+    title: 'Trap Hands',
+    subtitle: 'The tricky calls people get wrong',
+    icon: Icons.report_problem_outlined,
+    pool: () => [..._hardPool(8, 17), ..._softPool(13, 20), ..._pairPool()],
+    trickyOnly: true,
+  ),
+];
+
+/// One concrete hand realized from a [DealScenario] — the dealer upcard and the
+/// player's two cards, plus the category (so Split is offered only for pairs).
+class _Hand {
+  final bj.Card dealer;
+  final bj.Card p1;
+  final bj.Card p2;
+  final HandType type;
+  const _Hand({required this.dealer, required this.p1, required this.p2, required this.type});
+}
+
+_Hand _buildHand(DealScenario s, Random rng) {
+  final (r1, r2) = scenarioPlayerRanks(s.handType, s.value);
+  final s1 = bj.suits[rng.nextInt(4)];
+  var s2 = bj.suits[rng.nextInt(4)];
+  if (r1 == r2) {
+    while (s2 == s1) {
+      s2 = bj.suits[rng.nextInt(4)];
+    }
+  }
+  return _Hand(
+    dealer: bj.Card(rank: s.dealerUpcard, suit: bj.suits[rng.nextInt(4)]),
+    p1: bj.Card(rank: r1, suit: s1),
+    p2: bj.Card(rank: r2, suit: s2),
+    type: s.handType,
+  );
+}
+
+bool _sameCell(DealScenario a, DealScenario b) =>
+    a.handType == b.handType && a.value == b.value && a.dealerUpcard == b.dealerUpcard;
+
+/// Samples the next hand from a drill's pool, weighted toward decision-boundary
+/// cells (so the hard calls come up more than the obvious ones) and never
+/// repeating [avoid] — the cell just shown — back-to-back.
+DealScenario _sample(_DrillSet drill, RuleSet rs, Random rng, DealScenario? avoid) {
+  final weighted = <DealScenario>[];
+  for (final c in drill.pool()) {
+    if (avoid != null && _sameCell(c, avoid)) continue;
+    final tier = decisionDifficulty(c.handType, c.value, c.dealerUpcard, rs);
+    if (drill.trickyOnly && tier == 'easy') continue;
+    final w = tier == 'hard' ? 3 : (tier == 'medium' ? 2 : 1);
+    for (var i = 0; i < w; i++) {
+      weighted.add(c);
+    }
+  }
+  if (weighted.isEmpty) {
+    final all = drill.pool();
+    return all[rng.nextInt(all.length)];
+  }
+  return weighted[rng.nextInt(weighted.length)];
+}
+
+/// Catalog of drills, presented like the lesson list.
+class PracticeScreen extends ConsumerWidget {
+  const PracticeScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = ref.watch(appearanceProvider);
+    return Scaffold(
+      backgroundColor: theme.feltDark,
+      appBar: AppBar(
+        backgroundColor: theme.feltDark,
+        foregroundColor: AppTokens.textPrimary,
+        elevation: 0,
+        title: const Text('Test Yourself', style: TextStyle(fontSize: 17)),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 40),
+        children: [
+          _Card(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _heading('Drill the tricky spots'),
+                const Text(
+                  'Pick a theme and get an endless stream of hands, one decision at a time. '
+                  'Choose the play you think is right, then see the answer and the reasoning. '
+                  'The trickier the spot, the more often it comes up.',
+                  style: _body,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          for (final drill in _drillSets)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: _DrillTile(
+                theme: theme,
+                drill: drill,
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => _DrillRunner(drill: drill)),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DrillTile extends StatelessWidget {
+  final AppearanceTheme theme;
+  final _DrillSet drill;
+  final VoidCallback onTap;
+  const _DrillTile({required this.theme, required this.drill, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: withHaptic(onTap),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: const Color(0x14FFFFFF),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0x18FFFFFF)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: const Color(0x24FFFFFF),
+                borderRadius: BorderRadius.circular(11),
+              ),
+              child: Icon(drill.icon, size: 20, color: AppTokens.textPrimary),
+            ),
+            const SizedBox(width: 13),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(drill.title,
+                      style: const TextStyle(
+                          color: AppTokens.textPrimary, fontSize: 15, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 2),
+                  Text(drill.subtitle,
+                      style: const TextStyle(color: AppTokens.textSecondary, fontSize: 12.5)),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            const Icon(Icons.chevron_right, color: AppTokens.textSecondary, size: 22),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Runs a drill as an endless stream: sample a hand, answer one decision, see
+/// feedback, deal the next — forever. A running streak / accuracy is tracked.
+/// Isolated from the real game: no deck, bankroll, or session stats are touched.
+class _DrillRunner extends ConsumerStatefulWidget {
+  final _DrillSet drill;
+  const _DrillRunner({required this.drill});
+
+  @override
+  ConsumerState<_DrillRunner> createState() => _DrillRunnerState();
+}
+
+class _DrillRunnerState extends ConsumerState<_DrillRunner> {
+  final _rng = Random();
+  late DealScenario _cell;
+  late _Hand _hand;
+  Action? _answer;
+  int _total = 0;
+  int _correct = 0;
+  int _streak = 0;
+  int _best = 0;
+  int _round = 0;
+
+  RuleSet get _rs => ref.read(settingsProvider).ruleSet;
+
+  @override
+  void initState() {
+    super.initState();
+    _cell = _sample(widget.drill, _rs, _rng, null);
+    _hand = _buildHand(_cell, _rng);
+  }
+
+  void _respond(Action a) {
+    if (_answer != null) return;
+    final optimal = getOptimalAction([_hand.p1, _hand.p2], _hand.dealer, _rs).action;
+    final correct = a == optimal;
+    setState(() {
+      _answer = a;
+      _total++;
+      if (correct) {
+        _correct++;
+        _streak++;
+        if (_streak > _best) _best = _streak;
+      } else {
+        _streak = 0;
+      }
+    });
+    ref
+        .read(drillStatsProvider.notifier)
+        .record(drillId: widget.drill.id, wasCorrect: correct, streak: _streak);
+    ref.read(achievementsProvider.notifier).evaluate();
+  }
+
+  void _next() {
+    setState(() {
+      _cell = _sample(widget.drill, _rs, _rng, _cell);
+      _hand = _buildHand(_cell, _rng);
+      _answer = null;
+      _round++;
+    });
+  }
+
+  void _reset() {
+    setState(() {
+      _total = 0;
+      _correct = 0;
+      _streak = 0;
+      _best = 0;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = ref.watch(appearanceProvider);
+    final answered = _answer != null;
+    final optimal = getOptimalAction([_hand.p1, _hand.p2], _hand.dealer, _rs);
+    final actions = <Action>[
+      Action.hit,
+      Action.stand,
+      Action.double,
+      if (_hand.type == HandType.pair) Action.split,
+      if (_rs.surrender != Surrender.none) Action.surrender,
+    ];
+
+    return Scaffold(
+      backgroundColor: theme.feltDark,
+      appBar: AppBar(
+        backgroundColor: theme.feltDark,
+        foregroundColor: AppTokens.textPrimary,
+        elevation: 0,
+        title: Text(widget.drill.title, style: const TextStyle(fontSize: 17)),
+        actions: [
+          if (_total > 0)
+            IconButton(
+              tooltip: 'Reset score',
+              icon: const Icon(Icons.refresh, size: 20),
+              onPressed: withHaptic(_reset),
+            ),
+        ],
+      ),
+      body: Column(
+        children: [
+          _scoreBar(theme),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+              children: [
+                AppearIn(
+                  triggerKey: _round,
+                  child: _ExampleHand([
+                    ('Dealer shows', [_hand.dealer]),
+                    ('You have', [_hand.p1, _hand.p2]),
+                  ]),
+                ),
+                const SizedBox(height: 20),
+                if (!answered)
+                  const Center(
+                    child: Text("What's the best play?",
+                        style: TextStyle(
+                            color: AppTokens.textPrimary, fontSize: 15, fontWeight: FontWeight.w600)),
+                  ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  alignment: WrapAlignment.center,
+                  children: [
+                    for (final a in actions)
+                      _choice(a, theme, answered: answered, optimal: optimal.action, chosen: _answer),
+                  ],
+                ),
+                if (answered) ...[
+                  const SizedBox(height: 20),
+                  _feedback(theme, optimal),
+                ],
+              ],
+            ),
+          ),
+          if (answered)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+              child: Row(
+                children: [
+                  const Spacer(),
+                  GameButton(
+                    label: 'Next hand',
+                    theme: theme,
+                    variant: GameBtn.gold,
+                    onPressed: _next,
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _scoreBar(AppearanceTheme theme) {
+    final pct = _total > 0 ? (_correct / _total * 100).round() : 0;
+    Widget stat(String label, String value, Color color) => Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(label,
+                style: const TextStyle(
+                    color: AppTokens.textSecondary,
+                    fontSize: 10.5,
+                    letterSpacing: 0.8,
+                    fontWeight: FontWeight.w600)),
+            const SizedBox(height: 3),
+            Text(value, style: TextStyle(color: color, fontSize: 16, fontWeight: FontWeight.bold)),
+          ],
+        );
+    return Container(
+      width: double.infinity,
+      color: theme.feltDark,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          stat('STREAK', '$_streak', theme.goldLight),
+          stat('BEST', '$_best', AppTokens.textPrimary),
+          stat('ACCURACY', _total > 0 ? '$pct% ($_correct/$_total)' : '—',
+              _total > 0 ? theme.goldLight : AppTokens.textSecondary),
+        ],
+      ),
+    );
+  }
+
+  Widget _choice(Action a, AppearanceTheme theme,
+      {required bool answered, required Action optimal, required Action? chosen}) {
+    Color border;
+    Color fg;
+    Color bg = Colors.transparent;
+    if (!answered) {
+      border = theme.feltBorder;
+      fg = AppTokens.textPrimary;
+    } else if (a == optimal) {
+      border = _feltGreen;
+      fg = _lightGreen;
+      bg = const Color(0x2227AE60);
+    } else if (a == chosen) {
+      border = _feltRed;
+      fg = _lightRed;
+      bg = const Color(0x22C0392B);
+    } else {
+      border = theme.feltBorder;
+      fg = AppTokens.textSecondary;
+    }
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: answered ? null : withHaptic(() => _respond(a)),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        height: 46,
+        constraints: const BoxConstraints(minWidth: 88),
+        alignment: Alignment.center,
+        padding: const EdgeInsets.symmetric(horizontal: 18),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: border, width: 1.5),
+        ),
+        child: Text(_actionLabel(a),
+            style: TextStyle(color: fg, fontWeight: FontWeight.w600, fontSize: 15)),
+      ),
+    );
+  }
+
+  Widget _feedback(AppearanceTheme theme, OptimalAction optimal) {
+    final correct = _answer == optimal.action;
+    final accent = correct ? _lightGreen : _lightRed;
+    return AppearIn(
+      triggerKey: _round,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: (correct ? _feltGreen : _feltRed).withValues(alpha: 0.14),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: correct ? _feltGreen : _feltRed),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(correct ? Icons.check_circle : Icons.cancel, color: accent, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    correct
+                        ? 'Correct — ${optimal.label.toLowerCase()}'
+                        : 'Not quite — best play is ${optimal.label.toLowerCase()}',
+                    style: TextStyle(color: accent, fontSize: 15, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Text(optimal.explanation, style: _body),
+          ],
+        ),
+      ),
+    );
+  }
 }

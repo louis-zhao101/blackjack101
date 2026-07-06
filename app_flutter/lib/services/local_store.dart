@@ -12,12 +12,30 @@ class LocalStore {
   static const _settingsKey = 'bj101-settings';
   static const _appearanceKey = 'bj101-appearance';
   static const _learnKey = 'bj101-learn';
+  static const _strategyCellsKey = 'bj101-strategy-cells';
   static const _cardBackKey = 'bj101-card-back';
   static const _chipStyleKey = 'bj101-chip-style';
   static const _ownedKey = 'bj101-owned-products';
+  static const _achievementsKey = 'bj101-achievements';
+  static const _drillStatsKey = 'bj101-drill-stats';
+  static const _onboardedKey = 'bj101-onboarded';
+  static const _reviewRequestedKey = 'bj101-review-requested';
 
   final SharedPreferences _prefs;
   LocalStore(this._prefs);
+
+  // --- first-run onboarding ---
+
+  bool loadOnboarded() => _prefs.getBool(_onboardedKey) ?? false;
+
+  Future<void> saveOnboarded(bool value) => _prefs.setBool(_onboardedKey, value);
+
+  // --- app-store review nudge (whether we've asked in-app already) ---
+
+  bool loadReviewRequested() => _prefs.getBool(_reviewRequestedKey) ?? false;
+
+  Future<void> saveReviewRequested(bool value) =>
+      _prefs.setBool(_reviewRequestedKey, value);
 
   // --- appearance (selected skin id) ---
 
@@ -31,6 +49,65 @@ class LocalStore {
 
   Future<void> saveLearnProgress(Set<String> ids) =>
       _prefs.setStringList(_learnKey, ids.toList());
+
+  // --- achievements (unlocked ids) ---
+
+  Set<String> loadAchievementIds() =>
+      _prefs.getStringList(_achievementsKey)?.toSet() ?? <String>{};
+
+  Future<void> saveAchievementIds(Set<String> ids) =>
+      _prefs.setStringList(_achievementsKey, ids.toList());
+
+  // --- Test Yourself drill stats (lifetime totals for achievements) ---
+
+  ({int total, int correct, int bestStreak, Set<String> attempted, List<bool> recent})
+      loadDrillStats() {
+    final raw = _prefs.getString(_drillStatsKey);
+    if (raw == null) {
+      return (total: 0, correct: 0, bestStreak: 0, attempted: <String>{}, recent: <bool>[]);
+    }
+    final m = jsonDecode(raw) as Map<String, dynamic>;
+    final recentStr = (m['recent'] as String?) ?? '';
+    return (
+      total: (m['total'] as num?)?.toInt() ?? 0,
+      correct: (m['correct'] as num?)?.toInt() ?? 0,
+      bestStreak: (m['bestStreak'] as num?)?.toInt() ?? 0,
+      attempted: ((m['attempted'] as List?) ?? const []).map((e) => e as String).toSet(),
+      recent: recentStr.split('').map((c) => c == '1').toList(),
+    );
+  }
+
+  Future<void> saveDrillStats(
+      int total, int correct, int bestStreak, Set<String> attempted, List<bool> recent) {
+    return _prefs.setString(
+      _drillStatsKey,
+      jsonEncode({
+        'total': total,
+        'correct': correct,
+        'bestStreak': bestStreak,
+        'attempted': attempted.toList(),
+        'recent': recent.map((b) => b ? '1' : '0').join(),
+      }),
+    );
+  }
+
+  // --- per-cell strategy accuracy (cellKey -> [correct, total]) ---
+
+  Map<String, (int, int)> loadStrategyCellStats() {
+    final raw = _prefs.getString(_strategyCellsKey);
+    if (raw == null) return {};
+    final decoded = jsonDecode(raw) as Map<String, dynamic>;
+    return decoded.map((k, v) {
+      final list = (v as List).cast<num>();
+      return MapEntry(k, (list[0].toInt(), list[1].toInt()));
+    });
+  }
+
+  Future<void> saveStrategyCellStats(Map<String, (int, int)> stats) {
+    final encoded =
+        jsonEncode(stats.map((k, v) => MapEntry(k, [v.$1, v.$2])));
+    return _prefs.setString(_strategyCellsKey, encoded);
+  }
 
   // --- cosmetics (selected card back / chip style) ---
 

@@ -4,6 +4,7 @@ import '../engine/cards.dart';
 import '../engine/engine.dart' as eng;
 import '../engine/stats.dart';
 import '../engine/strategy.dart';
+import 'achievements_provider.dart';
 import 'app_providers.dart';
 import 'auth_provider.dart';
 import 'settings_provider.dart';
@@ -159,6 +160,7 @@ class GameController extends Notifier<GameStoreState> {
       lastBet: originalBet,
       roundId: state.roundId + 1,
     );
+    _maybeRecordDealtHand(state.game);
   }
 
   void hit() {
@@ -323,6 +325,7 @@ class GameController extends Notifier<GameStoreState> {
       hasDealtInSession: true,
       roundId: state.roundId + 1,
     );
+    _maybeRecordDealtHand(state.game);
   }
 
   void topUp(int amount) {
@@ -378,6 +381,15 @@ class GameController extends Notifier<GameStoreState> {
       firstMistakeInfo: newFirstMistakeInfo,
     );
 
+    // Per-cell strategy accuracy: log every decision against its chart cell.
+    ref.read(strategyStatsProvider.notifier).record(
+          handType: info.handType,
+          playerTotal: info.playerTotal,
+          soft: info.soft,
+          dealerUpcard: info.dealerUpcard,
+          wasCorrect: info.wasCorrect,
+        );
+
     if (nextGame.phase == eng.GamePhase.complete) {
       final stats = ref.read(statsProvider);
       if (stats.currentSession != null) {
@@ -401,12 +413,42 @@ class GameController extends Notifier<GameStoreState> {
             ));
       }
     }
+
+    ref.read(achievementsProvider.notifier).evaluate();
+  }
+
+  /// Records a hand that resolves the moment it's dealt — a player or dealer
+  /// blackjack — since those never pass through [_applyPlay] (there's no
+  /// decision to make). Marked correct because there's no play to misgrade.
+  void _maybeRecordDealtHand(eng.GameState game) {
+    if (game.phase != eng.GamePhase.complete) return;
+    if (ref.read(statsProvider).currentSession == null) return;
+    if (game.playerHands.isEmpty || game.dealerCards.isEmpty) return;
+    final firstHand = game.playerHands[0];
+    final hv = handValue(firstHand.cards);
+    ref.read(statsProvider.notifier).addHandRecord(HandRecord(
+          id: '',
+          timestamp: 0,
+          playerAction: Action.stand,
+          optimalAction: Action.stand,
+          wasCorrect: true,
+          playerTotal: hv.total,
+          soft: hv.soft,
+          dealerUpcard: game.dealerCards[0].rank,
+          handType: hv.soft ? HandType.soft : HandType.hard,
+          explanation: '',
+          betAmount: firstHand.bet,
+          outcome: firstHand.result ?? eng.HandResult.lose,
+          payout: firstHand.payout,
+          dealerBlackjack: isBlackjack(game.dealerCards),
+        ));
+    ref.read(achievementsProvider.notifier).evaluate();
   }
 
   void _syncBankroll(int bankroll) {
     final uid = ref.read(authServiceProvider).currentUser?.uid;
     if (uid != null) {
-      ref.read(firestoreSyncProvider).upsertProfile(uid, bankroll);
+      ref.read(syncQueueProvider.notifier).profile(uid, bankroll);
     }
   }
 }

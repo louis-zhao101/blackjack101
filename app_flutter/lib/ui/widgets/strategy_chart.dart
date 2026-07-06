@@ -39,15 +39,54 @@ String _actionFull(st.Action a) => switch (a) {
 enum _ChartTab { hard, soft, pair }
 
 class StrategyChart extends ConsumerStatefulWidget {
-  const StrategyChart({super.key});
+  /// When set, the chart becomes a heatmap of the player's per-cell accuracy
+  /// (cell key -> (correct, total)) instead of the optimal-action reference.
+  final Map<String, (int, int)>? accuracy;
+  const StrategyChart({super.key, this.accuracy});
 
   @override
   ConsumerState<StrategyChart> createState() => _StrategyChartState();
 }
 
-class _StrategyChartState extends ConsumerState<StrategyChart> {
+class _StrategyChartState extends ConsumerState<StrategyChart>
+    with SingleTickerProviderStateMixin {
   _ChartTab _tab = _ChartTab.hard;
   String? _selected; // "tab|value|dealer"
+
+  // Drives the accordion under the header: 1 = expanded, 0 = collapsed. Tapping
+  // a tab collapses the current rows, swaps content at the bottom, re-expands.
+  late final AnimationController _collapse =
+      AnimationController(vsync: this, duration: const Duration(milliseconds: 200), value: 1);
+  _ChartTab? _pendingTab;
+
+  @override
+  void initState() {
+    super.initState();
+    _collapse.addStatusListener((status) {
+      if (status == AnimationStatus.dismissed && _pendingTab != null) {
+        setState(() {
+          _tab = _pendingTab!;
+          _pendingTab = null;
+          _selected = null;
+        });
+        _collapse.forward();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _collapse.dispose();
+    super.dispose();
+  }
+
+  void _selectTab(_ChartTab t) {
+    if (t == _tab || _pendingTab != null) return;
+    selectionHaptic();
+    setState(() => _selected = null);
+    _pendingTab = t;
+    _collapse.reverse();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -70,7 +109,7 @@ class _StrategyChartState extends ConsumerState<StrategyChart> {
       children: [
         _tabs(),
         const SizedBox(height: 10),
-        _legend(ruleSet),
+        widget.accuracy != null ? _accuracyLegend() : _legend(ruleSet),
         const SizedBox(height: 10),
         LayoutBuilder(
           builder: (context, c) {
@@ -97,35 +136,80 @@ class _StrategyChartState extends ConsumerState<StrategyChart> {
                       ),
                   ],
                 ),
-                for (final row in rows)
-                  Row(
-                    children: [
-                      SizedBox(
-                        width: headerW,
-                        height: col,
-                        child: Center(
-                          child: FittedBox(
-                            fit: BoxFit.scaleDown,
-                            child: Text(row.label,
-                                style: const TextStyle(
-                                    color: AppTokens.textSecondary,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold)),
+                // Rows collapse under the header and re-expand on tab switch.
+                SizeTransition(
+                  axis: Axis.vertical,
+                  axisAlignment: -1,
+                  sizeFactor: CurvedAnimation(parent: _collapse, curve: Curves.easeInOut),
+                  child: FadeTransition(
+                    opacity: _collapse,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        for (final row in rows)
+                          Row(
+                            children: [
+                              SizedBox(
+                                width: headerW,
+                                height: col,
+                                child: Center(
+                                  child: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: Text(row.label,
+                                        style: const TextStyle(
+                                            color: AppTokens.textSecondary,
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.bold)),
+                                  ),
+                                ),
+                              ),
+                              for (final dr in _dealerRanks)
+                                Expanded(
+                                  child: widget.accuracy != null
+                                      ? _accuracyCell(handType, row.value, dr, col)
+                                      : _actionCell(handType, row.value, dr, ruleSet, col),
+                                ),
+                            ],
                           ),
-                        ),
-                      ),
-                      for (final dr in _dealerRanks)
-                        Expanded(child: _actionCell(handType, row.value, dr, ruleSet, col)),
-                    ],
+                      ],
+                    ),
                   ),
+                ),
               ],
             );
           },
         ),
-        if (_selected != null) ...[
-          const SizedBox(height: 12),
-          _explanation(handType, ruleSet),
-        ],
+        AnimatedSize(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOut,
+          alignment: Alignment.topCenter,
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 220),
+            switchInCurve: Curves.easeOut,
+            switchOutCurve: Curves.easeIn,
+            transitionBuilder: (child, anim) => FadeTransition(
+              opacity: anim,
+              child: SlideTransition(
+                position: Tween(begin: const Offset(0, 0.04), end: Offset.zero).animate(anim),
+                child: child,
+              ),
+            ),
+            layoutBuilder: (currentChild, previousChildren) => Stack(
+              alignment: Alignment.topCenter,
+              children: [
+                ...previousChildren,
+                ?currentChild,
+              ],
+            ),
+            child: _selected == null
+                ? const SizedBox(key: ValueKey('none'), width: double.infinity)
+                : Padding(
+                    key: ValueKey(_selected),
+                    padding: const EdgeInsets.only(top: 12),
+                    child: _explanation(handType, ruleSet),
+                  ),
+          ),
+        ),
       ],
     );
   }
@@ -144,14 +228,10 @@ class _StrategyChartState extends ConsumerState<StrategyChart> {
         for (final t in _ChartTab.values)
           GestureDetector(
             behavior: HitTestBehavior.opaque,
-            onTap: () {
-              selectionHaptic();
-              setState(() {
-                _tab = t;
-                _selected = null;
-              });
-            },
-            child: Container(
+            onTap: () => _selectTab(t),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOut,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
                 color: _tab == t
@@ -163,11 +243,14 @@ class _StrategyChartState extends ConsumerState<StrategyChart> {
                   width: _tab == t ? 1.5 : 1,
                 ),
               ),
-              child: Text(labels[t]!,
-                  style: TextStyle(
-                      color: _tab == t ? gold : AppTokens.textSecondary,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 13)),
+              child: AnimatedDefaultTextStyle(
+                duration: const Duration(milliseconds: 220),
+                style: TextStyle(
+                    color: _tab == t ? gold : AppTokens.textSecondary,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13),
+                child: Text(labels[t]!),
+              ),
             ),
           ),
       ],
@@ -237,6 +320,82 @@ class _StrategyChartState extends ConsumerState<StrategyChart> {
     );
   }
 
+  Widget _accuracyCell(st.HandType handType, Object value, String dealer, double col) {
+    final key = '${handType.name}|$value|$dealer';
+    final data = widget.accuracy![key];
+    final played = data != null && data.$2 > 0;
+    final pct = played ? data.$1 / data.$2 : 0.0;
+    final selected = _selected == key;
+    return GestureDetector(
+      onTap: played
+          ? () {
+              selectionHaptic();
+              setState(() => _selected = key);
+            }
+          : null,
+      child: SizedBox(
+        height: col,
+        child: Padding(
+          padding: const EdgeInsets.all(1.5),
+          child: Container(
+            decoration: BoxDecoration(
+              color: played
+                  ? Color.lerp(const Color(0xFFBE5A5A), const Color(0xFF49A178), pct)!
+                  : const Color(0x10FFFFFF),
+              borderRadius: BorderRadius.circular(6),
+              border: selected ? Border.all(color: Colors.white, width: 2) : null,
+            ),
+            alignment: Alignment.center,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(played ? '${(pct * 100).round()}' : '·',
+                  style: TextStyle(
+                      color: played ? Colors.white : AppTokens.textSecondary,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold)),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _accuracyDetail() {
+    final data = widget.accuracy?[_selected];
+    if (data == null || data.$2 == 0) {
+      return const Text("You haven't tried this hand yet.",
+          style: TextStyle(color: AppTokens.textSecondary, fontSize: 13));
+    }
+    final pct = (data.$1 / data.$2 * 100).round();
+    return Text("You've played this ${data.$2}× — ${data.$1} correct ($pct%).",
+        style: const TextStyle(
+            color: AppTokens.textPrimary, fontSize: 13, fontWeight: FontWeight.w600));
+  }
+
+  Widget _accuracyLegend() {
+    return Row(
+      children: [
+        const Text('Low',
+            style: TextStyle(color: AppTokens.textSecondary, fontSize: 11)),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Container(
+            height: 8,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(4),
+              gradient: const LinearGradient(
+                colors: [Color(0xFFBE5A5A), Color(0xFF49A178)],
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 6),
+        const Text('High  ·  · = untried',
+            style: TextStyle(color: AppTokens.textSecondary, fontSize: 11)),
+      ],
+    );
+  }
+
   Widget _explanation(st.HandType handType, RuleSet ruleSet) {
     final parts = _selected!.split('|');
     final dealer = parts[2];
@@ -280,11 +439,15 @@ class _StrategyChartState extends ConsumerState<StrategyChart> {
               ),
               IconButton(
                 icon: const Icon(Icons.close, color: AppTokens.textSecondary, size: 18),
-                onPressed: () => setState(() => _selected = null),
+                onPressed: withHaptic(() => setState(() => _selected = null)),
               ),
             ],
           ),
           const SizedBox(height: 8),
+          if (widget.accuracy != null) ...[
+            _accuracyDetail(),
+            const SizedBox(height: 8),
+          ],
           Text(explanation,
               style: const TextStyle(
                   color: AppTokens.textSecondary, fontSize: 13, height: 1.5)),

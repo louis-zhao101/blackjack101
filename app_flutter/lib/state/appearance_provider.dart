@@ -2,6 +2,21 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../ui/theme/appearance.dart';
 import 'app_providers.dart';
+import 'auth_provider.dart';
+
+/// Mirrors the full current cosmetic selection to the cloud. Always sends all
+/// three ids so the coalescing sync queue (latest-wins per key) never drops a
+/// field that changed in a separate call.
+void _pushCosmetics(Ref ref) {
+  final uid = ref.read(authServiceProvider).currentUser?.uid;
+  if (uid == null) return;
+  ref.read(syncQueueProvider.notifier).cosmeticSelection(
+        uid,
+        appearance: ref.read(tableThemeProvider).id,
+        cardBack: ref.read(cardBackProvider).id,
+        chipStyle: ref.read(chipStyleProvider).id,
+      );
+}
 
 /// The selected table felt. Persisted by preset id; switch with `setPreset(id)`.
 class TableThemeController extends Notifier<AppearanceTheme> {
@@ -14,6 +29,7 @@ class TableThemeController extends Notifier<AppearanceTheme> {
   void setPreset(String id) {
     state = appearanceById(id);
     ref.read(localStoreProvider).saveAppearanceId(state.id);
+    _pushCosmetics(ref);
   }
 }
 
@@ -28,6 +44,7 @@ class CardBackController extends Notifier<CardBack> {
   void setCardBack(String id) {
     state = cardBackById(id);
     ref.read(localStoreProvider).saveCardBackId(state.id);
+    _pushCosmetics(ref);
   }
 }
 
@@ -43,6 +60,7 @@ class ChipStyleController extends Notifier<ChipStyle> {
   void setChipStyle(String id) {
     state = chipStyleById(id);
     ref.read(localStoreProvider).saveChipStyleId(state.id);
+    _pushCosmetics(ref);
   }
 }
 

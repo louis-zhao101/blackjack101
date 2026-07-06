@@ -180,7 +180,7 @@ class _DevAnonButton extends ConsumerWidget {
       child: TextButton(
         onPressed: state.busy
             ? null
-            : () => ref.read(phoneAuthControllerProvider.notifier).signInDevAccount(),
+            : withHaptic(() => ref.read(phoneAuthControllerProvider.notifier).signInDevAccount()),
         child: const Text('Skip login (dev)', style: TextStyle(fontSize: 12)),
       ),
     );

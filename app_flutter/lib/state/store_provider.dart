@@ -338,7 +338,7 @@ class EntitlementsController extends Notifier<EntitlementsState> {
     ref.read(localStoreProvider).saveOwnedProducts(cosmetics);
     final uid = ref.read(authServiceProvider).currentUser?.uid;
     if (uid != null) {
-      ref.read(firestoreSyncProvider).upsertOwnedProducts(uid, cosmetics);
+      ref.read(syncQueueProvider.notifier).ownedProducts(uid, cosmetics);
     }
   }
 
@@ -367,7 +367,7 @@ class ProStatus {
 class ProStatusController extends Notifier<ProStatus> {
   @override
   ProStatus build() {
-    if (PurchasesService.isSupported) {
+    if (PurchasesService.isReady) {
       void listener(CustomerInfo info) {
         state = ProStatus(isPro: PurchasesService.isProActive(info), info: info);
       }

@@ -45,6 +45,10 @@ class HandRecord {
   final HandResult outcome;
   final int payout;
 
+  /// True when the dealer had a blackjack on this hand — only set on hands that
+  /// resolve at deal time. Drives the "House Always Wins" achievement.
+  final bool dealerBlackjack;
+
   const HandRecord({
     required this.id,
     required this.timestamp,
@@ -59,6 +63,7 @@ class HandRecord {
     required this.betAmount,
     required this.outcome,
     required this.payout,
+    this.dealerBlackjack = false,
   });
 
   Map<String, dynamic> toJson() => {
@@ -75,6 +80,7 @@ class HandRecord {
         'betAmount': betAmount,
         'outcome': handResultId(outcome),
         'payout': payout,
+        if (dealerBlackjack) 'dealerBlackjack': true,
       };
 
   factory HandRecord.fromJson(Map<String, dynamic> j) => HandRecord(
@@ -91,6 +97,7 @@ class HandRecord {
         betAmount: (j['betAmount'] as num).toInt(),
         outcome: handResultFromId(j['outcome'] as String),
         payout: (j['payout'] as num).toInt(),
+        dealerBlackjack: j['dealerBlackjack'] as bool? ?? false,
       );
 }
 
@@ -231,6 +238,7 @@ Session recordHand(Session session, HandRecord record, {int? now, Random? rng}) 
     betAmount: record.betAmount,
     outcome: record.outcome,
     payout: record.payout,
+    dealerBlackjack: record.dealerBlackjack,
   );
   return session.copyWith(hands: [...session.hands, hand]);
 }
@@ -245,6 +253,34 @@ int computeLongestStreak(List<HandRecord> hands) {
   int current = 0;
   for (final h in hands) {
     if (h.wasCorrect) {
+      current++;
+      if (current > maxStreak) maxStreak = current;
+    } else {
+      current = 0;
+    }
+  }
+  return maxStreak;
+}
+
+int computeLongestWrongStreak(List<HandRecord> hands) {
+  int maxStreak = 0;
+  int current = 0;
+  for (final h in hands) {
+    if (!h.wasCorrect) {
+      current++;
+      if (current > maxStreak) maxStreak = current;
+    } else {
+      current = 0;
+    }
+  }
+  return maxStreak;
+}
+
+int computeLongestWinStreak(List<HandRecord> hands) {
+  int maxStreak = 0;
+  int current = 0;
+  for (final h in hands) {
+    if (h.outcome == HandResult.win || h.outcome == HandResult.blackjack) {
       current++;
       if (current > maxStreak) maxStreak = current;
     } else {

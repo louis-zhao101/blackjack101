@@ -16,6 +16,17 @@ void selectionHaptic() {
   if (_hapticsEnabled) HapticFeedback.selectionClick();
 }
 
+/// A celebratory buzz for a positive milestone (e.g. an achievement unlock) — a
+/// firmer double pulse so it reads as a reward, not just a tap. Honors the
+/// global haptics switch.
+void successHaptic() {
+  if (!_hapticsEnabled) return;
+  HapticFeedback.heavyImpact();
+  Future.delayed(const Duration(milliseconds: 90), () {
+    if (_hapticsEnabled) HapticFeedback.lightImpact();
+  });
+}
+
 /// Wraps any tappable child with a quick press-scale animation and a light
 /// haptic on tap. Disabled when [onPressed] is null.
 class TappableScale extends StatefulWidget {

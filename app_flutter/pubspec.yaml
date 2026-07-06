@@ -44,6 +44,7 @@ dependencies:
   flutter_svg: ^2.3.0
   purchases_flutter: ^10.3.0
   purchases_ui_flutter: ^10.3.0
+  in_app_review: ^2.0.9
 
 dev_dependencies:
   flutter_test:

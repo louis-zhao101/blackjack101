@@ -92,9 +92,11 @@ void _reactToGameChange(GameStoreState? prev, GameStoreState next) {
     } else {
       jingle = sound.push;
     }
-    // On an instant (dealt) blackjack, let the cards land before celebrating.
+    // On an instant (dealt) blackjack — player's or dealer's — wait for the
+    // cards and the hole-card reveal to land before the win/lose music, so the
+    // outcome reads clearly instead of the sound preceding it.
     if (freshDeal) {
-      Future.delayed(const Duration(milliseconds: 700), jingle);
+      Future.delayed(const Duration(milliseconds: 1200), jingle);
     } else {
       jingle();
     }
@@ -158,6 +160,24 @@ class PlayPage extends ConsumerWidget {
               final bet = game.phase == eng.GamePhase.betting
                   ? game.pendingBet
                   : game.playerHands.fold<int>(0, (s, h) => s + h.bet);
+              // On wide desktop windows the felt stays full-bleed, but the
+              // corner deck and bet chip hug a centred band (matching the list
+              // pages' cap) instead of the far screen edges.
+              const bandWidth = 900.0;
+              final contentWidth = constraints.maxWidth - 32;
+              final sideInset = math.max(0.0, (contentWidth - bandWidth) / 2);
+              final band = contentWidth - 2 * sideInset;
+              // The dealer row is centre-aligned, so each extra card widens it
+              // symmetrically and its left edge creeps toward the corner deck.
+              // Once it would overlap, tuck the (decorative) deck off-screen.
+              final overlap = cardWidth * 0.17;
+              final dealerCount = game.dealerCards.length;
+              final dealerHandWidth = dealerCount == 0
+                  ? 0.0
+                  : cardWidth + (dealerCount - 1) * (cardWidth - overlap);
+              final dealerHandLeft = (band - dealerHandWidth) / 2;
+              final tuckDeck =
+                  dealerCount > 0 && dealerHandLeft < cardWidth;
               return Container(
                 width: double.infinity,
                 decoration: BoxDecoration(gradient: theme.feltGradient),
@@ -167,15 +187,24 @@ class PlayPage extends ConsumerWidget {
                   clipBehavior: Clip.none,
                   children: [
                     Positioned(
-                      left: -cardWidth * 0.35,
+                      left: sideInset - cardWidth * 0.35,
                       top: 2,
-                      child: Transform.rotate(
-                        angle: -0.25,
-                        child: _DeckStack(theme: theme, width: cardWidth),
+                      child: AnimatedSlide(
+                        offset: tuckDeck ? const Offset(-0.85, 0) : Offset.zero,
+                        duration: const Duration(milliseconds: 320),
+                        curve: Curves.easeInOut,
+                        child: AnimatedOpacity(
+                          opacity: tuckDeck ? 0 : 1,
+                          duration: const Duration(milliseconds: 320),
+                          child: Transform.rotate(
+                            angle: -0.25,
+                            child: _DeckStack(theme: theme, width: cardWidth),
+                          ),
+                        ),
                       ),
                     ),
                     Positioned(
-                      left: -cardWidth * 0.35,
+                      left: sideInset - cardWidth * 0.35,
                       top: 2,
                       child: _DealFlourish(
                         key: _flourishKey,
@@ -224,7 +253,7 @@ class PlayPage extends ConsumerWidget {
                     ),
                     if (bet > 0)
                       Positioned(
-                        right: 4,
+                        right: sideInset + 4,
                         bottom: 8,
                         child: BetChipStack(
                           amount: bet,
@@ -1044,7 +1073,7 @@ class _StrategyHint extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final correct = info.wasCorrect;
-    final locked = !correct && !ref.watch(entitlementsProvider).isPremium;
+    final locked = !ref.watch(entitlementsProvider).isPremium;
     return GestureDetector(
       onTap: withHaptic(
         () => showDialog(
@@ -1061,7 +1090,7 @@ class _StrategyHint extends ConsumerWidget {
                       const SizedBox(width: 10),
                       const Expanded(
                         child: Text(
-                          'Unlock the reasoning behind every mistake to learn faster.',
+                          'Unlock the reasoning behind every play to learn faster.',
                           style: TextStyle(color: AppTokens.textSecondary, height: 1.4),
                         ),
                       ),
@@ -1116,7 +1145,14 @@ class _StrategyHint extends ConsumerWidget {
                 ),
               ),
             ),
-            if (!correct) ...[
+            if (locked) ...[
+              const SizedBox(width: 5),
+              Icon(
+                Icons.lock_outline,
+                size: 12,
+                color: correct ? const Color(0xFF6EE7B7) : const Color(0xFFFC8181),
+              ),
+            ] else if (!correct) ...[
               const SizedBox(width: 5),
               Icon(
                 Icons.info_outline,

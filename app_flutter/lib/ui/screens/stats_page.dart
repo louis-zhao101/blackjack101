@@ -1,9 +1,14 @@
+import 'dart:math' show pi;
+import 'dart:ui' show ImageFilter;
+
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../engine/achievements.dart';
 import '../../engine/stats.dart';
 import '../../engine/strategy.dart' as st;
+import '../../state/achievements_provider.dart';
 import '../../state/appearance_provider.dart';
 import '../../state/auth_provider.dart';
 import '../../state/stats_provider.dart';
@@ -11,6 +16,7 @@ import '../../state/store_provider.dart';
 import '../auth_screen.dart';
 import '../theme/appearance.dart';
 import '../widgets/game_button.dart';
+import '../widgets/strategy_chart.dart';
 import 'shop_page.dart';
 
 const _good = Color(0xFF6EE7B7);
@@ -124,6 +130,8 @@ class StatsPage extends ConsumerWidget {
               ),
           ],
         ),
+        const SizedBox(height: 16),
+        const _AchievementsSection(),
         if (recentFirst.length > 1) ...[
           const SizedBox(height: 16),
           _Section(
@@ -143,15 +151,45 @@ class StatsPage extends ConsumerWidget {
                   ),
                 )
               else
-                _PremiumLock(
+                _LockedPreview(
                   theme: theme,
                   label: 'See your accuracy trend',
                   sublabel: 'Track how you improve across every session.',
                   onTap: () => openGoPro(context),
+                  previewHeight: 200,
+                  preview: SizedBox(
+                    height: 200,
+                    child: _AccuracyChart(
+                        summaries: chartSummaries, startIndex: chartStart, color: theme.gold),
+                  ),
                 ),
             ],
           ),
         ],
+        const SizedBox(height: 16),
+        _Section(
+          title: 'Strategy accuracy',
+          children: [
+            if (isPremium) ...[
+              const Padding(
+                padding: EdgeInsets.only(left: 2, top: 2, bottom: 8),
+                child: Text(
+                  'How often you play each hand correctly vs the dealer upcard. Tap a cell for details.',
+                  style: TextStyle(color: AppTokens.textSecondary, fontSize: 12.5, height: 1.4),
+                ),
+              ),
+              StrategyChart(accuracy: ref.watch(strategyStatsProvider)),
+            ] else
+              _LockedPreview(
+                theme: theme,
+                label: 'See your strategy accuracy',
+                sublabel: 'A heatmap of how often you play each hand right.',
+                onTap: () => openGoPro(context),
+                previewHeight: 300,
+                preview: StrategyChart(accuracy: ref.watch(strategyStatsProvider)),
+              ),
+          ],
+        ),
         const SizedBox(height: 16),
         _Section(
           title: 'Session history',
@@ -295,6 +333,277 @@ class StatsPage extends ConsumerWidget {
             child: const Text('Clear'),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _AchievementsSection extends ConsumerStatefulWidget {
+  const _AchievementsSection();
+
+  @override
+  ConsumerState<_AchievementsSection> createState() => _AchievementsSectionState();
+}
+
+class _AchievementsSectionState extends ConsumerState<_AchievementsSection> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = ref.watch(appearanceProvider);
+    final statuses = ref.watch(achievementStatusesProvider);
+    final unlocked = statuses.where((s) => s.unlocked).length;
+
+    return _Section(
+      title: 'Achievements',
+      trailing: Text('$unlocked/${statuses.length}',
+          style: TextStyle(color: theme.goldLight, fontSize: 12, fontWeight: FontWeight.w600)),
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 10, bottom: 4),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              const spacing = 12.0;
+              final cols = (constraints.maxWidth / 84).floor().clamp(4, 6).toInt();
+              final itemWidth = (constraints.maxWidth - spacing * (cols - 1)) / cols;
+              final hasMore = statuses.length > cols;
+              final visible = _expanded ? statuses : statuses.take(cols).toList();
+              return Column(
+                children: [
+                  AnimatedSize(
+                    duration: const Duration(milliseconds: 220),
+                    curve: Curves.easeOut,
+                    alignment: Alignment.topCenter,
+                    child: Wrap(
+                      spacing: spacing,
+                      runSpacing: 18,
+                      children: [
+                        for (final s in visible)
+                          SizedBox(
+                            width: itemWidth,
+                            child: _AchievementBadge(
+                              status: s,
+                              theme: theme,
+                              onTap: () => _showAchievement(context, theme, s),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  if (hasMore)
+                    GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: withHaptic(() => setState(() => _expanded = !_expanded)),
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 14, bottom: 2),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(_expanded ? 'Show less' : 'Show all ${statuses.length}',
+                                style: TextStyle(
+                                    color: theme.goldLight,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600)),
+                            const SizedBox(width: 2),
+                            AnimatedRotation(
+                              turns: _expanded ? 0.5 : 0,
+                              duration: const Duration(milliseconds: 200),
+                              child: Icon(Icons.expand_more, color: theme.goldLight, size: 20),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showAchievement(BuildContext context, AppearanceTheme theme, AchievementStatus s) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => Container(
+        decoration: BoxDecoration(
+          color: theme.feltDark,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          border: Border(
+            top: BorderSide(color: theme.feltBorder),
+            left: BorderSide(color: theme.feltBorder),
+            right: BorderSide(color: theme.feltBorder),
+          ),
+        ),
+        child: SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: AppTokens.textSecondary.withValues(alpha: 0.4),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Center(
+                  child: _DiamondBadge(
+                    emoji: s.achievement.emoji,
+                    unlocked: s.unlocked,
+                    theme: theme,
+                    size: 66,
+                    emojiSize: 34,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Text(s.achievement.title,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                        color: AppTokens.textPrimary, fontSize: 20, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 6),
+                Text(s.achievement.description,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                        color: AppTokens.textSecondary, fontSize: 14, height: 1.4)),
+                const SizedBox(height: 18),
+                if (s.unlocked)
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.check_circle, color: _good, size: 18),
+                      const SizedBox(width: 6),
+                      const Text('Unlocked',
+                          style: TextStyle(
+                              color: _good, fontSize: 14, fontWeight: FontWeight.bold)),
+                    ],
+                  )
+                else ...[
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: LinearProgressIndicator(
+                      value: s.fraction,
+                      minHeight: 7,
+                      backgroundColor: _tileBg,
+                      valueColor: AlwaysStoppedAnimation(theme.gold),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text('${s.shownCurrent} / ${s.target}',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                          color: AppTokens.textSecondary, fontSize: 13, fontWeight: FontWeight.w600)),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AchievementBadge extends StatelessWidget {
+  final AchievementStatus status;
+  final AppearanceTheme theme;
+  final VoidCallback onTap;
+  const _AchievementBadge(
+      {required this.status, required this.theme, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final unlocked = status.unlocked;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: withHaptic(onTap),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _DiamondBadge(
+            emoji: status.achievement.emoji,
+            unlocked: unlocked,
+            theme: theme,
+            size: 46,
+            emojiSize: 24,
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            height: 26,
+            child: Text(
+              status.achievement.title,
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: unlocked ? AppTokens.textPrimary : AppTokens.textSecondary,
+                fontSize: 10,
+                height: 1.2,
+                fontWeight: unlocked ? FontWeight.w600 : FontWeight.normal,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A gem-cut badge: a rounded square rotated to a diamond, with the emoji kept
+/// upright. Unlocked badges get a gold gradient fill and a soft glow.
+class _DiamondBadge extends StatelessWidget {
+  final String emoji;
+  final bool unlocked;
+  final AppearanceTheme theme;
+  final double size;
+  final double emojiSize;
+  const _DiamondBadge({
+    required this.emoji,
+    required this.unlocked,
+    required this.theme,
+    required this.size,
+    required this.emojiSize,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final box = size * 1.42;
+    return Opacity(
+      opacity: unlocked ? 1 : 0.32,
+      child: SizedBox(
+        width: box,
+        height: box,
+        child: Center(
+          child: Transform.rotate(
+            angle: pi / 4,
+            child: Container(
+              width: size,
+              height: size,
+              decoration: BoxDecoration(
+                color: unlocked ? theme.gold.withValues(alpha: 0.18) : _tileBg,
+                borderRadius: BorderRadius.circular(size * 0.24),
+                border: Border.all(
+                  color: unlocked ? theme.gold : const Color(0x1AFFFFFF),
+                  width: 1.5,
+                ),
+              ),
+              child: Center(
+                child: Transform.rotate(
+                  angle: -pi / 4,
+                  child: Text(emoji, style: TextStyle(fontSize: emojiSize)),
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -488,21 +797,41 @@ class _MistakeTileState extends State<_MistakeTile> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                      color: const Color(0x33E74C3C), borderRadius: BorderRadius.circular(12)),
-                  child: Text('${m.count}×',
-                      style:
-                          const TextStyle(color: _warn, fontWeight: FontWeight.bold, fontSize: 12)),
-                ),
-                const SizedBox(width: 10),
                 Expanded(
-                  child: Text('$kind${m.playerTotal} vs dealer ${m.dealerUpcard}',
-                      style: const TextStyle(
-                          color: AppTokens.textPrimary, fontWeight: FontWeight.bold, fontSize: 14)),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                                color: const Color(0x33E74C3C),
+                                borderRadius: BorderRadius.circular(12)),
+                            child: Text('${m.count}×',
+                                style: const TextStyle(
+                                    color: _warn, fontWeight: FontWeight.bold, fontSize: 12)),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text('$kind${m.playerTotal} vs dealer ${m.dealerUpcard}',
+                                style: const TextStyle(
+                                    color: AppTokens.textPrimary,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14)),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                          'Played ${_actionName(m.playerAction)} → should ${_actionName(m.optimalAction)}',
+                          style: TextStyle(color: classicGreen.goldLight, fontSize: 13)),
+                    ],
+                  ),
                 ),
+                const SizedBox(width: 8),
                 if (widget.unlocked)
                   AnimatedRotation(
                     turns: _expanded ? 0.5 : 0,
@@ -513,9 +842,6 @@ class _MistakeTileState extends State<_MistakeTile> {
                   Icon(Icons.lock_outline, color: classicGreen.goldLight, size: 17),
               ],
             ),
-            const SizedBox(height: 5),
-            Text('Played ${_actionName(m.playerAction)} → should ${_actionName(m.optimalAction)}',
-                style: TextStyle(color: classicGreen.goldLight, fontSize: 13)),
             AnimatedSize(
               duration: const Duration(milliseconds: 180),
               curve: Curves.easeOut,
@@ -537,53 +863,92 @@ class _MistakeTileState extends State<_MistakeTile> {
 }
 
 /// A tappable "this is Premium" panel used inside a stats section.
-class _PremiumLock extends StatelessWidget {
+/// Premium gate that shows the real [preview] content behind a blur + scrim, so
+/// users get a teaser of what Pro unlocks. Clipped to [previewHeight].
+class _LockedPreview extends StatelessWidget {
   final AppearanceTheme theme;
   final String label;
   final String sublabel;
   final VoidCallback onTap;
-  const _PremiumLock(
-      {required this.theme,
-      required this.label,
-      required this.sublabel,
-      required this.onTap});
+  final Widget preview;
+  final double previewHeight;
+  const _LockedPreview({
+    required this.theme,
+    required this.label,
+    required this.sublabel,
+    required this.onTap,
+    required this.preview,
+    required this.previewHeight,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final radius = BorderRadius.circular(14);
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: withHaptic(onTap),
       child: Container(
-        width: double.infinity,
         margin: const EdgeInsets.symmetric(vertical: 4),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 22),
-        decoration: BoxDecoration(
-          color: theme.gold.withValues(alpha: 0.06),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: theme.gold.withValues(alpha: 0.4)),
-        ),
-        child: Column(
-          children: [
-            Icon(Icons.lock_outline, color: theme.goldLight, size: 26),
-            const SizedBox(height: 8),
-            Text(label,
-                style: const TextStyle(
-                    color: AppTokens.textPrimary, fontWeight: FontWeight.w600, fontSize: 14)),
-            const SizedBox(height: 3),
-            Text(sublabel,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                    color: AppTokens.textSecondary, fontSize: 12, height: 1.3)),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-              decoration:
-                  BoxDecoration(color: theme.gold, borderRadius: BorderRadius.circular(10)),
-              child: Text('Unlock with Pro',
-                  style: TextStyle(
-                      color: theme.feltDark, fontWeight: FontWeight.bold, fontSize: 12.5)),
-            ),
-          ],
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(borderRadius: radius),
+        child: SizedBox(
+          width: double.infinity,
+          height: previewHeight,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              // Real content, rendered at natural size and clipped, non-interactive.
+              IgnorePointer(
+                child: OverflowBox(
+                  alignment: Alignment.topCenter,
+                  minHeight: 0,
+                  maxHeight: double.infinity,
+                  child: Padding(padding: const EdgeInsets.all(6), child: preview),
+                ),
+              ),
+              // Blur + scrim + unlock CTA.
+              BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
+                child: Container(
+                  alignment: Alignment.center,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  decoration: BoxDecoration(
+                    color: theme.feltDark.withValues(alpha: 0.5),
+                    borderRadius: radius,
+                    border: Border.all(color: theme.gold.withValues(alpha: 0.4)),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.lock_outline, color: theme.goldLight, size: 26),
+                      const SizedBox(height: 8),
+                      Text(label,
+                          style: const TextStyle(
+                              color: AppTokens.textPrimary,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14)),
+                      const SizedBox(height: 3),
+                      Text(sublabel,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                              color: AppTokens.textSecondary, fontSize: 12, height: 1.3)),
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                        decoration: BoxDecoration(
+                            color: theme.gold, borderRadius: BorderRadius.circular(10)),
+                        child: Text('Unlock with Pro',
+                            style: TextStyle(
+                                color: theme.feltDark,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12.5)),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

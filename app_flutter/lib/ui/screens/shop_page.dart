@@ -9,6 +9,7 @@ import '../../state/auth_provider.dart';
 import '../../state/store_provider.dart';
 import '../theme/appearance.dart';
 import '../widgets/chip_widget.dart';
+import '../widgets/game_button.dart';
 import '../widgets/playing_card.dart';
 
 /// Opens the custom Go Pro paywall — a themed selector over the current
@@ -268,7 +269,7 @@ class _PackageTile extends StatelessWidget {
     };
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: onTap,
+      onTap: withHaptic(onTap),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         margin: const EdgeInsets.only(bottom: 10),
@@ -577,7 +578,7 @@ class AppSegmentedTabs extends ConsumerWidget {
                 Expanded(
                   child: GestureDetector(
                     behavior: HitTestBehavior.opaque,
-                    onTap: () => onSelect(i),
+                    onTap: withHaptic(() => onSelect(i)),
                     child: SizedBox(
                       height: height,
                       child: Center(
@@ -866,7 +867,7 @@ class _GoProBanner extends StatelessWidget {
     if (isPremium) return content;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: () => openGoPro(context),
+      onTap: withHaptic(() => openGoPro(context)),
       child: content,
     );
   }
@@ -1005,7 +1006,7 @@ class _CosmeticRow extends ConsumerWidget {
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: onTap,
+      onTap: withHaptic(onTap),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         curve: Curves.easeOut,

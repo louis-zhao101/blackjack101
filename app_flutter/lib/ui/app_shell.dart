@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../engine/achievements.dart';
 import '../engine/strategy.dart';
 import '../engine/variants.dart';
 import '../services/purchases_service.dart';
 import '../services/sound_service.dart';
+import '../state/achievements_provider.dart';
 import '../state/app_providers.dart';
 import '../state/appearance_provider.dart';
 import '../state/auth_provider.dart';
@@ -51,6 +53,20 @@ class _AppShellState extends ConsumerState<AppShell> {
   Widget build(BuildContext context) {
     final theme = ref.watch(appearanceProvider);
 
+    ref.listen(achievementCelebrationProvider, (_, unlocked) {
+      if (unlocked.isEmpty) return;
+      successHaptic();
+      final messenger = ScaffoldMessenger.of(context);
+      for (final a in unlocked) {
+        messenger.showSnackBar(_achievementSnackBar(theme, a));
+      }
+      ref.read(achievementCelebrationProvider.notifier).consume();
+    });
+
+    ref.listen(entitlementsProvider, (_, _) {
+      ref.read(achievementsProvider.notifier).evaluate();
+    });
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final wide = constraints.maxWidth >= 600;
@@ -69,7 +85,14 @@ class _AppShellState extends ConsumerState<AppShell> {
                 Expanded(
                   child: IndexedStack(
                     index: _tab,
-                    children: const [PlayPage(), LearnPage(), StatsPage(), AccountPage()],
+                    // Play stays full-bleed (immersive felt table); the list
+                    // pages are capped so they don't stretch on wide desktop.
+                    children: const [
+                      PlayPage(),
+                      _CappedBody(child: LearnPage()),
+                      _CappedBody(child: StatsPage()),
+                      _CappedBody(child: AccountPage()),
+                    ],
                   ),
                 ),
               ],
@@ -79,6 +102,62 @@ class _AppShellState extends ConsumerState<AppShell> {
               wide ? null : _BottomNav(theme: theme, tab: _tab, onSelect: (i) => setState(() => _tab = i)),
         );
       },
+    );
+  }
+}
+
+SnackBar _achievementSnackBar(AppearanceTheme theme, Achievement a) {
+  return SnackBar(
+    duration: const Duration(seconds: 3),
+    backgroundColor: theme.feltDark,
+    behavior: SnackBarBehavior.floating,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(14),
+      side: BorderSide(color: theme.gold.withValues(alpha: 0.6)),
+    ),
+    content: Row(
+      children: [
+        Text(a.emoji,
+            style: const TextStyle(fontSize: 26, color: AppTokens.textPrimary)),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Achievement unlocked',
+                  style: TextStyle(
+                      color: theme.goldLight,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.5)),
+              const SizedBox(height: 2),
+              Text(a.title,
+                  style: const TextStyle(
+                      color: AppTokens.textPrimary,
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold)),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+/// Caps a page's content width and centres it, so list-style pages don't
+/// stretch edge-to-edge on wide desktop windows. The scaffold fills the gutters.
+class _CappedBody extends StatelessWidget {
+  final Widget child;
+  const _CappedBody({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 900),
+        child: child,
+      ),
     );
   }
 }
@@ -141,8 +220,61 @@ class _Header extends StatelessWidget {
               ],
             ),
           ),
+          _SyncIndicator(theme: theme),
         ],
       ),
+    );
+  }
+}
+
+/// Shows only when a background write to Firestore has exhausted its retries.
+/// Tapping it re-attempts the queued writes so nothing is silently lost.
+class _SyncIndicator extends ConsumerWidget {
+  final AppearanceTheme theme;
+  const _SyncIndicator({required this.theme});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final status = ref.watch(syncQueueProvider);
+    const color = Color(0xFFFC8181);
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 250),
+      child: status.phase != SyncPhase.failed
+          ? const SizedBox.shrink()
+          : Padding(
+              padding: const EdgeInsets.only(left: 8),
+              child: Material(
+                color: color.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(AppTokens.radius),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(AppTokens.radius),
+                  onTap: () {
+                    selectionHaptic();
+                    ref.read(syncQueueProvider.notifier).retry();
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: const [
+                        Icon(Icons.cloud_off_outlined, size: 15, color: color),
+                        SizedBox(width: 5),
+                        Text(
+                          'Sync failed',
+                          style: TextStyle(
+                            color: color,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        SizedBox(width: 4),
+                        Icon(Icons.refresh, size: 14, color: color),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
     );
   }
 }
@@ -155,38 +287,109 @@ class _BottomNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return NavigationBarTheme(
-      data: NavigationBarThemeData(
-        backgroundColor: theme.feltDark,
-        indicatorColor: theme.gold.withValues(alpha: 0.22),
-        labelTextStyle: WidgetStateProperty.resolveWith(
-          (states) => TextStyle(
-            fontSize: 12,
-            fontWeight: states.contains(WidgetState.selected) ? FontWeight.bold : FontWeight.normal,
-            color: states.contains(WidgetState.selected) ? theme.gold : AppTokens.textSecondary,
-          ),
-        ),
-        iconTheme: WidgetStateProperty.resolveWith(
-          (states) => IconThemeData(
-            color: states.contains(WidgetState.selected) ? theme.gold : AppTokens.textSecondary,
-          ),
+    final bottomInset = MediaQuery.of(context).padding.bottom;
+    return Container(
+      color: theme.feltDark,
+      padding: EdgeInsets.only(bottom: bottomInset),
+      child: SizedBox(
+        height: 64,
+        child: Row(
+          children: [
+            for (var i = 0; i < _navTitles.length; i++)
+              Expanded(
+                child: _NavItem(
+                  theme: theme,
+                  selected: i == tab,
+                  icon: _navIcons[i],
+                  selectedIcon: _navIconsSelected[i],
+                  label: _navTitles[i],
+                  onTap: () {
+                    selectionHaptic();
+                    onSelect(i);
+                  },
+                ),
+              ),
+          ],
         ),
       ),
-      child: NavigationBar(
-        height: 64,
-        selectedIndex: tab,
-        onDestinationSelected: (i) {
-          selectionHaptic();
-          onSelect(i);
-        },
-        destinations: [
-          for (var i = 0; i < _navTitles.length; i++)
-            NavigationDestination(
-              icon: Icon(_navIcons[i]),
-              selectedIcon: Icon(_navIconsSelected[i]),
-              label: _navTitles[i],
+    );
+  }
+}
+
+/// One bottom-nav destination. The pill fades in, the icon pops + cross-fades
+/// between outlined and filled, and the label eases its colour/weight when
+/// selection changes.
+class _NavItem extends StatelessWidget {
+  final AppearanceTheme theme;
+  final bool selected;
+  final IconData icon;
+  final IconData selectedIcon;
+  final String label;
+  final VoidCallback onTap;
+  const _NavItem({
+    required this.theme,
+    required this.selected,
+    required this.icon,
+    required this.selectedIcon,
+    required this.label,
+    required this.onTap,
+  });
+
+  static const _dur = Duration(milliseconds: 260);
+
+  @override
+  Widget build(BuildContext context) {
+    final color = selected ? theme.gold : AppTokens.textSecondary;
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: label,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            AnimatedContainer(
+              duration: _dur,
+              curve: Curves.easeOut,
+              width: 58,
+              height: 30,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: selected ? theme.gold.withValues(alpha: 0.20) : Colors.transparent,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: AnimatedSwitcher(
+                duration: _dur,
+                switchInCurve: Curves.easeOutBack,
+                switchOutCurve: Curves.easeIn,
+                transitionBuilder: (child, anim) => ScaleTransition(
+                  scale: Tween(begin: 0.7, end: 1.0).animate(anim),
+                  child: FadeTransition(opacity: anim, child: child),
+                ),
+                child: Icon(
+                  selected ? selectedIcon : icon,
+                  key: ValueKey(selected),
+                  color: color,
+                  size: 24,
+                ),
+              ),
             ),
-        ],
+            const SizedBox(height: 4),
+            AnimatedDefaultTextStyle(
+              duration: _dur,
+              curve: Curves.easeOut,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+                color: color,
+              ),
+              child: Text(label),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -432,6 +635,15 @@ class AccountPage extends ConsumerWidget {
                   await ref.read(proStatusProvider.notifier).refresh();
                 },
               ),
+            ),
+            _SettingRow(
+              icon: Icons.restart_alt,
+              title: 'Reset onboarding',
+              subtitle: 'Relaunch the first-run intro and re-arm review prompts',
+              onTap: () {
+                ref.read(reviewPromptProvider.notifier).reset();
+                ref.read(onboardingSeenProvider.notifier).reset();
+              },
             ),
           ],
         ),

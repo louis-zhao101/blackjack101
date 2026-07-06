@@ -41,6 +41,46 @@ enum HandType { hard, soft, pair }
 
 String handTypeId(HandType t) => t.name;
 
+/// Stable key identifying a strategy-chart cell, matching the chart's
+/// `'<handType>|<value>|<dealer>'` scheme. For pairs the value is the rank
+/// (2–10, A) derived from the total; for hard/soft it's the total.
+String strategyCellKey(HandType handType, int total, bool soft, String dealerUpcard) {
+  final String value;
+  switch (handType) {
+    case HandType.pair:
+      value = total == 20 ? '10' : (soft ? 'A' : '${total ~/ 2}');
+    case HandType.soft:
+    case HandType.hard:
+      value = '$total';
+  }
+  return '${handType.name}|$value|$dealerUpcard';
+}
+
+/// Every strategy-chart cell key a player can actually face in play, in display
+/// order: hard 8–20, soft 13–20, and every pair, each vs dealer 2–A. Hard 21 is
+/// excluded — you never *decide* on 21. Used to measure chart coverage for the
+/// "Chart Explorer" / "Chart Master" achievements.
+List<String> allStrategyCellKeys() {
+  final keys = <String>[];
+  for (var total = 8; total <= 20; total++) {
+    for (final d in _dealerRanks) {
+      keys.add(strategyCellKey(HandType.hard, total, false, d));
+    }
+  }
+  for (var total = 13; total <= 20; total++) {
+    for (final d in _dealerRanks) {
+      keys.add(strategyCellKey(HandType.soft, total, true, d));
+    }
+  }
+  for (final r in ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'A']) {
+    final total = r == 'A' ? 12 : int.parse(r) * 2;
+    for (final d in _dealerRanks) {
+      keys.add(strategyCellKey(HandType.pair, total, r == 'A', d));
+    }
+  }
+  return keys;
+}
+
 class OptimalAction {
   final Action action;
   final String label;
@@ -439,6 +479,26 @@ class DealScenario {
   final Object value; // int total for hard/soft; String pair rank for pair
   final String dealerUpcard; // '2'..'10','A'
   const DealScenario(this.handType, this.value, this.dealerUpcard);
+}
+
+/// The two player card ranks that realize a target hand — a soft total is A +
+/// its complement, a pair is the rank twice, a hard total is any two distinct
+/// non-ace ranks summing to it. Used to build concrete practice hands.
+(String, String) scenarioPlayerRanks(HandType handType, Object value) {
+  switch (handType) {
+    case HandType.soft:
+      return ('A', '${(value as int) - 11}');
+    case HandType.pair:
+      final r = value as String;
+      return (r, r);
+    case HandType.hard:
+      final total = value as int;
+      for (var a = 2; a <= 10; a++) {
+        final b = total - a;
+        if (b >= 2 && b <= 10 && b != a) return ('$a', '$b');
+      }
+      return ('10', '${total - 10}');
+  }
 }
 
 enum _Tier { easy, medium, hard }

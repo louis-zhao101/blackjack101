@@ -1,6 +1,11 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:in_app_review/in_app_review.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../engine/stats.dart';
 import '../services/firestore_sync.dart';
 import '../services/local_store.dart';
 
@@ -13,3 +18,182 @@ final localStoreProvider =
     Provider<LocalStore>((ref) => LocalStore(ref.watch(sharedPreferencesProvider)));
 
 final firestoreSyncProvider = Provider<FirestoreSync>((ref) => FirestoreSync());
+
+enum SyncPhase { idle, syncing, failed }
+
+class SyncStatus {
+  final SyncPhase phase;
+
+  /// How many distinct writes are still waiting to reach the server.
+  final int pending;
+
+  const SyncStatus(this.phase, this.pending);
+  const SyncStatus.idle()
+      : phase = SyncPhase.idle,
+        pending = 0;
+}
+
+/// Coordinates every background write to Firestore so a dropped connection can
+/// never silently lose data. Writes are coalesced per key (latest wins — the
+/// upserts are idempotent), retried with backoff, and the resulting [SyncPhase]
+/// drives the "sync failed" indicator in the app header. A failed drain leaves
+/// its work queued: the next enqueue (e.g. the next hand played) retries it, as
+/// does an explicit [retry].
+class SyncController extends Notifier<SyncStatus> {
+  late final FirestoreSync _sync;
+  final Map<String, Future<void> Function()> _pending = {};
+  bool _draining = false;
+
+  static const _maxAttempts = 3;
+  static const _attemptTimeout = Duration(seconds: 12);
+
+  @override
+  SyncStatus build() {
+    _sync = ref.read(firestoreSyncProvider);
+    return const SyncStatus.idle();
+  }
+
+  void session(String uid, Session s) =>
+      _enqueue('session:${s.id}', () => _sync.upsertSession(uid, s));
+
+  void profile(String uid, int bankroll) =>
+      _enqueue('profile', () => _sync.upsertProfile(uid, bankroll));
+
+  void ownedProducts(String uid, Set<String> ids) =>
+      _enqueue('owned', () => _sync.upsertOwnedProducts(uid, ids));
+
+  void achievements(String uid, Set<String> ids) =>
+      _enqueue('achievements', () => _sync.upsertAchievements(uid, ids));
+
+  void strategyCells(String uid, Map<String, (int, int)> cells) =>
+      _enqueue('strategyCells', () => _sync.upsertStrategyCells(uid, cells));
+
+  void drill(
+    String uid, {
+    required int total,
+    required int correct,
+    required int bestStreak,
+    required Set<String> attempted,
+    required List<bool> recent,
+  }) =>
+      _enqueue(
+          'drill',
+          () => _sync.upsertDrillStats(uid,
+              total: total,
+              correct: correct,
+              bestStreak: bestStreak,
+              attempted: attempted,
+              recent: recent));
+
+  void learnProgress(String uid, Set<String> ids) =>
+      _enqueue('learnProgress', () => _sync.upsertLearnProgress(uid, ids));
+
+  void cosmeticSelection(String uid,
+          {String? appearance, String? cardBack, String? chipStyle}) =>
+      _enqueue(
+          'cosmeticSel',
+          () => _sync.upsertCosmeticSelection(uid,
+              appearance: appearance, cardBack: cardBack, chipStyle: chipStyle));
+
+  /// Manually re-attempt a failed queue (e.g. the user tapped the indicator).
+  void retry() {
+    if (_pending.isNotEmpty) _drain();
+  }
+
+  void _enqueue(String key, Future<void> Function() op) {
+    _pending[key] = op;
+    _drain();
+  }
+
+  Future<void> _drain() async {
+    if (_draining) return;
+    _draining = true;
+    state = SyncStatus(SyncPhase.syncing, _pending.length);
+    var failed = false;
+    while (_pending.isNotEmpty) {
+      final key = _pending.keys.first;
+      final op = _pending[key]!;
+      if (await _run(op)) {
+        // Keep any newer write for the same key that arrived mid-flight.
+        if (identical(_pending[key], op)) _pending.remove(key);
+      } else {
+        failed = true;
+        break;
+      }
+    }
+    _draining = false;
+    state = failed
+        ? SyncStatus(SyncPhase.failed, _pending.length)
+        : const SyncStatus.idle();
+  }
+
+  Future<bool> _run(Future<void> Function() op) async {
+    for (var attempt = 0; attempt < _maxAttempts; attempt++) {
+      try {
+        await op().timeout(_attemptTimeout);
+        return true;
+      } catch (_) {
+        if (attempt < _maxAttempts - 1) {
+          await Future<void>.delayed(Duration(seconds: 2 * (attempt + 1)));
+        }
+      }
+    }
+    return false;
+  }
+}
+
+final syncQueueProvider =
+    NotifierProvider<SyncController, SyncStatus>(SyncController.new);
+
+/// Whether the first-run onboarding has been completed. Gates [OnboardingPage].
+class OnboardingController extends Notifier<bool> {
+  @override
+  bool build() => ref.read(localStoreProvider).loadOnboarded();
+
+  void complete() {
+    if (state) return;
+    state = true;
+    ref.read(localStoreProvider).saveOnboarded(true);
+  }
+
+  void reset() {
+    state = false;
+    ref.read(localStoreProvider).saveOnboarded(false);
+  }
+}
+
+final onboardingSeenProvider =
+    NotifierProvider<OnboardingController, bool>(OnboardingController.new);
+
+/// Whether we've already surfaced an in-app App Store review request. Lets us
+/// nudge for a review at positive moments (a strong session, finishing the
+/// lessons) without nagging. The native prompt is further throttled by the OS
+/// and silently no-ops for users who already rated. Disabled on web, where
+/// there is no store review flow.
+class ReviewController extends Notifier<bool> {
+  @override
+  bool build() => ref.read(localStoreProvider).loadReviewRequested();
+
+  /// Requests a review at a positive moment, at most once in-app. Safe to call
+  /// from several "review points" — later calls no-op once one has fired.
+  Future<void> maybePrompt() async {
+    if (kIsWeb || state) return;
+    try {
+      final review = InAppReview.instance;
+      if (!await review.isAvailable()) return;
+      await review.requestReview();
+    } catch (_) {
+      return;
+    }
+    state = true;
+    ref.read(localStoreProvider).saveReviewRequested(true);
+  }
+
+  void reset() {
+    state = false;
+    ref.read(localStoreProvider).saveReviewRequested(false);
+  }
+}
+
+final reviewPromptProvider =
+    NotifierProvider<ReviewController, bool>(ReviewController.new);

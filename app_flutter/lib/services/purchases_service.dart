@@ -23,26 +23,39 @@ class PurchasesService {
       (defaultTargetPlatform == TargetPlatform.iOS ||
           defaultTargetPlatform == TargetPlatform.android);
 
-  /// Call once at startup, before any purchase or paywall UI.
+  static bool _configured = false;
+
+  /// True once the SDK configured successfully. Runtime RevenueCat calls are
+  /// gated on this so a missing/invalid key degrades gracefully (purchases
+  /// unavailable) instead of crashing the app at launch.
+  static bool get isReady => isSupported && _configured;
+
+  /// Call once at startup, before any purchase or paywall UI. A bad or missing
+  /// key is swallowed so the rest of the app still launches.
   static Future<void> configure() async {
     if (!isSupported) return;
-    await Purchases.setLogLevel(kDebugMode ? LogLevel.debug : LogLevel.info);
-    await Purchases.configure(PurchasesConfiguration(_rcApiKey));
+    try {
+      await Purchases.setLogLevel(kDebugMode ? LogLevel.debug : LogLevel.info);
+      await Purchases.configure(PurchasesConfiguration(_rcApiKey));
+      _configured = true;
+    } catch (e) {
+      debugPrint('RevenueCat configure failed — purchases disabled: $e');
+    }
   }
 
   /// Ties purchases to the given app user id (the Firebase uid) so entitlements
   /// follow the account across devices. Call on sign-in.
   static Future<void> logIn(String appUserId) async {
-    if (!isSupported) return;
+    if (!isReady) return;
     try {
       await Purchases.logIn(appUserId);
-    } on PlatformException {
+    } catch (_) {
       // Non-fatal: purchases still work against the anonymous id.
     }
   }
 
   static Future<void> logOut() async {
-    if (!isSupported) return;
+    if (!isReady) return;
     try {
       await Purchases.logOut();
     } on PlatformException {
@@ -51,7 +64,7 @@ class PurchasesService {
   }
 
   static Future<CustomerInfo?> currentInfo() async {
-    if (!isSupported) return null;
+    if (!isReady) return null;
     try {
       return await Purchases.getCustomerInfo();
     } on PlatformException {
@@ -65,7 +78,7 @@ class PurchasesService {
   /// The current Offering (its packages back the custom Go Pro paywall).
   /// Returns null on web/desktop or if fetching fails / none is configured.
   static Future<Offering?> currentOffering() async {
-    if (!isSupported) return null;
+    if (!isReady) return null;
     try {
       return (await Purchases.getOfferings()).current;
     } on PlatformException {
@@ -89,7 +102,7 @@ class PurchasesService {
   /// Presents the dashboard-designed paywall only when Pro isn't already
   /// active. Returns true once the user has Pro.
   static Future<bool> presentPaywallIfNeeded() async {
-    if (!isSupported) return false;
+    if (!isReady) return false;
     final result = await RevenueCatUI.presentPaywallIfNeeded(kProEntitlement);
     return result == PaywallResult.purchased || result == PaywallResult.restored;
   }
@@ -97,7 +110,7 @@ class PurchasesService {
   /// Always shows the paywall (e.g. from a "Go Pro" button). Returns true if
   /// the user came out of it with Pro.
   static Future<bool> presentPaywall() async {
-    if (!isSupported) return false;
+    if (!isReady) return false;
     final result = await RevenueCatUI.presentPaywall();
     return result == PaywallResult.purchased || result == PaywallResult.restored;
   }
@@ -105,7 +118,7 @@ class PurchasesService {
   /// Self-service subscription management (cancel, refund, restore, plan
   /// changes). Only meaningful once the user has an active/expired purchase.
   static Future<void> presentCustomerCenter() async {
-    if (!isSupported) return;
+    if (!isReady) return;
     await RevenueCatUI.presentCustomerCenter();
   }
 
@@ -114,7 +127,7 @@ class PurchasesService {
   /// delete the real purchase (that's a server-side op) — signing back in
   /// restores Pro. No-op when the user is already anonymous.
   static Future<void> debugResetIdentity() async {
-    if (!isSupported) return;
+    if (!isReady) return;
     try {
       await Purchases.logOut();
     } on PlatformException {
