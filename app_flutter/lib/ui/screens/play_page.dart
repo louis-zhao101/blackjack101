@@ -10,6 +10,7 @@ import '../../services/sound_service.dart';
 import '../../state/appearance_provider.dart';
 import '../../state/game_provider.dart';
 import '../../state/settings_provider.dart';
+import '../../state/stats_provider.dart';
 import '../../state/store_provider.dart';
 import '../theme/appearance.dart';
 import '../widgets/bet_chip_stack.dart';
@@ -290,9 +291,14 @@ class _StatsBar extends ConsumerWidget {
     final bet = game.phase == eng.GamePhase.betting
         ? game.pendingBet
         : game.playerHands.fold<int>(0, (sum, h) => sum + h.bet);
-    final plays = store.playStats;
-    final hasPlays = plays.total > 0;
-    final pct = hasPlays ? (plays.correct / plays.total * 100).round() : 0;
+    // Accuracy mirrors the current session the Stats page shows — per-hand and
+    // persisted — so the two views can never disagree (a fresh in-memory counter
+    // would reset on relaunch while the session lives on).
+    final hands = ref.watch(statsProvider).currentSession?.hands ?? const [];
+    final total = hands.length;
+    final correct = hands.where((h) => h.wasCorrect).length;
+    final hasPlays = total > 0;
+    final pct = hasPlays ? (correct / total * 100).round() : 0;
     final pctColor = pct >= 80
         ? const Color(0xFF6EE7B7)
         : pct >= 60
@@ -327,7 +333,7 @@ class _StatsBar extends ConsumerWidget {
           Expanded(
             child: _item(
               'ACCURACY',
-              hasPlays ? '$pct% (${plays.correct}/${plays.total})' : '—',
+              hasPlays ? '$pct% ($correct/$total)' : '—',
               hasPlays ? pctColor : AppTokens.textSecondary,
             ),
           ),

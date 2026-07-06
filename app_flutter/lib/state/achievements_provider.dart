@@ -125,8 +125,16 @@ final achievementStatusesProvider = Provider<List<AchievementStatus>>((ref) {
   ref.watch(learnProvider);
   ref.watch(entitlementsProvider);
   ref.watch(gameProvider);
-  ref.watch(achievementsProvider);
-  return evaluateAchievements(_snapshot(ref));
+  final earned = ref.watch(achievementsProvider);
+  // Unlocking is permanent: an achievement already in the earned set stays
+  // shown as complete even if the stats that earned it were later cleared. Live
+  // progress still drives the not-yet-earned ones.
+  return evaluateAchievements(_snapshot(ref)).map((s) {
+    if (!s.unlocked && earned.contains(s.achievement.id)) {
+      return AchievementStatus(s.achievement, s.target, s.target);
+    }
+    return s;
+  }).toList();
 });
 
 /// A queue of just-unlocked achievements awaiting a celebratory toast. The app

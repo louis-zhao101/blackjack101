@@ -29,17 +29,10 @@ class LastHandInfo {
   });
 }
 
-class PlayStats {
-  final int total;
-  final int correct;
-  const PlayStats({this.total = 0, this.correct = 0});
-}
-
 class GameStoreState {
   final eng.GameState game;
   final LastHandInfo? lastHandInfo;
   final int lastBet;
-  final PlayStats playStats;
   final bool handHadMistake;
   final LastHandInfo? firstMistakeInfo;
   final bool hasDealtInSession;
@@ -52,7 +45,6 @@ class GameStoreState {
     required this.game,
     this.lastHandInfo,
     this.lastBet = 0,
-    this.playStats = const PlayStats(),
     this.handHadMistake = false,
     this.firstMistakeInfo,
     this.hasDealtInSession = false,
@@ -64,7 +56,6 @@ class GameStoreState {
     LastHandInfo? lastHandInfo,
     bool clearLastHandInfo = false,
     int? lastBet,
-    PlayStats? playStats,
     bool? handHadMistake,
     LastHandInfo? firstMistakeInfo,
     bool clearFirstMistakeInfo = false,
@@ -75,7 +66,6 @@ class GameStoreState {
         game: game ?? this.game,
         lastHandInfo: clearLastHandInfo ? null : (lastHandInfo ?? this.lastHandInfo),
         lastBet: lastBet ?? this.lastBet,
-        playStats: playStats ?? this.playStats,
         handHadMistake: handHadMistake ?? this.handHadMistake,
         firstMistakeInfo:
             clearFirstMistakeInfo ? null : (firstMistakeInfo ?? this.firstMistakeInfo),
@@ -134,7 +124,6 @@ class GameController extends Notifier<GameStoreState> {
         statsCtrl.finishSession(game.bankroll);
         statsCtrl.startSession(game.bankroll, settings.ruleSet.id);
         state = state.copyWith(
-          playStats: const PlayStats(),
           handHadMistake: false,
           hasDealtInSession: false,
           game: eng.createInitialState(bankroll: game.bankroll, ruleSet: settings.ruleSet),
@@ -366,10 +355,6 @@ class GameController extends Notifier<GameStoreState> {
 
   void _applyPlay(eng.GameState nextGame, LastHandInfo info) {
     final newHadMistake = state.handHadMistake || !info.wasCorrect;
-    final newPlayStats = PlayStats(
-      total: state.playStats.total + 1,
-      correct: state.playStats.correct + (info.wasCorrect ? 1 : 0),
-    );
     final newFirstMistakeInfo =
         (!state.handHadMistake && !info.wasCorrect) ? info : state.firstMistakeInfo;
 
@@ -377,7 +362,6 @@ class GameController extends Notifier<GameStoreState> {
       game: nextGame,
       lastHandInfo: info,
       handHadMistake: newHadMistake,
-      playStats: newPlayStats,
       firstMistakeInfo: newFirstMistakeInfo,
     );
 

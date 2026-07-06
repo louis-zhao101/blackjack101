@@ -61,8 +61,16 @@ class StatsController extends Notifier<StatsState> {
     }
   }
 
+  /// Clears the user's stats history: session records and the strategy-cell
+  /// heatmap (both shown on the Stats page). Practice drills and earned
+  /// achievements are left alone. Clears local *and* cloud so it's permanent.
   void clearHistory() {
     _set(const StatsState(sessions: [], currentSession: null));
+    ref.read(strategyStatsProvider.notifier).clearLocal();
+    final uid = ref.read(authServiceProvider).currentUser?.uid;
+    if (uid != null) {
+      ref.read(firestoreSyncProvider).clearStatsHistory(uid).catchError((_) {});
+    }
   }
 
   void loadFromCloud(List<Session> cloudSessions) {
@@ -133,6 +141,13 @@ class StrategyStatsController extends Notifier<Map<String, (int, int)>> {
   }
 
   void reset() => _set(const {});
+
+  /// Clears local cell stats only. The cloud copy is cleared in one shot by
+  /// [FirestoreSync.clearStatsHistory], so this must not push an empty map back.
+  void clearLocal() {
+    state = {};
+    ref.read(localStoreProvider).saveStrategyCellStats(const {});
+  }
 
   void _set(Map<String, (int, int)> next) {
     state = next;

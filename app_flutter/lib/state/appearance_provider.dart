@@ -29,10 +29,14 @@ class TableThemeController extends Notifier<AppearanceTheme> {
     return id == null ? classicGreen : appearanceById(id);
   }
 
-  void setPreset(String id) {
-    state = appearanceById(id);
+  /// [push] mirrors the change to the cloud (default). Pass `push: false` when
+  /// adopting a value that came *from* the cloud, so it doesn't echo back.
+  void setPreset(String id, {bool push = true}) {
+    final next = appearanceById(id);
+    if (next.id == state.id) return;
+    state = next;
     ref.read(localStoreProvider).saveAppearanceId(state.id);
-    _pushCosmetics(ref);
+    if (push) _pushCosmetics(ref);
   }
 }
 
@@ -44,10 +48,12 @@ class CardBackController extends Notifier<CardBack> {
   @override
   CardBack build() => cardBackById(ref.read(localStoreProvider).loadCardBackId() ?? kFreeCardBackId);
 
-  void setCardBack(String id) {
-    state = cardBackById(id);
+  void setCardBack(String id, {bool push = true}) {
+    final next = cardBackById(id);
+    if (next.id == state.id) return;
+    state = next;
     ref.read(localStoreProvider).saveCardBackId(state.id);
-    _pushCosmetics(ref);
+    if (push) _pushCosmetics(ref);
   }
 }
 
@@ -60,10 +66,12 @@ class ChipStyleController extends Notifier<ChipStyle> {
   ChipStyle build() =>
       chipStyleById(ref.read(localStoreProvider).loadChipStyleId() ?? kFreeChipStyleId);
 
-  void setChipStyle(String id) {
-    state = chipStyleById(id);
+  void setChipStyle(String id, {bool push = true}) {
+    final next = chipStyleById(id);
+    if (next.id == state.id) return;
+    state = next;
     ref.read(localStoreProvider).saveChipStyleId(state.id);
-    _pushCosmetics(ref);
+    if (push) _pushCosmetics(ref);
   }
 }
 
@@ -78,4 +86,15 @@ final appearanceProvider = Provider<AppearanceTheme>((ref) {
   final back = ref.watch(cardBackProvider);
   final chips = ref.watch(chipStyleProvider);
   return base.copyWith(cardBack: back, chipStyle: chips);
+});
+
+/// Live cloud cosmetic selection for the signed-in user. A listener (see
+/// [AuthGate]) adopts changes as they arrive, so a theme picked on one device
+/// shows up on the others within a second. Empty (no emissions) while signed
+/// out; rebuilds automatically when the user changes.
+final cosmeticCloudProvider =
+    StreamProvider<({String? appearance, String? cardBack, String? chipStyle})>((ref) {
+  final uid = ref.watch(authStateProvider).value?.uid;
+  if (uid == null) return const Stream.empty();
+  return ref.read(firestoreSyncProvider).watchCosmeticSelection(uid);
 });

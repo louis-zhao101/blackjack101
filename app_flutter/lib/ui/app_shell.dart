@@ -502,13 +502,6 @@ class AccountPage extends ConsumerWidget {
                   : 'Unlock everything for $kLifetimePrice',
               onTap: () => openGoPro(context),
             ),
-            if (ref.watch(proStatusProvider).isPro)
-              _SettingRow(
-                icon: Icons.manage_accounts_outlined,
-                title: 'Manage subscription',
-                subtitle: 'Billing, plan & restore',
-                onTap: () => PurchasesService.presentCustomerCenter(),
-              ),
             _SettingRow(
               icon: Icons.storefront_outlined,
               title: 'Shop',
@@ -584,11 +577,13 @@ class AccountPage extends ConsumerWidget {
             _SettingRow(
               icon: Icons.delete_sweep_outlined,
               title: 'Clear stats history',
-              subtitle: 'Remove all saved sessions',
+              subtitle: 'Remove sessions & strategy accuracy',
               onTap: () => _confirm(
                 context,
-                title: 'Clear all session history?',
-                message: 'This removes all saved sessions. This cannot be undone.',
+                title: 'Clear stats history?',
+                message:
+                    'This removes all saved sessions and your strategy accuracy. Practice '
+                    'drills and earned achievements are kept. This cannot be undone.',
                 confirmLabel: 'Clear',
                 onConfirm: () => ref.read(statsProvider.notifier).clearHistory(),
               ),

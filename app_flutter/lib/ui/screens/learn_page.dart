@@ -406,19 +406,30 @@ class LearnPage extends ConsumerWidget {
           ),
         ),
         const SizedBox(height: 16),
-        for (final lesson in teachable)
-          Padding(
+        // Lessons unlock in order: a lesson is available only once every earlier
+        // one is done. Since [nextId] is the first incomplete lesson, everything
+        // before it is done (unlocked) and everything after it stays locked.
+        ...teachable.map((lesson) {
+          final isDone = done.contains(lesson.id);
+          final locked = !isDone && lesson.id != nextId;
+          return Padding(
             padding: const EdgeInsets.only(bottom: 10),
             child: _LessonTile(
               theme: theme,
               lesson: lesson,
-              done: done.contains(lesson.id),
+              done: isDone,
               recommended: lesson.id == nextId,
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => _LessonScreen(lesson: lesson)),
-              ),
+              locked: locked,
+              onTap: locked
+                  ? () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                        content: Text('Finish the previous lesson to unlock this one.'),
+                      ))
+                  : () => Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => _LessonScreen(lesson: lesson)),
+                      ),
             ),
-          ),
+          );
+        }),
       ],
     );
   }
@@ -489,12 +500,14 @@ class _LessonTile extends StatelessWidget {
   final _Lesson lesson;
   final bool done;
   final bool recommended;
+  final bool locked;
   final VoidCallback? onTap;
   const _LessonTile({
     required this.theme,
     required this.lesson,
     required this.done,
     required this.recommended,
+    this.locked = false,
     required this.onTap,
   });
 
@@ -515,29 +528,36 @@ class _LessonTile extends StatelessWidget {
         ),
         child: Row(
           children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: done ? theme.gold.withValues(alpha: 0.18) : const Color(0x24FFFFFF),
-                borderRadius: BorderRadius.circular(11),
+            Opacity(
+              opacity: locked ? 0.4 : 1,
+              child: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: done ? theme.gold.withValues(alpha: 0.18) : const Color(0x24FFFFFF),
+                  borderRadius: BorderRadius.circular(11),
+                ),
+                child:
+                    Icon(lesson.icon, size: 20, color: done ? theme.gold : AppTokens.textPrimary),
               ),
-              child: Icon(lesson.icon, size: 20, color: done ? theme.gold : AppTokens.textPrimary),
             ),
             const SizedBox(width: 13),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(lesson.title,
-                      style: const TextStyle(
-                          color: AppTokens.textPrimary,
-                          fontSize: 15,
-                          fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 2),
-                  Text(lesson.subtitle,
-                      style: const TextStyle(color: AppTokens.textSecondary, fontSize: 12.5)),
-                ],
+              child: Opacity(
+                opacity: locked ? 0.4 : 1,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(lesson.title,
+                        style: const TextStyle(
+                            color: AppTokens.textPrimary,
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 2),
+                    Text(lesson.subtitle,
+                        style: const TextStyle(color: AppTokens.textSecondary, fontSize: 12.5)),
+                  ],
+                ),
               ),
             ),
             const SizedBox(width: 8),
@@ -549,6 +569,9 @@ class _LessonTile extends StatelessWidget {
   }
 
   Widget _trailing() {
+    if (locked) {
+      return const Icon(Icons.lock_outline, color: AppTokens.textSecondary, size: 20);
+    }
     if (lesson.isPractice) {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),

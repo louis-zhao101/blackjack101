@@ -70,8 +70,9 @@ class StatsPage extends ConsumerWidget {
     }
 
     final summaries = allSessions.map(summarizeSession).toList();
-    // Newest first (the live session, if any, sits at the end of allSessions).
-    final recentFirst = summaries.reversed.toList();
+    // Session history is newest-first by start date (the live session, being the
+    // most recently started, naturally sorts to the top).
+    final recentFirst = [...summaries]..sort((a, b) => b.date.compareTo(a.date));
     final mistakes = getCommonMistakes(allSessions);
     final categories = getMistakeCategories(allSessions);
 
@@ -319,8 +320,10 @@ class StatsPage extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Clear all session history?'),
-        content: const Text('This removes all saved sessions. This cannot be undone.'),
+        title: const Text('Clear stats history?'),
+        content: const Text(
+            'This removes all saved sessions and your strategy accuracy. Practice '
+            'drills and earned achievements are kept. This cannot be undone.'),
         actions: [
           TextButton(
               onPressed: withHaptic(() => Navigator.pop(context)),

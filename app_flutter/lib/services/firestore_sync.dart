@@ -122,6 +122,38 @@ class FirestoreSync {
     );
   }
 
+  /// Live stream of the user's cosmetic selection from their profile doc, so a
+  /// theme picked on one device follows them to the others without a restart.
+  /// De-duped so unrelated profile writes (bankroll, stats) don't re-emit.
+  Stream<({String? appearance, String? cardBack, String? chipStyle})> watchCosmeticSelection(
+      String uid) {
+    return _userDoc(uid).snapshots().map((snap) {
+      final d = snap.data() ?? const <String, dynamic>{};
+      return (
+        appearance: d['appearance'] as String?,
+        cardBack: d['cardBack'] as String?,
+        chipStyle: d['chipStyle'] as String?,
+      );
+    }).distinct();
+  }
+
+  /// Clears the user's stats history from the cloud: deletes every session and
+  /// wipes the strategy-cell heatmap, while leaving the profile (bankroll,
+  /// cosmetics, achievements) intact. Backs the "Clear stats history" action.
+  Future<void> clearStatsHistory(String uid) async {
+    final sessions = await _sessionsCol(uid).get();
+    final batch = _db.batch();
+    for (final doc in sessions.docs) {
+      batch.delete(doc.reference);
+    }
+    batch.set(
+      _userDoc(uid),
+      {'strategyCells': FieldValue.delete(), 'updatedAt': FieldValue.serverTimestamp()},
+      SetOptions(merge: true),
+    );
+    await batch.commit();
+  }
+
   /// Permanently removes the user's profile and all their sessions.
   Future<void> deleteUserData(String uid) async {
     final sessions = await _sessionsCol(uid).get();

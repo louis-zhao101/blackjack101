@@ -242,12 +242,22 @@ class _GoProScreenState extends ConsumerState<GoProScreen> {
             ),
             const SizedBox(height: 16),
             Center(
-              child: TextButton(
-                onPressed: _purchasing ? null : () => _restore(context, ref),
-                child: const Text('Restore purchases'),
+              child: Wrap(
+                alignment: WrapAlignment.center,
+                children: [
+                  TextButton(
+                    onPressed: _purchasing ? null : withHaptic(() => _restore(context, ref)),
+                    child: const Text('Restore purchases'),
+                  ),
+                  if (!_purchasesMobileOnly && ref.watch(proStatusProvider).isPro)
+                    TextButton(
+                      onPressed: withHaptic(PurchasesService.presentCustomerCenter),
+                      child: const Text('Manage subscription'),
+                    ),
+                ],
               ),
             ),
-            const _PolicyNote(),
+            const _PolicyNote(oneTime: false),
           ],
         ),
       ),
@@ -625,17 +635,20 @@ class AppSegmentedTabs extends ConsumerWidget {
 }
 
 class _PolicyNote extends StatelessWidget {
-  const _PolicyNote();
+  /// The cosmetics shop sells à la carte one-time buys; the Pro page sells
+  /// subscriptions, so it omits the "one-time" preamble.
+  final bool oneTime;
+  const _PolicyNote({this.oneTime = true});
 
   @override
   Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       child: Text(
-        'One-time purchases. Cosmetic and training features only — '
+        '${oneTime ? 'One-time purchases. ' : ''}Cosmetic and training features only — '
         'no ads and no real-money gambling.',
         textAlign: TextAlign.center,
-        style: TextStyle(color: AppTokens.textSecondary, fontSize: 11.5, height: 1.4),
+        style: const TextStyle(color: AppTokens.textSecondary, fontSize: 11.5, height: 1.4),
       ),
     );
   }

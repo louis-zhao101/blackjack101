@@ -165,6 +165,38 @@ class OnboardingController extends Notifier<bool> {
 final onboardingSeenProvider =
     NotifierProvider<OnboardingController, bool>(OnboardingController.new);
 
+/// True once startup work is done — the initial Firebase load finished, or the
+/// user is a guest with nothing to load. The splash watches this to know when it
+/// may begin its exit; visual timing (minimum deal cycles) is owned by the
+/// splash itself.
+class AppBootstrapController extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  /// Safe to call more than once.
+  void dataLoaded() {
+    if (!state) state = true;
+  }
+}
+
+final appReadyProvider =
+    NotifierProvider<AppBootstrapController, bool>(AppBootstrapController.new);
+
+/// Flipped by the launch splash after it has played its exit animation. The app
+/// stays on the splash until this is true, so the splash controls its own
+/// dismissal (deal in, then fly the cards off) rather than being cut mid-frame.
+class SplashController extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void markDone() {
+    if (!state) state = true;
+  }
+}
+
+final splashDoneProvider =
+    NotifierProvider<SplashController, bool>(SplashController.new);
+
 /// Whether we've already surfaced an in-app App Store review request. Lets us
 /// nudge for a review at positive moments (a strong session, finishing the
 /// lessons) without nagging. The native prompt is further throttled by the OS
