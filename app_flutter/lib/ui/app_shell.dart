@@ -502,12 +502,15 @@ class AccountPage extends ConsumerWidget {
                   : 'Unlock everything for $kLifetimePrice',
               onTap: () => openGoPro(context),
             ),
-            _SettingRow(
-              icon: Icons.storefront_outlined,
-              title: 'Shop',
-              subtitle: 'Table themes & cosmetics',
-              onTap: () => openShop(context),
-            ),
+            // Pro unlocks every cosmetic, so the à la carte Shop is redundant —
+            // Pro users equip everything straight from Customize.
+            if (!ref.watch(entitlementsProvider).isPremium)
+              _SettingRow(
+                icon: Icons.storefront_outlined,
+                title: 'Shop',
+                subtitle: 'Table themes & cosmetics',
+                onTap: () => openShop(context),
+              ),
             _SettingRow(
               icon: Icons.palette_outlined,
               title: 'Customize',
@@ -898,7 +901,8 @@ class _CustomizeScreen extends StatefulWidget {
 
 class _CustomizeScreenState extends State<_CustomizeScreen> {
   int _tab = 0;
-  static const _labels = ['Table', 'Cards', 'Chips'];
+  int _dir = 1; // +1 moving to a later tab, -1 earlier — drives slide direction.
+  static const _labels = ['Table', 'Cards', 'Chips', 'Decks'];
 
   @override
   Widget build(BuildContext context) {
@@ -922,19 +926,22 @@ class _CustomizeScreenState extends State<_CustomizeScreen> {
               AppSegmentedTabs(
                 labels: _labels,
                 current: _tab,
-                onSelect: (i) => setState(() => _tab = i),
+                onSelect: (i) => setState(() {
+                  _dir = i > _tab ? 1 : -1;
+                  _tab = i;
+                }),
               ),
               const SizedBox(height: 16),
-              AnimatedSwitcher(
-                duration: const Duration(milliseconds: 260),
-                child: KeyedSubtree(
-                  key: ValueKey(_tab),
-                  child: _tab == 0
-                      ? const _SkinSheet()
-                      : _tab == 1
-                          ? const _CardBackSheet()
-                          : const _ChipStyleSheet(),
-                ),
+              SlideTabSwitcher(
+                tabIndex: _tab,
+                dir: _dir,
+                child: _tab == 0
+                    ? const _SkinSheet()
+                    : _tab == 1
+                        ? const _CardBackSheet()
+                        : _tab == 2
+                            ? const _ChipStyleSheet()
+                            : const _DeckSheet(),
               ),
             ],
           ),
@@ -974,13 +981,8 @@ class _SkinSheet extends ConsumerWidget {
               owned: unlocked && productForCosmeticId(p.id) != null,
               subtitle: unlocked ? null : 'Locked${price != null ? ' · $price' : ''}',
               subtitleIcon: unlocked ? null : Icons.lock_outline,
-              onTap: () {
-                if (unlocked) {
-                  ref.read(tableThemeProvider.notifier).setPreset(p.id);
-                } else {
-                  openShop(context);
-                }
-              },
+              onTap: () => showCosmeticPreview(context,
+                  kind: CosmeticKind.theme, cosmeticId: p.id, name: p.name),
             );
           }(),
       ],
@@ -1060,6 +1062,43 @@ class _ChipStyleSheet extends ConsumerWidget {
               subtitleIcon: unlocked ? null : Icons.lock_outline,
               onTap: () => showCosmeticPreview(context,
                   kind: CosmeticKind.chipStyle, cosmeticId: c.id, name: c.name),
+            );
+          }(),
+      ],
+    );
+  }
+}
+
+class _DeckSheet extends ConsumerWidget {
+  const _DeckSheet();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = ref.watch(appearanceProvider);
+    final ent = ref.watch(entitlementsProvider);
+    final selectedId = ref.watch(cardDeckProvider).id;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (final d in cardDeckPresets)
+          () {
+            final unlocked = ent.isCosmeticUnlocked(d.id);
+            final price = productForCosmeticId(d.id)?.priceLabel;
+            return _SheetOption(
+              theme: theme,
+              selected: d.id == selectedId,
+              leading: PlayingCardView(
+                card: const bj.Card(rank: 'A', suit: '♠'),
+                theme: theme.copyWith(deck: d),
+                width: 28,
+                showShadow: false,
+              ),
+              title: d.name,
+              owned: unlocked && productForCosmeticId(d.id) != null,
+              subtitle: unlocked ? null : 'Locked${price != null ? ' · $price' : ''}',
+              subtitleIcon: unlocked ? null : Icons.lock_outline,
+              onTap: () => showCosmeticPreview(context,
+                  kind: CosmeticKind.deck, cosmeticId: d.id, name: d.name),
             );
           }(),
       ],

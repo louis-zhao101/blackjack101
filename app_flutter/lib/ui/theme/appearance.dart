@@ -33,6 +33,9 @@ class AppearanceTheme {
   final Color cardBackAccent;
   final String? cardBackAsset;
 
+  // Card-face deck (null = procedural default faces drawn by PlayingCardView).
+  final CardDeck? deck;
+
   // Chips by denomination → (gradient inner, gradient outer).
   final Map<int, (Color, Color)> chipColors;
 
@@ -53,13 +56,15 @@ class AppearanceTheme {
     required this.cardBackPattern,
     this.cardBackAccent = const Color(0x14FFFFFF),
     this.cardBackAsset,
+    this.deck,
     required this.chipColors,
   });
 
   /// Overlays a [CardBack] and/or [ChipStyle] cosmetic onto this table theme.
   /// Card backs and chips are sold independently of the felt, so the active
   /// look is the selected table theme composed with the chosen cosmetics.
-  AppearanceTheme copyWith({CardBack? cardBack, ChipStyle? chipStyle}) => AppearanceTheme(
+  AppearanceTheme copyWith({CardBack? cardBack, ChipStyle? chipStyle, CardDeck? deck}) =>
+      AppearanceTheme(
         id: id,
         name: name,
         feltLight: feltLight,
@@ -76,6 +81,7 @@ class AppearanceTheme {
         cardBackPattern: cardBack?.pattern ?? cardBackPattern,
         cardBackAccent: cardBack?.accent ?? cardBackAccent,
         cardBackAsset: cardBack != null ? cardBack.asset : cardBackAsset,
+        deck: deck ?? this.deck,
         chipColors: chipStyle?.colors ?? chipColors,
       );
 
@@ -311,6 +317,36 @@ const CardBack cardBackPlatinum = CardBack(
   asset: 'assets/card_backs/platinum.png',
 );
 
+// Backs that pair with the premium face decks.
+const CardBack cardBackIlluminated = CardBack(
+  id: 'back-illuminated',
+  name: 'Illuminated',
+  color: Color(0xFF16203F),
+  pattern: CardBackPattern.solid,
+  asset: 'assets/card_backs/illuminated_back.png',
+);
+const CardBack cardBackUkiyoe = CardBack(
+  id: 'back-ukiyoe',
+  name: 'Ukiyo-e',
+  color: Color(0xFF1B2B4A),
+  pattern: CardBackPattern.solid,
+  asset: 'assets/card_backs/ukiyoe_back.jpg',
+);
+const CardBack cardBackGreek = CardBack(
+  id: 'back-greek',
+  name: 'Greek Vase',
+  color: Color(0xFF1A1613),
+  pattern: CardBackPattern.solid,
+  asset: 'assets/card_backs/greek_back.png',
+);
+const CardBack cardBackEgyptian = CardBack(
+  id: 'back-egyptian',
+  name: 'Egyptian',
+  color: Color(0xFFEEB23D),
+  pattern: CardBackPattern.solid,
+  asset: 'assets/card_backs/egyptian_back.png',
+);
+
 const List<CardBack> cardBackPresets = [
   cardBackRoyalBlue,
   cardBackCoral,
@@ -321,12 +357,78 @@ const List<CardBack> cardBackPresets = [
   cardBackJade,
   cardBackGarnet,
   cardBackPlatinum,
+  cardBackIlluminated,
+  cardBackUkiyoe,
+  cardBackGreek,
+  cardBackEgyptian,
 ];
 
 const String kFreeCardBackId = 'back-royal-blue';
 
 CardBack cardBackById(String id) =>
     cardBackPresets.firstWhere((b) => b.id == id, orElse: () => cardBackRoyalBlue);
+
+// ---------------------------------------------------------------------------
+// Card-face decks — the full 52-card face art, sold as one premium item. The
+// default deck draws faces procedurally; a premium deck supplies image assets.
+// ---------------------------------------------------------------------------
+
+@immutable
+class CardDeck {
+  final String id;
+  final String name;
+
+  /// Directory of face images named `<suit>_<rank>.jpg`. Null means the faces
+  /// are drawn procedurally by [PlayingCardView] (the free Classic deck).
+  final String? faceDir;
+
+  const CardDeck({required this.id, required this.name, this.faceDir});
+
+  static const _suitName = {'♥': 'hearts', '♦': 'diamonds', '♠': 'spades', '♣': 'clubs'};
+
+  /// Asset path for a specific card's face, or null to fall back to procedural
+  /// drawing (free deck, or an unmapped suit).
+  String? faceAsset(String rank, String suit) {
+    final dir = faceDir;
+    final s = _suitName[suit];
+    return (dir == null || s == null) ? null : '$dir/${s}_$rank.jpg';
+  }
+}
+
+const CardDeck cardDeckClassic = CardDeck(id: 'deck-classic', name: 'Classic');
+const CardDeck cardDeckIlluminated = CardDeck(
+  id: 'deck-illuminated',
+  name: 'Illuminated',
+  faceDir: 'assets/card_faces/illuminated',
+);
+const CardDeck cardDeckUkiyoe = CardDeck(
+  id: 'deck-ukiyoe',
+  name: 'Ukiyo-e',
+  faceDir: 'assets/card_faces/ukiyo-e',
+);
+const CardDeck cardDeckGreek = CardDeck(
+  id: 'deck-greek',
+  name: 'Greek Vase',
+  faceDir: 'assets/card_faces/greek',
+);
+const CardDeck cardDeckEgyptian = CardDeck(
+  id: 'deck-egyptian',
+  name: 'Egyptian',
+  faceDir: 'assets/card_faces/egyptian',
+);
+
+const List<CardDeck> cardDeckPresets = [
+  cardDeckClassic,
+  cardDeckIlluminated,
+  cardDeckUkiyoe,
+  cardDeckGreek,
+  cardDeckEgyptian,
+];
+
+const String kFreeCardDeckId = 'deck-classic';
+
+CardDeck cardDeckById(String id) =>
+    cardDeckPresets.firstWhere((d) => d.id == id, orElse: () => cardDeckClassic);
 
 // ---------------------------------------------------------------------------
 // Chip styles — the denomination palette, sold independently.

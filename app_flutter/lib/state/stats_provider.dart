@@ -24,12 +24,35 @@ class StatsState {
 class StatsController extends Notifier<StatsState> {
   @override
   StatsState build() {
-    final loaded = ref.read(localStoreProvider).loadStats();
-    return StatsState(sessions: loaded.sessions, currentSession: loaded.currentSession);
+    final store = ref.read(localStoreProvider);
+    final loaded = store.loadStats();
+    final deviceId = store.deviceId();
+    final sessions = [...loaded.sessions];
+    var current = loaded.currentSession;
+
+    // Cold-launch cleanup: a fresh run after a gap is a new sitting, so don't let
+    // the previous live session linger as "LIVE" until the next deal.
+    if (current != null) {
+      if (current.hands.isEmpty) {
+        current = null; // never-played sitting — drop
+      } else if (DateTime.now().millisecondsSinceEpoch - current.hands.last.timestamp >
+          kSittingIdleMs) {
+        sessions.insert(0, finalizeSession(current));
+        current = null;
+      } else if (current.deviceId != deviceId) {
+        current = current.copyWith(deviceId: deviceId); // claim it for this install
+      }
+    }
+    if (!identical(current, loaded.currentSession)) {
+      store.saveStats(sessions, current);
+    }
+    return StatsState(sessions: sessions, currentSession: current);
   }
 
   void startSession(int bankroll, String ruleSetId) {
-    _set(state.copyWith(currentSession: createSession(bankroll, ruleSetId)));
+    final deviceId = ref.read(localStoreProvider).deviceId();
+    _set(state.copyWith(
+        currentSession: createSession(bankroll, ruleSetId, deviceId: deviceId)));
   }
 
   void addHandRecord(HandRecord record) {
@@ -43,6 +66,11 @@ class StatsController extends Notifier<StatsState> {
   void finishSession(int endBankroll) {
     final current = state.currentSession;
     if (current == null) return;
+    // A sitting that ended without a single hand isn't worth charting — drop it.
+    if (current.hands.isEmpty) {
+      _set(state.copyWith(clearCurrent: true));
+      return;
+    }
     final finished = endSession(current, endBankroll);
     _set(StatsState(
       sessions: [finished, ...state.sessions].take(50).toList(),
@@ -74,16 +102,18 @@ class StatsController extends Notifier<StatsState> {
   }
 
   void loadFromCloud(List<Session> cloudSessions) {
-    Session? live;
-    final finished = <Session>[];
-    for (final s in cloudSessions) {
-      if (s.endTime == null) {
-        live ??= s;
-      } else {
-        finished.add(s);
+    final deviceId = ref.read(localStoreProvider).deviceId();
+    // Keep only this device's still-active sitting as live; every other live
+    // session (a foreign device's, or a stale/abandoned one) is finalized rather
+    // than dropped — fixing the old bug where extra live sessions vanished.
+    final r = reconcileSessions(cloudSessions, deviceId);
+    _set(StatsState(sessions: r.sessions, currentSession: r.current));
+    final uid = ref.read(authServiceProvider).currentUser?.uid;
+    if (uid != null) {
+      for (final s in r.finalized) {
+        ref.read(syncQueueProvider.notifier).session(uid, s);
       }
     }
-    _set(StatsState(sessions: finished, currentSession: live));
   }
 
   void _set(StatsState next) {

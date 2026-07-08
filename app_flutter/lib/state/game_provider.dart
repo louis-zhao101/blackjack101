@@ -74,7 +74,6 @@ class GameStoreState {
       );
 }
 
-const _sessionTimeoutMs = 60 * 60 * 1000;
 
 HandType _detectHandType(eng.GameState game) {
   if (game.activeHandIndex >= game.playerHands.length) return HandType.hard;
@@ -111,25 +110,52 @@ class GameController extends Notifier<GameStoreState> {
     state = state.copyWith(game: eng.clearBet(state.game));
   }
 
+  // Set when a resume wants to end the sitting but a hand is mid-play; the
+  // roll-over then happens on the next deal.
+  bool _rotatePending = false;
+
+  bool get _inHand {
+    final p = state.game.phase;
+    return p == eng.GamePhase.dealing ||
+        p == eng.GamePhase.playerTurn ||
+        p == eng.GamePhase.dealerTurn;
+  }
+
+  /// Ends the current sitting when the app returns to the foreground after being
+  /// away long enough. Deferred while a hand is in play so no in-progress hand is
+  /// stranded — it rolls over on the next deal instead.
+  void endSittingIfIdle() {
+    final current = ref.read(statsProvider).currentSession;
+    if (current == null || current.hands.isEmpty) return;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    if (now - current.hands.last.timestamp <= kSittingIdleMs) return;
+    if (_inHand) {
+      _rotatePending = true;
+      return;
+    }
+    ref.read(statsProvider.notifier).finishSession(state.game.bankroll);
+    // currentSession is now null; the next deal opens a fresh sitting.
+  }
+
   void _maybeRotateSession(eng.GameState game) {
     final settings = ref.read(settingsProvider);
-    final stats = ref.read(statsProvider);
     final statsCtrl = ref.read(statsProvider.notifier);
-    final current = stats.currentSession;
+    final current = ref.read(statsProvider).currentSession;
 
-    if (current != null && current.hands.isNotEmpty) {
-      final lastHand = current.hands.last;
-      final now = DateTime.now().millisecondsSinceEpoch;
-      if (now - lastHand.timestamp > _sessionTimeoutMs) {
-        statsCtrl.finishSession(game.bankroll);
-        statsCtrl.startSession(game.bankroll, settings.ruleSet.id);
-        state = state.copyWith(
-          handHadMistake: false,
-          hasDealtInSession: false,
-          game: eng.createInitialState(bankroll: game.bankroll, ruleSet: settings.ruleSet),
-        );
-      }
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final idle = current != null &&
+        current.hands.isNotEmpty &&
+        now - current.hands.last.timestamp > kSittingIdleMs;
+
+    if (current != null && current.hands.isNotEmpty && (_rotatePending || idle)) {
+      statsCtrl.finishSession(game.bankroll);
+      state = state.copyWith(
+        handHadMistake: false,
+        hasDealtInSession: false,
+        game: eng.createInitialState(bankroll: game.bankroll, ruleSet: settings.ruleSet),
+      );
     }
+    _rotatePending = false;
     if (ref.read(statsProvider).currentSession == null) {
       statsCtrl.startSession(game.bankroll, settings.ruleSet.id);
     }

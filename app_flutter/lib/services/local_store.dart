@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../engine/stats.dart';
@@ -14,15 +15,29 @@ class LocalStore {
   static const _learnKey = 'bj101-learn';
   static const _strategyCellsKey = 'bj101-strategy-cells';
   static const _cardBackKey = 'bj101-card-back';
+  static const _cardDeckKey = 'bj101-card-deck';
   static const _chipStyleKey = 'bj101-chip-style';
   static const _ownedKey = 'bj101-owned-products';
   static const _achievementsKey = 'bj101-achievements';
   static const _drillStatsKey = 'bj101-drill-stats';
   static const _onboardedKey = 'bj101-onboarded';
   static const _reviewRequestedKey = 'bj101-review-requested';
+  static const _deviceIdKey = 'bj101-device-id';
 
   final SharedPreferences _prefs;
   LocalStore(this._prefs);
+
+  // --- stable per-install id (owns this device's sittings) ---
+
+  String deviceId() {
+    var id = _prefs.getString(_deviceIdKey);
+    if (id == null) {
+      final r = Random();
+      id = List.generate(16, (_) => r.nextInt(16).toRadixString(16)).join();
+      _prefs.setString(_deviceIdKey, id);
+    }
+    return id;
+  }
 
   // --- first-run onboarding ---
 
@@ -114,6 +129,10 @@ class LocalStore {
   String? loadCardBackId() => _prefs.getString(_cardBackKey);
 
   Future<void> saveCardBackId(String id) => _prefs.setString(_cardBackKey, id);
+
+  String? loadCardDeckId() => _prefs.getString(_cardDeckKey);
+
+  Future<void> saveCardDeckId(String id) => _prefs.setString(_cardDeckKey, id);
 
   String? loadChipStyleId() => _prefs.getString(_chipStyleKey);
 

@@ -220,10 +220,12 @@ class PlayPage extends ConsumerWidget {
                           theme: theme,
                           cardWidth: cardWidth,
                           roundId: store.roundId,
+                          payout: effectivePayout,
                         ),
                         Expanded(
                           child: Center(
-                            child: _TableCenter(game: game, theme: theme, payout: effectivePayout),
+                            child: _TableCenter(
+                                game: game, theme: theme, hasDealt: store.hasDealtInSession),
                           ),
                         ),
                         _PlayerZone(
@@ -436,11 +438,13 @@ class _DealerZone extends StatelessWidget {
   final AppearanceTheme theme;
   final double cardWidth;
   final int roundId;
+  final BlackjackPayout payout;
   const _DealerZone({
     required this.game,
     required this.theme,
     required this.cardWidth,
     required this.roundId,
+    required this.payout,
   });
 
   @override
@@ -453,6 +457,20 @@ class _DealerZone extends StatelessWidget {
             color: AppTokens.textSecondary,
             fontSize: 12,
             letterSpacing: 1.5,
+          ),
+        ),
+        const SizedBox(height: 2),
+        // House payout, printed subtly on the felt like a real table.
+        Text(
+          switch (payout) {
+            BlackjackPayout.sixToFive => 'BLACKJACK PAYS 6 TO 5',
+            BlackjackPayout.oneToOne => 'BLACKJACK PAYS 1 TO 1',
+            _ => 'BLACKJACK PAYS 3 TO 2',
+          },
+          style: TextStyle(
+            color: theme.gold.withValues(alpha: 0.35),
+            fontSize: 9,
+            letterSpacing: 2,
           ),
         ),
         const SizedBox(height: 4),
@@ -654,8 +672,8 @@ class _DealFlourishState extends State<_DealFlourish> with TickerProviderStateMi
 class _TableCenter extends StatelessWidget {
   final eng.GameState game;
   final AppearanceTheme theme;
-  final BlackjackPayout payout;
-  const _TableCenter({required this.game, required this.theme, required this.payout});
+  final bool hasDealt;
+  const _TableCenter({required this.game, required this.theme, required this.hasDealt});
 
   @override
   Widget build(BuildContext context) {
@@ -704,32 +722,20 @@ class _TableCenter extends StatelessWidget {
         ),
       );
     }
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          'Blackjack 101',
-          style: TextStyle(
-            color: theme.gold.withValues(alpha: 0.55),
-            fontSize: 26,
-            fontWeight: FontWeight.bold,
-            fontFamily: 'serif',
-          ),
+    // The welcome branding only greets an untouched table; once a hand has been
+    // played it stays out of the way. (The payout lives in the dealer zone now.)
+    if (!hasDealt) {
+      return Text(
+        'Blackjack 101',
+        style: TextStyle(
+          color: theme.gold.withValues(alpha: 0.55),
+          fontSize: 26,
+          fontWeight: FontWeight.bold,
+          fontFamily: 'serif',
         ),
-        Text(
-          switch (payout) {
-            BlackjackPayout.sixToFive => 'PAYS 6 TO 5',
-            BlackjackPayout.oneToOne => 'PAYS 1 TO 1',
-            _ => 'PAYS 3 TO 2',
-          },
-          style: TextStyle(
-            color: theme.gold.withValues(alpha: 0.4),
-            fontSize: 11,
-            letterSpacing: 3,
-          ),
-        ),
-      ],
-    );
+      );
+    }
+    return const SizedBox.shrink();
   }
 }
 

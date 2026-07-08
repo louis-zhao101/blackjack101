@@ -78,6 +78,24 @@ class ChipStyleController extends Notifier<ChipStyle> {
 final chipStyleProvider =
     NotifierProvider<ChipStyleController, ChipStyle>(ChipStyleController.new);
 
+/// The selected card-face deck, sold independently of the table felt. The free
+/// default draws faces procedurally; a premium deck supplies image assets.
+class CardDeckController extends Notifier<CardDeck> {
+  @override
+  CardDeck build() =>
+      cardDeckById(ref.read(localStoreProvider).loadCardDeckId() ?? kFreeCardDeckId);
+
+  void setCardDeck(String id) {
+    final next = cardDeckById(id);
+    if (next.id == state.id) return;
+    state = next;
+    ref.read(localStoreProvider).saveCardDeckId(state.id);
+  }
+}
+
+final cardDeckProvider =
+    NotifierProvider<CardDeckController, CardDeck>(CardDeckController.new);
+
 /// The active look every widget renders with: the selected table theme composed
 /// with the chosen card back and chip cosmetics. Read-only — change the pieces
 /// via [tableThemeProvider], [cardBackProvider], [chipStyleProvider].
@@ -85,7 +103,8 @@ final appearanceProvider = Provider<AppearanceTheme>((ref) {
   final base = ref.watch(tableThemeProvider);
   final back = ref.watch(cardBackProvider);
   final chips = ref.watch(chipStyleProvider);
-  return base.copyWith(cardBack: back, chipStyle: chips);
+  final deck = ref.watch(cardDeckProvider);
+  return base.copyWith(cardBack: back, chipStyle: chips, deck: deck);
 });
 
 /// Live cloud cosmetic selection for the signed-in user. A listener (see

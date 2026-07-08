@@ -110,6 +110,10 @@ class Session {
   final List<HandRecord> hands;
   final String ruleSetId;
 
+  /// The install (device) that owns this sitting. Null for sessions created
+  /// before multi-device sitting support — treated as "not this device".
+  final String? deviceId;
+
   const Session({
     required this.id,
     required this.startTime,
@@ -118,6 +122,7 @@ class Session {
     required this.endBankroll,
     required this.hands,
     required this.ruleSetId,
+    this.deviceId,
   });
 
   Session copyWith({
@@ -125,6 +130,7 @@ class Session {
     bool clearEndTime = false,
     int? endBankroll,
     List<HandRecord>? hands,
+    String? deviceId,
   }) =>
       Session(
         id: id,
@@ -134,6 +140,7 @@ class Session {
         endBankroll: endBankroll ?? this.endBankroll,
         hands: hands ?? this.hands,
         ruleSetId: ruleSetId,
+        deviceId: deviceId ?? this.deviceId,
       );
 
   Map<String, dynamic> toJson() => {
@@ -144,6 +151,7 @@ class Session {
         'endBankroll': endBankroll,
         'hands': hands.map((h) => h.toJson()).toList(),
         'ruleSetId': ruleSetId,
+        'deviceId': deviceId,
       };
 
   factory Session.fromJson(Map<String, dynamic> j) => Session(
@@ -156,6 +164,7 @@ class Session {
             .map((h) => HandRecord.fromJson(Map<String, dynamic>.from(h as Map)))
             .toList(),
         ruleSetId: j['ruleSetId'] as String,
+        deviceId: j['deviceId'] as String?,
       );
 }
 
@@ -211,7 +220,8 @@ class MistakeCategory {
   const MistakeCategory(this.label, this.count);
 }
 
-Session createSession(int startBankroll, String ruleSetId, {int? now, Random? rng}) {
+Session createSession(int startBankroll, String ruleSetId,
+    {String? deviceId, int? now, Random? rng}) {
   return Session(
     id: _uuid(rng),
     startTime: now ?? DateTime.now().millisecondsSinceEpoch,
@@ -220,7 +230,54 @@ Session createSession(int startBankroll, String ruleSetId, {int? now, Random? rn
     endBankroll: null,
     hands: const [],
     ruleSetId: ruleSetId,
+    deviceId: deviceId,
   );
+}
+
+/// A gap longer than this ends a sitting. Shared by the live-play rollover and
+/// the load-time reconcile so both agree on what counts as "the same sitting".
+const int kSittingIdleMs = 15 * 60 * 1000;
+
+/// Closes out a live session: end time is its last hand (when the sitting really
+/// stopped, not "now"), and the ending bankroll is derived from the hands.
+Session finalizeSession(Session s) {
+  final endMs = s.hands.isEmpty ? s.startTime : s.hands.last.timestamp;
+  final endBank = s.endBankroll ??
+      s.startBankroll + s.hands.fold<int>(0, (a, h) => a + h.payout - h.betAmount);
+  return s.copyWith(endTime: endMs, endBankroll: endBank);
+}
+
+/// Reconciles a pooled set of sessions (e.g. from the cloud, across devices) for
+/// THIS device: returns the finished list plus at most one [current] — this
+/// device's still-active sitting. Every other live session (a foreign device's,
+/// or a stale/abandoned one) is finalized; empty abandoned sittings are dropped.
+/// [finalized] are the ones that were live and got an end time, so the caller can
+/// persist that closure back to the cloud.
+({List<Session> sessions, Session? current, List<Session> finalized}) reconcileSessions(
+  List<Session> all,
+  String deviceId, {
+  int? now,
+}) {
+  final nowMs = now ?? DateTime.now().millisecondsSinceEpoch;
+  final sessions = <Session>[];
+  final finalized = <Session>[];
+  Session? current;
+  for (final s in all) {
+    if (s.endTime != null) {
+      sessions.add(s);
+      continue;
+    }
+    if (s.hands.isEmpty) continue; // abandoned empty sitting — drop
+    final active = nowMs - s.hands.last.timestamp <= kSittingIdleMs;
+    if (s.deviceId == deviceId && active && current == null) {
+      current = s;
+    } else {
+      final ended = finalizeSession(s);
+      sessions.add(ended);
+      finalized.add(ended);
+    }
+  }
+  return (sessions: sessions, current: current, finalized: finalized);
 }
 
 Session recordHand(Session session, HandRecord record, {int? now, Random? rng}) {

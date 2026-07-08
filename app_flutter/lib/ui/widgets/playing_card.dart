@@ -66,36 +66,64 @@ class PlayingCardView extends StatelessWidget {
     final suitFont = width * 0.15;
     final centerFont = width * 0.40;
 
-    return Container(
-      width: width,
-      height: _height,
-      decoration: BoxDecoration(
-        color: theme.cardFace,
-        borderRadius: radius,
-        boxShadow: showShadow ? _shadow : null,
-        border: Border.all(color: const Color(0xFFCCCCCC)),
-      ),
-      child: Stack(
-        children: [
-          Positioned(
-            top: 4,
-            left: 5,
-            child: _corner(color, rankFont, suitFont),
+    Widget proceduralFace() => Container(
+          width: width,
+          height: _height,
+          decoration: BoxDecoration(
+            color: theme.cardFace,
+            borderRadius: radius,
+            boxShadow: showShadow ? _shadow : null,
+            border: Border.all(color: const Color(0xFFCCCCCC)),
           ),
-          Positioned(
-            bottom: 4,
-            right: 5,
-            child: Transform.rotate(
-              angle: 3.14159,
-              child: _corner(color, rankFont, suitFont),
-            ),
+          child: Stack(
+            children: [
+              Positioned(
+                top: 4,
+                left: 5,
+                child: _corner(color, rankFont, suitFont),
+              ),
+              Positioned(
+                bottom: 4,
+                right: 5,
+                child: Transform.rotate(
+                  angle: 3.14159,
+                  child: _corner(color, rankFont, suitFont),
+                ),
+              ),
+              Center(
+                child:
+                    Text(card.suit, style: TextStyle(fontSize: centerFont, color: color, height: 1)),
+              ),
+            ],
           ),
-          Center(
-            child: Text(card.suit, style: TextStyle(fontSize: centerFont, color: color, height: 1)),
+        );
+
+    // A premium deck supplies full face art; the free deck draws faces above.
+    // The art already carries its own border/index/pips, so we just clip it to a
+    // proportional radius. Any missing asset falls back to the procedural face.
+    final faceAsset = theme.deck?.faceAsset(card.rank, card.suit);
+    if (faceAsset != null) {
+      final cardRadius = BorderRadius.circular(width * 0.06);
+      return Container(
+        width: width,
+        height: _height,
+        decoration: BoxDecoration(
+          borderRadius: cardRadius,
+          boxShadow: showShadow ? _shadow : null,
+        ),
+        child: ClipRRect(
+          borderRadius: cardRadius,
+          child: Image.asset(
+            faceAsset,
+            fit: BoxFit.cover,
+            width: width,
+            height: _height,
+            errorBuilder: (_, _, _) => proceduralFace(),
           ),
-        ],
-      ),
-    );
+        ),
+      );
+    }
+    return proceduralFace();
   }
 
   Widget _corner(Color color, double rankFont, double suitFont) => Column(

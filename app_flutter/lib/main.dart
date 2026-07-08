@@ -68,11 +68,15 @@ class _BlackjackAppState extends ConsumerState<BlackjackApp> with WidgetsBinding
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    // Returning to the foreground: re-check RevenueCat so an entitlement that
-    // couldn't be fetched earlier (e.g. no network at launch) lights up on its
-    // own, without needing a sign-out / sign-in.
-    if (state == AppLifecycleState.resumed && PurchasesService.isReady) {
-      ref.read(proStatusProvider.notifier).refresh();
+    if (state == AppLifecycleState.resumed) {
+      // End the sitting if the user has been away long enough, so a session
+      // reflects one sitting rather than spanning days of casual play.
+      ref.read(gameProvider.notifier).endSittingIfIdle();
+      // Re-check RevenueCat so an entitlement that couldn't be fetched earlier
+      // (e.g. no network at launch) lights up on its own.
+      if (PurchasesService.isReady) {
+        ref.read(proStatusProvider.notifier).refresh();
+      }
     }
   }
 

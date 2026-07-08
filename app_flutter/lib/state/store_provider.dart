@@ -18,7 +18,7 @@ const String kLifetimeProductId = 'lifetime_access';
 const String kLifetimePrice = '\$5.99';
 
 /// The category of cosmetic a [StoreProduct] unlocks.
-enum CosmeticKind { lifetime, theme, cardBack, chipStyle }
+enum CosmeticKind { lifetime, theme, cardBack, chipStyle, deck, bundle }
 
 /// A non-consumable product for sale. [cosmeticId] links to the appearance id it
 /// unlocks (an [AppearanceTheme], [CardBack], or [ChipStyle]); the lifetime
@@ -36,18 +36,31 @@ class StoreProduct {
   /// from the store offering should be shown instead.
   final String priceLabel;
 
+  /// For a [CosmeticKind.bundle], the product ids it unlocks when bought. Empty
+  /// for single-cosmetic products.
+  final List<String> grants;
+
   const StoreProduct({
     required this.id,
     required this.kind,
     required this.cosmeticId,
     required this.name,
     required this.priceLabel,
+    this.grants = const [],
   });
 
   bool get isLifetime => kind == CosmeticKind.lifetime;
+  bool get isBundle => kind == CosmeticKind.bundle;
 }
 
 const String _cosmeticPrice = '\$1.99';
+
+/// A full hand-illustrated 52-card deck is a premium tier above single cosmetics.
+const String _deckPrice = '\$3.99';
+
+/// A deck + its matching card back, sold together below the à la carte total
+/// ($3.99 deck + $1.99 back = $5.98).
+const String _bundlePrice = '\$4.99';
 
 /// The catalog. The free defaults (Classic Green felt, Classic Blue card back,
 /// Classic chips) are intentionally not listed here.
@@ -132,6 +145,30 @@ const List<StoreProduct> storeProducts = [
       cosmeticId: 'back-platinum',
       name: 'Platinum',
       priceLabel: _cosmeticPrice),
+  StoreProduct(
+      id: 'back_illuminated',
+      kind: CosmeticKind.cardBack,
+      cosmeticId: 'back-illuminated',
+      name: 'Illuminated',
+      priceLabel: _cosmeticPrice),
+  StoreProduct(
+      id: 'back_ukiyoe',
+      kind: CosmeticKind.cardBack,
+      cosmeticId: 'back-ukiyoe',
+      name: 'Ukiyo-e',
+      priceLabel: _cosmeticPrice),
+  StoreProduct(
+      id: 'back_greek',
+      kind: CosmeticKind.cardBack,
+      cosmeticId: 'back-greek',
+      name: 'Greek Vase',
+      priceLabel: _cosmeticPrice),
+  StoreProduct(
+      id: 'back_egyptian',
+      kind: CosmeticKind.cardBack,
+      cosmeticId: 'back-egyptian',
+      name: 'Egyptian',
+      priceLabel: _cosmeticPrice),
   // Chip styles.
   StoreProduct(
       id: 'chips_monochrome',
@@ -145,6 +182,61 @@ const List<StoreProduct> storeProducts = [
       cosmeticId: 'chips-sunset',
       name: 'Sunset',
       priceLabel: _cosmeticPrice),
+  // Card-face decks (Classic is the free default, intentionally not listed).
+  StoreProduct(
+      id: 'deck_illuminated',
+      kind: CosmeticKind.deck,
+      cosmeticId: 'deck-illuminated',
+      name: 'Illuminated',
+      priceLabel: _deckPrice),
+  StoreProduct(
+      id: 'deck_ukiyoe',
+      kind: CosmeticKind.deck,
+      cosmeticId: 'deck-ukiyoe',
+      name: 'Ukiyo-e',
+      priceLabel: _deckPrice),
+  StoreProduct(
+      id: 'deck_greek',
+      kind: CosmeticKind.deck,
+      cosmeticId: 'deck-greek',
+      name: 'Greek Vase',
+      priceLabel: _deckPrice),
+  StoreProduct(
+      id: 'deck_egyptian',
+      kind: CosmeticKind.deck,
+      cosmeticId: 'deck-egyptian',
+      name: 'Egyptian',
+      priceLabel: _deckPrice),
+  // Theme sets — a premium deck paired with its matching card back, discounted
+  // against buying both separately. Owning a bundle unlocks each granted product.
+  StoreProduct(
+      id: 'bundle_illuminated',
+      kind: CosmeticKind.bundle,
+      cosmeticId: 'deck-illuminated',
+      name: 'Illuminated Set',
+      priceLabel: _bundlePrice,
+      grants: ['deck_illuminated', 'back_illuminated']),
+  StoreProduct(
+      id: 'bundle_ukiyoe',
+      kind: CosmeticKind.bundle,
+      cosmeticId: 'deck-ukiyoe',
+      name: 'Ukiyo-e Set',
+      priceLabel: _bundlePrice,
+      grants: ['deck_ukiyoe', 'back_ukiyoe']),
+  StoreProduct(
+      id: 'bundle_greek',
+      kind: CosmeticKind.bundle,
+      cosmeticId: 'deck-greek',
+      name: 'Greek Vase Set',
+      priceLabel: _bundlePrice,
+      grants: ['deck_greek', 'back_greek']),
+  StoreProduct(
+      id: 'bundle_egyptian',
+      kind: CosmeticKind.bundle,
+      cosmeticId: 'deck-egyptian',
+      name: 'Egyptian Set',
+      priceLabel: _bundlePrice,
+      grants: ['deck_egyptian', 'back_egyptian']),
 ];
 
 /// The headline lifetime product.
@@ -161,6 +253,19 @@ List<StoreProduct> get cardBackProducts => _ofKind(CosmeticKind.cardBack);
 
 /// Chip styles sold individually, in catalog order.
 List<StoreProduct> get chipStyleProducts => _ofKind(CosmeticKind.chipStyle);
+
+/// Card-face decks sold individually, in catalog order.
+List<StoreProduct> get deckProducts => _ofKind(CosmeticKind.deck);
+
+/// Deck + matching card back sets, in catalog order.
+List<StoreProduct> get bundleProducts => _ofKind(CosmeticKind.bundle);
+
+StoreProduct? productById(String id) {
+  for (final p in storeProducts) {
+    if (p.id == id) return p;
+  }
+  return null;
+}
 
 StoreProduct? productForCosmeticId(String cosmeticId) {
   for (final p in storeProducts) {
@@ -254,12 +359,19 @@ class EntitlementsState {
   bool isCosmeticUnlocked(String cosmeticId) {
     if (cosmeticId == kFreeThemeId ||
         cosmeticId == kFreeCardBackId ||
-        cosmeticId == kFreeChipStyleId) {
+        cosmeticId == kFreeChipStyleId ||
+        cosmeticId == kFreeCardDeckId) {
       return true;
     }
     if (isPremium) return true;
     final product = productForCosmeticId(cosmeticId);
-    return product != null && owned.contains(product.id);
+    if (product == null) return false;
+    if (owned.contains(product.id)) return true;
+    // A bundle unlocks each product it grants.
+    for (final b in bundleProducts) {
+      if (owned.contains(b.id) && b.grants.contains(product.id)) return true;
+    }
+    return false;
   }
 
   bool ownsProduct(String productId) => owned.contains(productId);

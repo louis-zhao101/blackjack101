@@ -28,8 +28,8 @@ AchievementInput _snapshot(Ref ref) {
   final canonical = allStrategyCellKeys();
   final cellsCovered = canonical.where(covered.contains).length;
 
-  final badBeat =
-      allHands.any((h) => h.wasCorrect && h.outcome == HandResult.lose);
+  final badBeat = allHands
+      .any((h) => h.wasCorrect && h.outcome == HandResult.lose && !h.dealerBlackjack);
   final luckyWin =
       allHands.any((h) => !h.wasCorrect && h.outcome == HandResult.win);
   final wentBroke = ref.read(gameProvider).game.bankroll <= 0;
