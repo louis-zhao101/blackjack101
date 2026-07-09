@@ -61,6 +61,15 @@ ROMAN_STYLE = (
     "cream, deep red, olive, slate-blue and black, flat and decorative with a "
     "weathered antique look, no smooth shading, no photorealism."
 )
+GYOTAKU_STYLE = (
+    "authentic Japanese gyotaku fish-print style: a direct hand-printed impression "
+    "(rubbing) of a real fish in dark sumi ink, with SUBTLE muted natural watercolor "
+    "coloring softly washed over the print — gentle olive, ochre, russet-red and pale "
+    "blue tints on the body, belly, fins and spots — keeping fine visible scales, fins "
+    "and gills and organic ink mottling and gaps from hand-printing. A delicate "
+    "hand-pressed printed look, flat and graphic, muted and understated (not vivid or "
+    "glossy), no 3D shading, no photorealism."
+)
 EGYPTIAN_STYLE = (
     "a bold minimal ancient Egyptian hieroglyph ICON style: the figure reduced to a "
     "few large simple flat shapes with clean crisp vector edges and a strong black "
@@ -318,12 +327,13 @@ DECKS = {
             "clubs": "an owl (the owl of Athena) standing and facing forward",
         },
         "back": (
-            "A symmetric ornamental playing-card BACK in ancient Greek vase style: a "
-            "full-bleed design with a bold Greek key (meander) border framing a "
-            "central round palmette/anthemion rosette medallion, in terracotta-orange "
-            "and glossy black (red-figure and black-figure aesthetic). Symmetric and "
-            "geometric, filling the entire card, portrait orientation. NO text, NO "
-            "numbers, NO letters, NO playing-card pips, NO people."
+            "A playing-card BACK in ancient Greek vase style: a SINGLE CENTERED round "
+            "medallion — a palmette/anthemion rosette framed by a thin circular "
+            "Greek-key (meander) ring — in terracotta-orange on a plain glossy black "
+            "ground. Flat and decorative, no shading. The medallion sits in the middle "
+            "with a GENEROUS plain black margin all around it and empty black ground "
+            "extending to every edge. Portrait orientation. NO rectangular border frame "
+            "at the card edges, NO text, NO numbers, NO letters, NO pips, NO people."
         ),
         "courts": {
             ("spades", "K"): "the god Zeus enthroned, holding a thunderbolt, with an eagle beside him",
@@ -354,6 +364,10 @@ DECKS = {
             "absolutely no texture, no pattern, no gradient, no figures, no border, "
             "no text. Portrait orientation."
         ),
+        "emblem_style": (
+            "a bold flat solid graphic silhouette style: a clean crisp solid shape, "
+            "high contrast, completely flat, no shading and no interior detail."
+        ),
         "emblem_fill": (
             "a single solid flat {color} silhouette with clean crisp edges, no "
             "shading and no interior texture"
@@ -371,12 +385,14 @@ DECKS = {
             "clubs": "golden pharaoh funerary mask in a striped nemes headdress",
         },
         "back": (
-            "A symmetric ornamental playing-card BACK in bold flat Egyptian hieroglyph "
-            "style: solid black hieroglyphic motifs and a black border frieze framing a "
-            "central winged-scarab-and-sun-disk medallion, all flat solid black on a "
-            "warm golden-ochre amber ground, high contrast, no shading, no texture. "
-            "Symmetric, filling the entire card, portrait orientation. NO extra colors, "
-            "NO text, NO numbers, NO letters, NO pips."
+            "A playing-card BACK in bold flat Egyptian hieroglyph style: a SINGLE "
+            "CENTERED medallion of a winged scarab beetle holding a sun disk, enclosed "
+            "in a thin circular band, in solid black on a plain warm golden-ochre amber "
+            "ground. High contrast, flat, no shading, no texture. The medallion sits in "
+            "the middle with a GENEROUS plain ochre margin all around it and empty "
+            "ochre ground extending to every edge. Portrait orientation. NO border "
+            "frame at the card edges, NO extra colors, NO text, NO numbers, NO letters, "
+            "NO pips."
         ),
         "courts": {
             ("spades", "K"): "the god Osiris as a wrapped mummy with green skin, wearing the tall white Atef crown with two feathers, holding the crook and flail across his chest",
@@ -391,6 +407,69 @@ DECKS = {
             ("clubs", "K"): "the falcon-headed god Horus wearing the tall Double Crown of Upper and Lower Egypt, holding a was-scepter",
             ("clubs", "Q"): "the goddess Ma'at, a woman with a single tall ostrich feather on her head, arms outstretched showing feathered wings",
             ("clubs", "J"): "the ibis-headed god Thoth holding a scribe's palette and a reed pen",
+        },
+    },
+    "gyotaku": {
+        "style": GYOTAKU_STYLE,
+        "suits": {
+            "hearts": ("heart", "vermilion red"),
+            "diamonds": ("diamond lozenge", "vermilion red"),
+            "spades": ("spade", "black"),
+            "clubs": ("trefoil club (clover)", "black"),
+        },
+        "frame": (
+            "A blank sheet of aged cream Japanese washi paper: a soft off-white cream "
+            "handmade paper with subtle fibers and a faint mottled texture, evenly lit. "
+            "Completely EMPTY: no fish, no ink, no figures, no symbols, no border, no "
+            "text — just the plain washi surface filling the whole image. Portrait "
+            "orientation."
+        ),
+        "emblem_style": (
+            "a bold Japanese hand-pressed ink seal-stamp (hanko) style: a solid inky "
+            "stamped shape with slightly rough, uneven hand-stamped edges and faint "
+            "ink texture, flat and graphic, no photorealism."
+        ),
+        "emblem_fill": (
+            "a single {color} shape hand-pressed like a hand-carved ink seal stamp — "
+            "a completely FILLED SOLID inky stamped impression (NOT hollow, NOT just "
+            "an outline) with slightly rough, uneven hand-stamped edges and faint ink "
+            "texture, with NO separate dark outline and NO drop shadow"
+        ),
+        "iso_note": (
+            "Render ONLY the fish's own inked silhouette shape — no rectangular panel, "
+            "box, paper sheet or background field of any kind behind or around it, on a "
+            "fully transparent background."
+        ),
+        # Aces are the prized invertebrate catches (also classic gyotaku subjects).
+        "ace_objects": {
+            "spades": "a large octopus (tako) with curling tentacles",
+            "hearts": "a large sweet prawn / shrimp (ebi) curved head to tail",
+            "diamonds": "a crab (kani) seen from above with claws spread",
+            "clubs": "a squid (ika) with trailing tentacles",
+        },
+        "back": (
+            "A symmetric ornamental playing-card BACK in Japanese gyotaku sumi-ink "
+            "style: a single centered black-ink fish-print medallion of a curled koi "
+            "carp within a thin ink ring, with one small vermilion-red seal (hanko) "
+            "stamp, on aged cream washi paper. Clean and uncluttered with generous "
+            "negative space. The design fills the FULL WIDTH edge to edge; keep the "
+            "motif within the central area and leave only plain washi along the very "
+            "TOP and very BOTTOM edges (this margin will be trimmed). Symmetric, "
+            "portrait orientation. NO text, NO numbers, NO letters, NO pips."
+        ),
+        "courts": {
+            ("hearts", "K"): "a large ornamental koi carp curving in a graceful S-shape as if swimming upward",
+            ("hearts", "Q"): "a yamame cherry trout with crimson and indigo spots along its side, angled steeply head-up in a near-vertical orientation",
+            ("hearts", "J"): "a slender ayu sweetfish angled diagonally",
+            ("spades", "K"): "a large sea bass (suzuki) angled diagonally head-up",
+            ("spades", "Q"): "a long Japanese eel (unagi) curving in an S-shape vertically",
+            ("spades", "J"): "a mackerel (saba) angled diagonally",
+            ("diamonds", "K"): "a red sea bream (tai) angled diagonally head-up, a large auspicious fish",
+            ("diamonds", "Q"): "a yellowtail (buri) angled diagonally",
+            ("diamonds", "J"): "a flatfish flounder (hirame) seen from above, with mottled sandy-brown and grey markings and both eyes on top",
+            ("clubs", "K"): "a powerful bluefin tuna (maguro) angled diagonally head-up",
+            ("clubs", "Q"): "a slender Pacific saury (sanma) angled diagonally",
+            ("clubs", "J"): "a pufferfish (fugu) un-puffed in a natural side profile, angled steeply head-up in a near-vertical orientation",
         },
     },
     "roman": {
@@ -453,13 +532,18 @@ def emblem_prompt(deck, suit):
     d = DECKS[deck]
     emblem, color = d["suits"][suit]
     fill = d["emblem_fill"].format(color=color)
+    # A deck whose figure style depicts a subject (e.g. gyotaku fish) needs a
+    # separate plain style for the bare suit symbol, or the subject leaks in.
+    style = d.get("emblem_style", eff_style(deck, suit))
     clean = (" It is a clean solid even silhouette with a smooth fill and NO interior "
              "lines, stems, flourishes or patterns, perfectly upright with the two "
              "rounded lobes at the TOP and the single point at the BOTTOM."
              if deck == "greek" else "")
     return (
-        f"A single playing-card suit symbol: one {emblem}, in {eff_style(deck, suit)} "
-        f"It is {fill}, symmetric and upright with clean edges.{clean} Just the bare "
+        f"A single playing-card suit symbol: one {emblem}, in {style} "
+        f"It is {fill}, symmetric and upright with clean edges.{clean} It is ONLY the "
+        f"plain {emblem} outline shape — NO fish, NO animal, NO creature, NO figure, "
+        f"NO person, NO hieroglyph and nothing else inside or around it. Just the bare "
         f"symbol shape ALONE on a 100% transparent background. Absolutely NO "
         f"rectangular panel, NO frame, NO box, NO washi paper, NO paper texture, "
         f"NO textured backdrop of any kind behind or around the symbol, no card, "

@@ -1258,6 +1258,7 @@ const Map<String, (String, String)> _bundleSignature = {
   'bundle_ukiyoe': ('K', '♠'),
   'bundle_greek': ('Q', '♦'),
   'bundle_egyptian': ('K', '♠'),
+  'bundle_gyotaku': ('K', '♥'),
 };
 
 CardBack _bundleBack(StoreProduct bundle) {

@@ -45,6 +45,19 @@ DECK_STYLES = {
         "court_fit": (0.64, 0.58),   # (×W, ×H) — a touch smaller than default
         "ace_fit": (0.42, 0.40),     # themed object centerpiece
     },
+    "gyotaku": {
+        "border": ((70, 64, 58), (40, 36, 32)),  # soft sumi-ink keyline on washi
+        "red": (176, 52, 42),   # vermilion (seal-ink) index for red suits
+        "black": (44, 40, 36),  # sumi near-black index
+        "court_fit": (0.76, 0.66),  # fish run large across the card
+        "court_fit_overrides": {    # bulkier fish shrunk so they don't overfill
+            "spades_J": (0.64, 0.56),
+            "diamonds_J": (0.62, 0.58),
+            "hearts_Q": (0.66, 0.60),
+            "clubs_J": (0.66, 0.575),
+        },
+        "ace_fit": (0.50, 0.44),
+    },
     "egyptian": {
         "border": ((44, 38, 30), (24, 20, 16)),  # near-black lines on ochre
         "red": (150, 52, 38),   # deep terracotta index for red suits
@@ -276,10 +289,14 @@ def build(deck, suit, do_clean):
         elif rank in PIP_RANKS:
             paste_center(card, big_pip, *center)
         else:
-            fig = Image.open(os.path.join(COMP, f"court_{suit}_{rank}.png")).convert("RGBA")
+            court_path = os.path.join(COMP, f"court_{suit}_{rank}.png")
+            if not os.path.exists(court_path):
+                continue  # skip un-generated courts (partial-suit mockups)
+            fig = Image.open(court_path).convert("RGBA")
             if do_clean:
                 fig = clean_halo(fig)
-            paste_center(card, fit(fig, CARD_W * court_fit[0], CARD_H * court_fit[1]), *center)
+            cf = style.get("court_fit_overrides", {}).get(f"{suit}_{rank}", court_fit)
+            paste_center(card, fit(fig, CARD_W * cf[0], CARD_H * cf[1]), *center)
 
         draw_indices(card, suit, rank, stroke=style.get("index_stroke"))
         card.convert("RGB").save(os.path.join(out_dir, f"{suit}_{rank}.png"))

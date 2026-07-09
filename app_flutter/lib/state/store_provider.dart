@@ -169,6 +169,12 @@ const List<StoreProduct> storeProducts = [
       cosmeticId: 'back-egyptian',
       name: 'Egyptian',
       priceLabel: _cosmeticPrice),
+  StoreProduct(
+      id: 'back_gyotaku',
+      kind: CosmeticKind.cardBack,
+      cosmeticId: 'back-gyotaku',
+      name: 'Gyotaku',
+      priceLabel: _cosmeticPrice),
   // Chip styles.
   StoreProduct(
       id: 'chips_monochrome',
@@ -207,6 +213,12 @@ const List<StoreProduct> storeProducts = [
       cosmeticId: 'deck-egyptian',
       name: 'Egyptian',
       priceLabel: _deckPrice),
+  StoreProduct(
+      id: 'deck_gyotaku',
+      kind: CosmeticKind.deck,
+      cosmeticId: 'deck-gyotaku',
+      name: 'Gyotaku',
+      priceLabel: _deckPrice),
   // Theme sets — a premium deck paired with its matching card back, discounted
   // against buying both separately. Owning a bundle unlocks each granted product.
   StoreProduct(
@@ -237,6 +249,13 @@ const List<StoreProduct> storeProducts = [
       name: 'Egyptian Set',
       priceLabel: _bundlePrice,
       grants: ['deck_egyptian', 'back_egyptian']),
+  StoreProduct(
+      id: 'bundle_gyotaku',
+      kind: CosmeticKind.bundle,
+      cosmeticId: 'deck-gyotaku',
+      name: 'Gyotaku Set',
+      priceLabel: _bundlePrice,
+      grants: ['deck_gyotaku', 'back_gyotaku']),
 ];
 
 /// The headline lifetime product.

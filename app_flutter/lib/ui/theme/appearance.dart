@@ -346,6 +346,13 @@ const CardBack cardBackEgyptian = CardBack(
   pattern: CardBackPattern.solid,
   asset: 'assets/card_backs/egyptian_back.png',
 );
+const CardBack cardBackGyotaku = CardBack(
+  id: 'back-gyotaku',
+  name: 'Gyotaku',
+  color: Color(0xFFE8DEC5),
+  pattern: CardBackPattern.solid,
+  asset: 'assets/card_backs/gyotaku_back.png',
+);
 
 const List<CardBack> cardBackPresets = [
   cardBackRoyalBlue,
@@ -361,6 +368,7 @@ const List<CardBack> cardBackPresets = [
   cardBackUkiyoe,
   cardBackGreek,
   cardBackEgyptian,
+  cardBackGyotaku,
 ];
 
 const String kFreeCardBackId = 'back-royal-blue';
@@ -416,6 +424,11 @@ const CardDeck cardDeckEgyptian = CardDeck(
   name: 'Egyptian',
   faceDir: 'assets/card_faces/egyptian',
 );
+const CardDeck cardDeckGyotaku = CardDeck(
+  id: 'deck-gyotaku',
+  name: 'Gyotaku',
+  faceDir: 'assets/card_faces/gyotaku',
+);
 
 const List<CardDeck> cardDeckPresets = [
   cardDeckClassic,
@@ -423,6 +436,7 @@ const List<CardDeck> cardDeckPresets = [
   cardDeckUkiyoe,
   cardDeckGreek,
   cardDeckEgyptian,
+  cardDeckGyotaku,
 ];
 
 const String kFreeCardDeckId = 'deck-classic';
