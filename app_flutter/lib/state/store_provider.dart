@@ -91,10 +91,10 @@ const List<StoreProduct> storeProducts = [
       name: 'Obsidian',
       priceLabel: _cosmeticPrice),
   StoreProduct(
-      id: 'theme_royal_purple',
+      id: 'theme_slate',
       kind: CosmeticKind.theme,
-      cosmeticId: 'royal-purple',
-      name: 'Royal Purple',
+      cosmeticId: 'slate',
+      name: 'Slate',
       priceLabel: _cosmeticPrice),
   // Card backs (Royal Blue is the free default, intentionally not listed).
   StoreProduct(

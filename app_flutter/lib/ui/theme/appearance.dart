@@ -190,24 +190,24 @@ const AppearanceTheme obsidian = AppearanceTheme(
   },
 );
 
-const AppearanceTheme royalPurple = AppearanceTheme(
-  id: 'royal-purple',
-  name: 'Royal Purple',
-  feltLight: Color(0xFF4A2A6E),
-  felt: Color(0xFF341E4F),
-  feltDark: Color(0xFF1E1230),
-  feltBorder: Color(0xFF5E3A8A),
-  gold: Color(0xFFE2C067),
-  goldLight: Color(0xFFF3D98A),
-  goldDark: Color(0xFFB8973F),
+const AppearanceTheme slate = AppearanceTheme(
+  id: 'slate',
+  name: 'Slate',
+  feltLight: Color(0xFF3A4657),
+  felt: Color(0xFF28313E),
+  feltDark: Color(0xFF171C24),
+  feltBorder: Color(0xFF4E5D72),
+  gold: Color(0xFFD4A843),
+  goldLight: Color(0xFFF0C84A),
+  goldDark: Color(0xFFB8862A),
   cardFace: Color(0xFFFFFEF9),
   cardRed: Color(0xFFC0392B),
   cardBlack: Color(0xFF1A1A1A),
-  cardBackColor: Color(0xFF2B1A4A),
+  cardBackColor: Color(0xFF2A3340),
   cardBackPattern: CardBackPattern.diagonalHatch,
   chipColors: {
     5: (Color(0xFFE74C3C), Color(0xFFC0392B)),
-    25: (Color(0xFF9B72CE), Color(0xFF7E54B5)),
+    25: (Color(0xFF5B8FB0), Color(0xFF447296)),
     100: (Color(0xFF2ECC71), Color(0xFF27AE60)),
     500: (Color(0xFF2C2C2C), Color(0xFF1A1A1A)),
   },
@@ -218,7 +218,7 @@ const List<AppearanceTheme> appearancePresets = [
   midnightBlue,
   crimson,
   obsidian,
-  royalPurple,
+  slate,
 ];
 
 AppearanceTheme appearanceById(String id) =>
