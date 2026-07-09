@@ -341,7 +341,6 @@ class _StatsBar extends ConsumerWidget {
                 'ACCURACY',
                 hasPlays ? '$pct% ($correct/$total)' : '—',
                 hasPlays ? pctColor : AppTokens.textSecondary,
-                trailing: Icon(Icons.chevron_right, size: 15, color: AppTokens.textSecondary),
               ),
             ),
           ),
