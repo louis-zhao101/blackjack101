@@ -19,6 +19,18 @@ final localStoreProvider =
 
 final firestoreSyncProvider = Provider<FirestoreSync>((ref) => FirestoreSync());
 
+/// The selected bottom-nav tab (0 Play, 1 Learn, 2 Stats, 3 Account). Held here
+/// so any screen can navigate between tabs — e.g. tapping accuracy on the table
+/// jumps to Stats.
+class NavController extends Notifier<int> {
+  @override
+  int build() => 0;
+
+  void select(int tab) => state = tab;
+}
+
+final navTabProvider = NotifierProvider<NavController, int>(NavController.new);
+
 enum SyncPhase { idle, syncing, failed }
 
 class SyncStatus {

@@ -353,6 +353,13 @@ const CardBack cardBackGyotaku = CardBack(
   pattern: CardBackPattern.solid,
   asset: 'assets/card_backs/gyotaku_back.png',
 );
+const CardBack cardBackTarot = CardBack(
+  id: 'back-tarot',
+  name: 'Tarot',
+  color: Color(0xFF0A2233),
+  pattern: CardBackPattern.solid,
+  asset: 'assets/card_backs/tarot_back.png',
+);
 
 const List<CardBack> cardBackPresets = [
   cardBackRoyalBlue,
@@ -369,6 +376,7 @@ const List<CardBack> cardBackPresets = [
   cardBackGreek,
   cardBackEgyptian,
   cardBackGyotaku,
+  cardBackTarot,
 ];
 
 const String kFreeCardBackId = 'back-royal-blue';
@@ -429,6 +437,11 @@ const CardDeck cardDeckGyotaku = CardDeck(
   name: 'Gyotaku',
   faceDir: 'assets/card_faces/gyotaku',
 );
+const CardDeck cardDeckTarot = CardDeck(
+  id: 'deck-tarot',
+  name: 'Tarot',
+  faceDir: 'assets/card_faces/tarot',
+);
 
 const List<CardDeck> cardDeckPresets = [
   cardDeckClassic,
@@ -437,6 +450,7 @@ const List<CardDeck> cardDeckPresets = [
   cardDeckGreek,
   cardDeckEgyptian,
   cardDeckGyotaku,
+  cardDeckTarot,
 ];
 
 const String kFreeCardDeckId = 'deck-classic';
@@ -490,10 +504,77 @@ const ChipStyle chipStyleSunset = ChipStyle(
   },
 );
 
+// Deck-matched chip palettes. Each set is built from its deck's *signature*
+// colors rather than the generic red/blue/green/black denomination split, so it
+// reads as the theme (denominations are cohesive/tonal — they don't need high
+// contrast between them; the painted value already tells them apart). Rendered
+// by the same vector chip painter as the styles above (which derives the
+// cream/onyx rim, and gold detailing on the dark $500 chip).
+const ChipStyle chipStyleIlluminated = ChipStyle(
+  id: 'chips-illuminated',
+  name: 'Illuminated',
+  // Manuscript: ultramarine + gold-leaf + vermilion on vellum.
+  colors: {
+    5: (Color(0xFFAE3826), Color(0xFF862A1D)),   // vermilion
+    25: (Color(0xFF2A468C), Color(0xFF1D3369)),  // ultramarine
+    100: (Color(0xFFC4982F), Color(0xFF987526)), // gold leaf
+    500: (Color(0xFF141C42), Color(0xFF0C122E)), // gilded navy
+  },
+);
+const ChipStyle chipStyleUkiyoe = ChipStyle(
+  id: 'chips-ukiyoe',
+  name: 'Ukiyo-e',
+  // Woodblock: prussian indigo forward, with soft vermilion + mustard ochre.
+  colors: {
+    5: (Color(0xFFBC4636), Color(0xFF8F3529)),   // soft vermilion
+    25: (Color(0xFFC4913C), Color(0xFF99712C)),  // mustard ochre
+    100: (Color(0xFF284668), Color(0xFF1A3049)), // prussian indigo
+    500: (Color(0xFF16273C), Color(0xFF0D1826)), // deep indigo
+  },
+);
+const ChipStyle chipStyleGreek = ChipStyle(
+  id: 'chips-greek',
+  name: 'Greek Vase',
+  // Attic pottery: warm terracotta/ochre/sienna against black glaze.
+  colors: {
+    5: (Color(0xFFC05C30), Color(0xFF954525)),   // terracotta
+    25: (Color(0xFFC2984E), Color(0xFF96733A)),  // ochre clay
+    100: (Color(0xFF8C3820), Color(0xFF642817)), // sienna
+    500: (Color(0xFF1F1D18), Color(0xFF10100C)), // black glaze
+  },
+);
+const ChipStyle chipStyleEgyptian = ChipStyle(
+  id: 'chips-egyptian',
+  name: 'Egyptian',
+  // Tomb treasure: gold, turquoise faience, lapis, onyx.
+  colors: {
+    5: (Color(0xFFCB9E3A), Color(0xFFA07B2A)),   // golden amber
+    25: (Color(0xFF2C8A82), Color(0xFF1E6660)),  // turquoise faience
+    100: (Color(0xFF25407A), Color(0xFF19305C)), // lapis
+    500: (Color(0xFF1B1813), Color(0xFF0D0B08)), // onyx
+  },
+);
+const ChipStyle chipStyleGyotaku = ChipStyle(
+  id: 'chips-gyotaku',
+  name: 'Gyotaku',
+  // Muted fish-print: sumi ink + celadon + indigo + a vermilion seal.
+  colors: {
+    5: (Color(0xFFAE443A), Color(0xFF85332B)),   // seal vermilion
+    25: (Color(0xFF7A8E74), Color(0xFF5B6C57)),  // celadon sage
+    100: (Color(0xFF354E68), Color(0xFF24384D)), // muted indigo
+    500: (Color(0xFF1D1D1A), Color(0xFF0E0E0C)), // sumi ink
+  },
+);
+
 const List<ChipStyle> chipStylePresets = [
   chipStyleClassic,
   chipStyleMonochrome,
   chipStyleSunset,
+  chipStyleIlluminated,
+  chipStyleUkiyoe,
+  chipStyleGreek,
+  chipStyleEgyptian,
+  chipStyleGyotaku,
 ];
 
 const String kFreeChipStyleId = 'chips-classic';

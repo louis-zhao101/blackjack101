@@ -18,6 +18,7 @@ import sys
 import time
 import urllib.error
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 API_URL = "https://api.openai.com/v1/images/generations"
 COMP_ROOT = os.path.join(os.path.dirname(__file__), "components")
@@ -60,6 +61,12 @@ ROMAN_STYLE = (
     "with visible grout lines, an earthy antique palette of terracotta, ochre, "
     "cream, deep red, olive, slate-blue and black, flat and decorative with a "
     "weathered antique look, no smooth shading, no photorealism."
+)
+TAROT_STYLE = (
+    "a vintage Rider-Waite-Smith tarot illustration style: bold black ink outlines, "
+    "flat storybook color in rich blues, reds, ochre-gold, teal and cream, symbolic "
+    "esoteric medieval imagery, an aged antique-print look, decorative and mystical, "
+    "flat with minimal shading, no photorealism."
 )
 GYOTAKU_STYLE = (
     "authentic Japanese gyotaku fish-print style: a direct hand-printed impression "
@@ -129,18 +136,17 @@ DECKS = {
             "clubs": "an ornate heraldic fleur-de-lis",
         },
         "back": (
-            "A symmetric ornamental playing-card BACK in the style of a 13th-century "
-            "Gothic illuminated manuscript: a deep ultramarine blue ground with an "
-            "elegant slim gold-leaf vine-scroll border and a single large central gold "
-            "quatrefoil medallion enclosing one stylized fleur-de-lis ornament, plus a "
-            "few sparse gold and vermilion-red accents. Clean, balanced and uncluttered "
-            "with generous negative space — NOT a dense repeating all-over pattern, and "
-            "absolutely NO tiny repeated dots, flowers or holes. The design fills the "
-            "FULL WIDTH edge to edge with NO outer cream or parchment margin; keep the "
-            "border and medallion within the central area and leave only a plain "
-            "deep-blue band of empty ground along the very TOP and very BOTTOM edges "
-            "(this margin will be trimmed). Symmetric, portrait orientation. NO text, "
-            "NO numbers, NO letters, NO pips, NO faces."
+            "A playing-card BACK in the style of a 13th-century Gothic illuminated "
+            "manuscript: a SINGLE CENTERED bold burnished-gold fleur-de-lis inside a "
+            "plain gold quatrefoil frame with a thin clean gold outline, on a plain "
+            "deep ultramarine blue ground. The inside of the quatrefoil is plain deep "
+            "blue with only the clean bold gold fleur-de-lis — absolutely NO vine "
+            "scrollwork, NO small flowers, NO dots, NO clustered or repeated ornament "
+            "and NO busy texture anywhere. Clean, bold and minimal with generous "
+            "negative space. The medallion sits centered with a generous plain "
+            "deep-blue margin all around and empty blue ground extending to every edge. "
+            "Portrait orientation. NO border frame at the card edges, NO all-over "
+            "pattern, NO text, NO numbers, NO letters, NO pips."
         ),
         "courts": {
             ("spades", "K"): "an old crowned king with a long white beard, seated and playing a golden harp, wearing a deep ultramarine-blue robe",
@@ -409,6 +415,69 @@ DECKS = {
             ("clubs", "J"): "the ibis-headed god Thoth holding a scribe's palette and a reed pen",
         },
     },
+    "tarot": {
+        "style": TAROT_STYLE,
+        "suits": {
+            "hearts": ("heart", "deep red"),
+            "diamonds": ("diamond lozenge", "deep red"),
+            "spades": ("spade", "black"),
+            "clubs": ("trefoil club (clover)", "black"),
+        },
+        "frame": (
+            "A blank aged cream tarot-card face: plain ivory-cream parchment with a "
+            "subtle antique mottled texture, evenly lit. Completely EMPTY: no figures, "
+            "no symbols, no border, no text — just the plain cream surface filling the "
+            "whole image. Portrait orientation."
+        ),
+        "emblem_style": (
+            "a bold decorative tarot-emblem style: a clean solid symbol with a bold "
+            "black ink outline and flat storybook color, no figures, no scene."
+        ),
+        "emblem_fill": "a solid {color} shape with a bold black ink outline",
+        "iso_note": (
+            "Render ONLY the figure's own shape on a fully transparent background — no "
+            "rectangular tarot-card panel, no border, no background scene or field of "
+            "any kind behind or around it."
+        ),
+        # Full-bleed scenes for the courts (like ukiyo-e); the aces are a single
+        # tarot emblem object centered on the cream ground.
+        "ace_objects": {
+            "hearts": "ornate golden chalice (a tarot cup) overflowing with water",
+            "spades": "upright double-edged sword crowned with a small golden crown (a tarot sword)",
+            "diamonds": "large golden coin (a tarot coin) engraved with an ornate wreath border and a central rosette, no star",
+            "clubs": "single short leafy tarot wand — a stout wooden rod sprouting a few green leaves and buds — lying at a gentle DIAGONAL angle across the center, with BOTH of its rounded ends well inside the frame and generous empty margins in all four corners",
+        },
+        "back": (
+            "A playing-card BACK in vintage tarot style: a SINGLE CENTERED ornate "
+            "medallion of a radiant golden sun with a crescent moon and stars, framed "
+            "in a thin circular ring, in gold and cream on a plain deep midnight-blue "
+            "ground. Flat and decorative, symbolic and mystical. The medallion sits in "
+            "the middle with a GENEROUS plain deep-blue margin all around it and empty "
+            "blue ground extending to every edge. Portrait orientation. NO rectangular "
+            "border frame at the card edges, NO text, NO numbers, NO letters, NO pips."
+        ),
+        # Face cards are Major Arcana scenes (more evocative than court cards),
+        # grouped by each suit's element: Cups=water/love, Swords=air/intellect,
+        # Coins=earth/worldly, Wands=fire/will.
+        "prints": {
+            # Hearts = Cups (love, intuition, spirit)
+            ("hearts", "K"): "the tarot Temperance card: a great winged angel in a long white robe standing with one foot on land and one in a still pool, calmly pouring water between two golden cups, a radiant crown of light behind and a path leading to distant mountains",
+            ("hearts", "Q"): "the tarot High Priestess: a serene robed priestess seated between one black and one white pillar before a veil patterned with pomegranates, a crescent moon at her feet and a scroll in her lap",
+            ("hearts", "J"): "the tarot Star card: a robed woman kneeling by a still pool pouring water from two jugs, beneath one great eight-pointed star and seven smaller stars in a deep night sky",
+            # Spades = Swords (intellect, justice, journey)
+            ("spades", "K"): "the tarot Justice card: a crowned figure in red robes enthroned between two stone pillars, holding an upright sword in one hand and balanced golden scales in the other",
+            ("spades", "Q"): "the tarot Hermit: a hooded robed old man standing on a snowy mountain peak holding aloft a glowing lantern that contains a bright star, leaning on a long staff",
+            ("spades", "J"): "the tarot Chariot card: an armored prince with a starry canopy standing in a stone chariot drawn by one black and one white sphinx, a walled city behind him",
+            # Diamonds = Coins (worldly power, abundance, fortune)
+            ("diamonds", "K"): "the tarot Emperor: a bearded king in red robes and armor enthroned on a grey stone throne carved with rams' heads, holding an ankh scepter and a golden orb, mountains behind",
+            ("diamonds", "Q"): "the tarot Empress: a serene crowned queen in a flowing star-crowned gown reclining on cushions in a lush garden of wheat and roses, holding a scepter, a heart-shaped shield beside her",
+            ("diamonds", "J"): "the tarot Wheel of Fortune: a great golden wheel inscribed with symbols floating in a blue sky among clouds, a sphinx resting atop it and winged creatures reading books in the four corners",
+            # Clubs = Wands (fire, will, creativity)
+            ("clubs", "K"): "the tarot Fool card: a carefree young traveler in colorful patched clothes and a feathered cap stepping toward the edge of a sunlit cliff, a small white rose in one hand and a knapsack tied to a staff over the shoulder, a little white dog leaping at his feet, tall mountains and a bright sun behind",
+            ("clubs", "Q"): "the tarot Strength card: a serene woman in a white robe with a garland of flowers gently closing the jaws of a great lion, a glowing infinity symbol above her head",
+            ("clubs", "J"): "the tarot Magician: a robed magician standing at a table bearing a cup, a sword, a wand and a coin, one hand raising a wand to the sky, an infinity symbol above his head, roses and lilies at his feet",
+        },
+    },
     "gyotaku": {
         "style": GYOTAKU_STYLE,
         "suits": {
@@ -522,9 +591,11 @@ def print_prompt(deck, suit, rank):
     d = DECKS[deck]
     scene = d["prints"][(suit, rank)]
     return (
-        f"{scene}. Rendered in {d['style']} Arranged as a vertical portrait "
-        f"composition that fills the entire image edge to edge (full-bleed scene). "
-        f"No card, no border, no frame, no text, no signature."
+        f"{scene}. Rendered in {d['style']} The illustration MUST BLEED completely off "
+        f"all four edges and fill the ENTIRE image edge to edge like a cropped close-up "
+        f"— absolutely NO card, NO cream or white card border, NO outer margin, NO "
+        f"frame, NO keyline and NO border band of any kind around the scene; the "
+        f"artwork reaches and runs past every edge. No text, no title, no signature."
     )
 
 
@@ -561,6 +632,17 @@ def ace_prompt(deck, suit):
             f"An image of {objects[suit]}, in {eff_style(deck, suit)} A vertical "
             f"portrait composition that fills the entire image edge to edge "
             f"(full-bleed). No card, no border, no text, no signature."
+        )
+    if objects and d.get("ace_portrait"):
+        return (
+            f"A single {objects[suit]}, drawn in {eff_style(deck, suit)} "
+            f"The whole subject sits centered and occupies only the central ~62% of a "
+            f"tall portrait frame, with WIDE empty margins on every side — the very top "
+            f"and very bottom of the subject must be well inside the frame and NOT touch "
+            f"or be cropped by any edge. The area around the subject is COMPLETELY EMPTY "
+            f"and 100% transparent: absolutely NO background, NO gray or colored fill, "
+            f"NO gradient, NO sky, NO ground, NO scene and NO panel behind or around it. "
+            f"No card, no border, no text, no letters, no monogram.{_iso(deck)}"
         )
     if objects:
         body = f"One single {objects[suit]}, centered, symmetric and upright"
@@ -644,9 +726,11 @@ def main():
     ap.add_argument("--deck", choices=DECKS.keys(), default="ukiyo-e")
     ap.add_argument("--suit", choices=["hearts", "diamonds", "spades", "clubs"], default="hearts")
     ap.add_argument("--what", default="all",
-                    choices=["all", "frame", "pip", "ace", "courts", "prints", "back"])
+                    choices=["all", "suit", "frame", "pip", "ace", "courts", "prints", "back"])
     ap.add_argument("--ranks", default="J,Q,K", help="court/print ranks to make")
     ap.add_argument("--quality", default="medium", choices=["low", "medium", "high", "auto"])
+    ap.add_argument("--jobs", type=int, default=8,
+                    help="number of image requests to run in parallel (1 = sequential)")
     args = ap.parse_args()
     court_ranks = [r.strip().upper() for r in args.ranks.split(",")]
 
@@ -655,34 +739,63 @@ def main():
         sys.exit("ERROR: set OPENAI_API_KEY first.")
 
     deck, suit = args.deck, args.suit
-    print(f"[{deck}] components for {suit} (q={args.quality}) -> {os.path.join(COMP_ROOT, deck)}")
+    d = DECKS[deck]
+    print(f"[{deck}] components for {suit} (q={args.quality}, jobs={args.jobs}) "
+          f"-> {os.path.join(COMP_ROOT, deck)}")
 
+    # Collect the image jobs as (name, prompt, size, transparent), then run them
+    # concurrently — the whole suit's components fetch at once instead of serially.
+    jobs = []
     if args.what in ("all", "frame"):
-        frames = DECKS[deck].get("frames")
+        frames = d.get("frames")
         if frames:
             for ground, prompt in frames.items():
-                save(deck, f"frame_{ground}.png", prompt, key, "1024x1536", args.quality, False)
+                jobs.append((f"frame_{ground}.png", prompt, "1024x1536", False))
         else:
-            save(deck, "frame.png", DECKS[deck]["frame"], key, "1024x1536", args.quality, False)
-    if args.what in ("all", "pip"):
-        save(deck, f"pip_{suit}.png", emblem_prompt(deck, suit), key, "1024x1024", args.quality, True)
-    if args.what in ("all", "ace"):
-        ace_print = DECKS[deck].get("ace_print")
-        save(deck, f"ace_{suit}.png", ace_prompt(deck, suit), key,
-             "1024x1536" if ace_print else "1024x1024", args.quality, transparent=not ace_print)
-    if args.what in ("all", "courts") and "prints" not in DECKS[deck]:
+            jobs.append(("frame.png", d["frame"], "1024x1536", False))
+    if args.what in ("all", "suit", "pip"):
+        jobs.append((f"pip_{suit}.png", emblem_prompt(deck, suit), "1024x1024", True))
+    if args.what in ("all", "suit", "ace"):
+        ace_print = d.get("ace_print")
+        ace_size = "1024x1536" if (ace_print or d.get("ace_portrait")) else "1024x1024"
+        jobs.append((f"ace_{suit}.png", ace_prompt(deck, suit), ace_size, not ace_print))
+    if args.what in ("all", "suit", "courts") and "prints" not in d:
         for rank in court_ranks:
-            save(deck, f"court_{suit}_{rank}.png", court_prompt(deck, suit, rank),
-                 key, "1024x1536", args.quality, True)
-    # Card back — one full-bleed ornamental design per deck (suit-independent).
-    if args.what in ("all", "back") and DECKS[deck].get("back"):
-        save(deck, "back.png", DECKS[deck]["back"], key, "1024x1536", args.quality, False)
-    # Print-based face cards, one distinct print per suit.
-    if args.what in ("all", "prints") and "prints" in DECKS[deck]:
+            jobs.append((f"court_{suit}_{rank}.png", court_prompt(deck, suit, rank),
+                         "1024x1536", True))
+    if args.what in ("all", "suit", "prints") and "prints" in d:
         for rank in court_ranks:
-            save(deck, f"print_{suit}_{rank}.png", print_prompt(deck, suit, rank),
-                 key, "1024x1536", args.quality, False)
+            jobs.append((f"print_{suit}_{rank}.png", print_prompt(deck, suit, rank),
+                         "1024x1536", False))
+    if args.what in ("all", "back") and d.get("back"):
+        jobs.append(("back.png", d["back"], "1024x1536", False))
 
+    def run(job):
+        name, prompt, size, transparent = job
+        save(deck, name, prompt, key, size, args.quality, transparent)
+        return name
+
+    workers = max(1, min(args.jobs, len(jobs)))
+    errors = []
+    if workers == 1:
+        for job in jobs:
+            try:
+                run(job)
+            except Exception as e:  # noqa: BLE001
+                errors.append((job[0], str(e)))
+    else:
+        with ThreadPoolExecutor(max_workers=workers) as ex:
+            futs = {ex.submit(run, job): job for job in jobs}
+            for f in as_completed(futs):
+                try:
+                    f.result()
+                except Exception as e:  # noqa: BLE001
+                    errors.append((futs[f][0], str(e)))
+
+    if errors:
+        for name, err in errors:
+            print(f"  !! FAILED {name}: {err}", flush=True)
+        sys.exit(1)
     print("Done.")
 
 

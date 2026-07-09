@@ -553,6 +553,7 @@ class _ShopScreenState extends ConsumerState<ShopScreen> {
             cosmeticId: freeChips.id,
             name: freeChips.name,
             swatch: _chipSwatch(theme, freeChips),
+            swatchWidth: 84,
             isActive: ref.watch(chipStyleProvider).id == freeChips.id,
             onUse: () => ref.read(chipStyleProvider.notifier).setChipStyle(freeChips.id),
           ),
@@ -562,6 +563,7 @@ class _ShopScreenState extends ConsumerState<ShopScreen> {
               cosmeticId: p.cosmeticId,
               name: p.name,
               swatch: _chipSwatch(theme, chipStyleById(p.cosmeticId)),
+              swatchWidth: 84,
               isActive: ref.watch(chipStyleProvider).id == p.cosmeticId,
               onUse: () => ref.read(chipStyleProvider.notifier).setChipStyle(p.cosmeticId),
             ),
@@ -829,13 +831,9 @@ Widget _deckSwatch(AppearanceTheme active, CardDeck deck) => PlayingCardView(
       showShadow: false,
     );
 
-/// Mini $25 chip rendered with [style] — shop swatch.
-Widget _chipSwatch(AppearanceTheme active, ChipStyle style) => PokerChipFace(
-      amount: 25,
-      theme: active.copyWith(chipStyle: style),
-      size: 40,
-      showLabel: false,
-    );
+/// Sideways fan of all four denomination chips in [style] — shop swatch.
+Widget _chipSwatch(AppearanceTheme active, ChipStyle style) =>
+    ChipStripPreview(theme: active.copyWith(chipStyle: style), size: 30);
 
 /// Subtle status line shown under a cosmetic's name (e.g. "Owned", "Free").
 Widget _cosmeticTag(String label, AppearanceTheme t) => Text(label,
@@ -1259,6 +1257,7 @@ const Map<String, (String, String)> _bundleSignature = {
   'bundle_greek': ('Q', '♦'),
   'bundle_egyptian': ('K', '♠'),
   'bundle_gyotaku': ('K', '♥'),
+  'bundle_tarot': ('Q', '♦'),
 };
 
 CardBack _bundleBack(StoreProduct bundle) {
@@ -1575,6 +1574,7 @@ class _CosmeticRow extends ConsumerWidget {
   final String cosmeticId;
   final String name;
   final Widget swatch;
+  final double swatchWidth;
   final bool isActive;
   final VoidCallback onUse;
   const _CosmeticRow({
@@ -1582,6 +1582,7 @@ class _CosmeticRow extends ConsumerWidget {
     required this.cosmeticId,
     required this.name,
     required this.swatch,
+    this.swatchWidth = 44,
     required this.isActive,
     required this.onUse,
   });
@@ -1653,7 +1654,7 @@ class _CosmeticRow extends ConsumerWidget {
         ),
         child: Row(
           children: [
-            SizedBox(width: 44, child: Center(child: swatch)),
+            SizedBox(width: swatchWidth, child: Center(child: swatch)),
             const SizedBox(width: 12),
             Expanded(
               child: Column(

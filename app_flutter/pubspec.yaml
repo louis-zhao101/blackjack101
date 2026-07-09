@@ -83,6 +83,7 @@ flutter:
     - assets/card_faces/greek/
     - assets/card_faces/egyptian/
     - assets/card_faces/gyotaku/
+    - assets/card_faces/tarot/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

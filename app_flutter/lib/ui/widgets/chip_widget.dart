@@ -39,25 +39,18 @@ class PokerChipFace extends StatelessWidget {
       width: size,
       height: size,
       child: CustomPaint(
-        painter: _ChipPainter(body: inner, accent: accent),
-        child: showLabel
-            ? Center(
-                child: Text(
-                  '$amount',
-                  style: TextStyle(
-                    color: labelColor,
-                    fontWeight: FontWeight.bold,
-                    fontSize: size * 0.26,
-                    shadows: [
-                      Shadow(
-                          color: lightBody ? const Color(0x33FFFFFF) : const Color(0x99000000),
-                          blurRadius: 2,
-                          offset: const Offset(0, 1)),
-                    ],
-                  ),
-                ),
-              )
-            : null,
+        // The value is painted (not an overlaid centered Text) so it can be
+        // centered on the digits' cap height. A Text box centers on the font's
+        // ascent+descent, which leaves digits sitting slightly off since they
+        // have no descender.
+        painter: _ChipPainter(
+          body: inner,
+          accent: accent,
+          label: showLabel ? '$amount' : null,
+          labelColor: labelColor,
+          labelShadow: lightBody ? const Color(0x33FFFFFF) : const Color(0x99000000),
+          labelSize: size * 0.26,
+        ),
       ),
     );
   }
@@ -99,12 +92,68 @@ class ChipWidget extends StatelessWidget {
   }
 }
 
+/// A compact sideways fan of the four denomination chips (each showing its
+/// value), overlapping left-to-right. Used as the chip-style thumbnail in the
+/// shop and customize sheet so the whole set is visible at a glance. [theme]
+/// must already have the previewed [ChipStyle] applied.
+class ChipStripPreview extends StatelessWidget {
+  final AppearanceTheme theme;
+  final double size;
+  const ChipStripPreview({super.key, required this.theme, this.size = 30});
+
+  static const _denoms = [5, 25, 100, 500];
+
+  /// Horizontal advance per chip — a tight overlap. Each chip's leading edge and
+  /// value read; the next chip may cover the trailing digit(s) of wider values.
+  double get _step => size * 0.56;
+
+  /// Total footprint, so callers can size the slot that holds the strip.
+  double get width => size + (_denoms.length - 1) * _step;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: width,
+      height: size,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          for (var i = 0; i < _denoms.length; i++)
+            Positioned(
+              left: i * _step,
+              child: DecoratedBox(
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(color: Color(0x55000000), blurRadius: 2.5, offset: Offset(1, 1)),
+                  ],
+                ),
+                child: PokerChipFace(amount: _denoms[i], theme: theme, size: size),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 /// Flat, detailed poker-chip: a solid body with a cream notched rim, concentric
 /// rings, a ring of dots/diamonds, and a clean center inlay. No glossy gradient.
 class _ChipPainter extends CustomPainter {
   final Color body;
   final Color accent;
-  _ChipPainter({required this.body, required this.accent});
+  final String? label;
+  final Color labelColor;
+  final Color labelShadow;
+  final double labelSize;
+  _ChipPainter({
+    required this.body,
+    required this.accent,
+    this.label,
+    this.labelColor = const Color(0xFF000000),
+    this.labelShadow = const Color(0x99000000),
+    this.labelSize = 0,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -173,6 +222,27 @@ class _ChipPainter extends CustomPainter {
         ..strokeWidth = 1
         ..color = const Color(0x22000000),
     );
+
+    // Value, painted last so it sits above the inlay. Centered on the digits'
+    // cap height (≈0.70 em) instead of the font's line box, so it reads
+    // dead-centered regardless of the platform font's ascent/descent metrics.
+    if (label != null) {
+      final tp = TextPainter(
+        text: TextSpan(
+          text: label,
+          style: TextStyle(
+            color: labelColor,
+            fontWeight: FontWeight.bold,
+            fontSize: labelSize,
+            shadows: [Shadow(color: labelShadow, blurRadius: 2, offset: const Offset(0, 1))],
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+        textAlign: TextAlign.center,
+      )..layout();
+      final baseline = tp.computeDistanceToActualBaseline(TextBaseline.alphabetic);
+      tp.paint(canvas, Offset(c.dx - tp.width / 2, c.dy - baseline + labelSize * 0.35));
+    }
   }
 
   void _diamond(Canvas canvas, Offset p, double s, Paint paint) {
@@ -187,5 +257,9 @@ class _ChipPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _ChipPainter old) =>
-      old.body != body || old.accent != accent;
+      old.body != body ||
+      old.accent != accent ||
+      old.label != label ||
+      old.labelColor != labelColor ||
+      old.labelSize != labelSize;
 }

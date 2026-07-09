@@ -47,11 +47,11 @@ class AppShell extends ConsumerStatefulWidget {
 }
 
 class _AppShellState extends ConsumerState<AppShell> {
-  int _tab = 0;
-
   @override
   Widget build(BuildContext context) {
     final theme = ref.watch(appearanceProvider);
+    final tab = ref.watch(navTabProvider);
+    void select(int i) => ref.read(navTabProvider.notifier).select(i);
 
     ref.listen(achievementCelebrationProvider, (_, unlocked) {
       if (unlocked.isEmpty) return;
@@ -78,13 +78,13 @@ class _AppShellState extends ConsumerState<AppShell> {
               children: [
                 _Header(
                   theme: theme,
-                  tab: _tab,
+                  tab: tab,
                   showNav: wide,
-                  onSelectTab: (i) => setState(() => _tab = i),
+                  onSelectTab: select,
                 ),
                 Expanded(
                   child: IndexedStack(
-                    index: _tab,
+                    index: tab,
                     // Play stays full-bleed (immersive felt table); the list
                     // pages are capped so they don't stretch on wide desktop.
                     children: const [
@@ -99,7 +99,7 @@ class _AppShellState extends ConsumerState<AppShell> {
             ),
           ),
           bottomNavigationBar:
-              wide ? null : _BottomNav(theme: theme, tab: _tab, onSelect: (i) => setState(() => _tab = i)),
+              wide ? null : _BottomNav(theme: theme, tab: tab, onSelect: select),
         );
       },
     );
@@ -797,6 +797,7 @@ class _SheetShell extends ConsumerWidget {
 
 class _SheetOption extends StatelessWidget {
   final Widget? leading;
+  final double leadingWidth;
   final String title;
   final String? subtitle;
   final IconData? subtitleIcon;
@@ -806,6 +807,7 @@ class _SheetOption extends StatelessWidget {
   final AppearanceTheme theme;
   const _SheetOption({
     this.leading,
+    this.leadingWidth = 40,
     required this.title,
     this.subtitle,
     this.subtitleIcon,
@@ -837,7 +839,7 @@ class _SheetOption extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             if (leading != null) ...[
-              SizedBox(width: 40, height: 40, child: Center(child: leading!)),
+              SizedBox(width: leadingWidth, height: 40, child: Center(child: leading!)),
               const SizedBox(width: 14),
             ],
             Expanded(
@@ -1044,18 +1046,8 @@ class _ChipStyleSheet extends ConsumerWidget {
             return _SheetOption(
               theme: theme,
               selected: c.id == selectedId,
-              leading: SizedBox(
-                width: 36,
-                height: 36,
-                child: Center(
-                  child: PokerChipFace(
-                    amount: 25,
-                    theme: theme.copyWith(chipStyle: c),
-                    size: 34,
-                    showLabel: false,
-                  ),
-                ),
-              ),
+              leadingWidth: 84,
+              leading: ChipStripPreview(theme: theme.copyWith(chipStyle: c), size: 30),
               title: c.name,
               owned: unlocked && productForCosmeticId(c.id) != null,
               subtitle: unlocked ? null : 'Locked${price != null ? ' · $price' : ''}',

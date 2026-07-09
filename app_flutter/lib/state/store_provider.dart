@@ -175,6 +175,12 @@ const List<StoreProduct> storeProducts = [
       cosmeticId: 'back-gyotaku',
       name: 'Gyotaku',
       priceLabel: _cosmeticPrice),
+  StoreProduct(
+      id: 'back_tarot',
+      kind: CosmeticKind.cardBack,
+      cosmeticId: 'back-tarot',
+      name: 'Tarot',
+      priceLabel: _cosmeticPrice),
   // Chip styles.
   StoreProduct(
       id: 'chips_monochrome',
@@ -187,6 +193,37 @@ const List<StoreProduct> storeProducts = [
       kind: CosmeticKind.chipStyle,
       cosmeticId: 'chips-sunset',
       name: 'Sunset',
+      priceLabel: _cosmeticPrice),
+  // Deck-matched chip palettes.
+  StoreProduct(
+      id: 'chips_illuminated',
+      kind: CosmeticKind.chipStyle,
+      cosmeticId: 'chips-illuminated',
+      name: 'Illuminated',
+      priceLabel: _cosmeticPrice),
+  StoreProduct(
+      id: 'chips_ukiyoe',
+      kind: CosmeticKind.chipStyle,
+      cosmeticId: 'chips-ukiyoe',
+      name: 'Ukiyo-e',
+      priceLabel: _cosmeticPrice),
+  StoreProduct(
+      id: 'chips_greek',
+      kind: CosmeticKind.chipStyle,
+      cosmeticId: 'chips-greek',
+      name: 'Greek Vase',
+      priceLabel: _cosmeticPrice),
+  StoreProduct(
+      id: 'chips_egyptian',
+      kind: CosmeticKind.chipStyle,
+      cosmeticId: 'chips-egyptian',
+      name: 'Egyptian',
+      priceLabel: _cosmeticPrice),
+  StoreProduct(
+      id: 'chips_gyotaku',
+      kind: CosmeticKind.chipStyle,
+      cosmeticId: 'chips-gyotaku',
+      name: 'Gyotaku',
       priceLabel: _cosmeticPrice),
   // Card-face decks (Classic is the free default, intentionally not listed).
   StoreProduct(
@@ -218,6 +255,12 @@ const List<StoreProduct> storeProducts = [
       kind: CosmeticKind.deck,
       cosmeticId: 'deck-gyotaku',
       name: 'Gyotaku',
+      priceLabel: _deckPrice),
+  StoreProduct(
+      id: 'deck_tarot',
+      kind: CosmeticKind.deck,
+      cosmeticId: 'deck-tarot',
+      name: 'Tarot',
       priceLabel: _deckPrice),
   // Theme sets — a premium deck paired with its matching card back, discounted
   // against buying both separately. Owning a bundle unlocks each granted product.
@@ -256,6 +299,13 @@ const List<StoreProduct> storeProducts = [
       name: 'Gyotaku Set',
       priceLabel: _bundlePrice,
       grants: ['deck_gyotaku', 'back_gyotaku']),
+  StoreProduct(
+      id: 'bundle_tarot',
+      kind: CosmeticKind.bundle,
+      cosmeticId: 'deck-tarot',
+      name: 'Tarot Set',
+      priceLabel: _bundlePrice,
+      grants: ['deck_tarot', 'back_tarot']),
 ];
 
 /// The headline lifetime product.

@@ -7,6 +7,7 @@ import '../../engine/cards.dart' as bj;
 import '../../engine/engine.dart' as eng;
 import '../../engine/variants.dart';
 import '../../services/sound_service.dart';
+import '../../state/app_providers.dart';
 import '../../state/appearance_provider.dart';
 import '../../state/game_provider.dart';
 import '../../state/settings_provider.dart';
@@ -333,10 +334,15 @@ class _StatsBar extends ConsumerWidget {
           Expanded(child: _item('BET', '\$$bet', AppTokens.textPrimary)),
           _divider(),
           Expanded(
-            child: _item(
-              'ACCURACY',
-              hasPlays ? '$pct% ($correct/$total)' : '—',
-              hasPlays ? pctColor : AppTokens.textSecondary,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: withHaptic(() => ref.read(navTabProvider.notifier).select(2)),
+              child: _item(
+                'ACCURACY',
+                hasPlays ? '$pct% ($correct/$total)' : '—',
+                hasPlays ? pctColor : AppTokens.textSecondary,
+                trailing: Icon(Icons.chevron_right, size: 15, color: AppTokens.textSecondary),
+              ),
             ),
           ),
         ],

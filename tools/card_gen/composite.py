@@ -45,6 +45,13 @@ DECK_STYLES = {
         "court_fit": (0.64, 0.58),   # (×W, ×H) — a touch smaller than default
         "ace_fit": (0.42, 0.40),     # themed object centerpiece
     },
+    "tarot": {
+        "border": ((44, 36, 60), (24, 18, 36)),  # dark ink keyline on the cream cards
+        "print_border": False,   # full-bleed Major-Arcana faces bleed to the edge, no frame
+        "red": (176, 40, 44),   # deep red index
+        "black": (34, 30, 40),  # dark ink index
+        "ace_fit": (0.44, 0.46),  # single tarot emblem centered on the cream ground
+    },
     "gyotaku": {
         "border": ((70, 64, 58), (40, 36, 32)),  # soft sumi-ink keyline on washi
         "red": (176, 52, 42),   # vermilion (seal-ink) index for red suits
@@ -269,7 +276,7 @@ def build(deck, suit, do_clean):
             # The index gets a light outline so it stays legible over the art.
             bg = cover_fit(Image.open(print_path))
             card = bg.copy()
-            if border:
+            if border and style.get("print_border", True):
                 draw_border_with_gaps(card, bg)
             draw_indices(card, suit, rank, stroke=CREAM)
             card.convert("RGB").save(os.path.join(out_dir, f"{suit}_{rank}.png"))
