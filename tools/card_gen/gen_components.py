@@ -78,13 +78,13 @@ GYOTAKU_STYLE = (
     "glossy), no 3D shading, no photorealism."
 )
 EGYPTIAN_STYLE = (
-    "a bold minimal ancient Egyptian hieroglyph ICON style: the figure reduced to a "
-    "few large simple flat shapes with clean crisp vector edges and a strong black "
-    "silhouette, using only one or two small flat accent colors (e.g. gold or "
-    "turquoise) and nothing more — NO shading, NO gradients, NO fine detail, NO small "
-    "interior shapes, NO realism; extremely simplified and graphic like a single "
-    "carved glyph or pictogram, in composite profile (head and legs in side view, "
-    "torso and eye frontal), against a warm golden-ochre amber ground."
+    "authentic ancient Egyptian tomb-wall painting in vibrant polychrome, in the "
+    "manner of a Book-of-the-Dead illustration: bold clean black outlines and flat "
+    "unshaded fields of bright turquoise and azure blue, gold and yellow ochre, "
+    "terracotta brick-red and deep navy, with richly colored robes, blue-and-gold "
+    "striped nemes headdresses and broad jeweled wesekh collars; the figure in classic "
+    "composite profile (head and legs in side view, torso and eye frontal), ornate, "
+    "flat, decorative and hieratic; NO shading, NO gradients, NO photorealism."
 )
 # Suit-color maps to the two real vase techniques (drawn on transparent bg).
 GREEK_TECH = {
@@ -365,19 +365,17 @@ DECKS = {
             "clubs": ("trefoil club (clover)", "black"),
         },
         "frame": (
-            "A blank flat field of a single even warm golden-ochre amber color "
-            "(Egyptian ochre), one solid flat color filling the entire image, "
-            "absolutely no texture, no pattern, no gradient, no figures, no border, "
-            "no text. Portrait orientation."
+            "A blank sheet of warm cream Egyptian papyrus with a subtle fine fibrous "
+            "texture, evenly lit. Completely EMPTY: no figures, no symbols, no border, "
+            "no hieroglyphs, no text — just the plain cream papyrus filling the whole "
+            "image. Portrait orientation."
         ),
         "emblem_style": (
-            "a bold flat solid graphic silhouette style: a clean crisp solid shape, "
-            "high contrast, completely flat, no shading and no interior detail."
+            "a bold flat ancient-Egyptian decorative emblem style: a clean solid symbol "
+            "with a bold black outline and flat color, ornate but simple, no figures, "
+            "no scene."
         ),
-        "emblem_fill": (
-            "a single solid flat {color} silhouette with clean crisp edges, no "
-            "shading and no interior texture"
-        ),
+        "emblem_fill": "a solid flat {color} shape with a bold black outline",
         "iso_note": (
             "Render ONLY the figure's own solid silhouette shape — no rectangular "
             "panel, box, block, tablet or background field of any kind behind or "
@@ -391,14 +389,14 @@ DECKS = {
             "clubs": "golden pharaoh funerary mask in a striped nemes headdress",
         },
         "back": (
-            "A playing-card BACK in bold flat Egyptian hieroglyph style: a SINGLE "
-            "CENTERED medallion of a winged scarab beetle holding a sun disk, enclosed "
-            "in a thin circular band, in solid black on a plain warm golden-ochre amber "
-            "ground. High contrast, flat, no shading, no texture. The medallion sits in "
-            "the middle with a GENEROUS plain ochre margin all around it and empty "
-            "ochre ground extending to every edge. Portrait orientation. NO border "
-            "frame at the card edges, NO extra colors, NO text, NO numbers, NO letters, "
-            "NO pips."
+            "A playing-card BACK in vibrant polychrome ancient Egyptian tomb-painting "
+            "style: a SINGLE CENTERED medallion of a winged scarab beetle holding a "
+            "golden sun disk, enclosed in a thin circular band, richly colored in "
+            "turquoise-blue, gold, terracotta-red and navy with bold black outlines, on "
+            "a plain deep azure-blue ground. Flat and decorative. The medallion sits in "
+            "the middle with a GENEROUS plain blue margin all around it and empty blue "
+            "ground extending to every edge. Portrait orientation. NO border frame at "
+            "the card edges, NO text, NO numbers, NO letters, NO pips."
         ),
         "courts": {
             ("spades", "K"): "the god Osiris as a wrapped mummy with green skin, wearing the tall white Atef crown with two feathers, holding the crook and flail across his chest",

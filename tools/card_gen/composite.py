@@ -66,9 +66,9 @@ DECK_STYLES = {
         "ace_fit": (0.50, 0.44),
     },
     "egyptian": {
-        "border": ((44, 38, 30), (24, 20, 16)),  # near-black lines on ochre
-        "red": (150, 52, 38),   # deep terracotta index for red suits
-        "black": (34, 30, 26),  # near-black index
+        "border": ((36, 52, 104), (20, 32, 64)),  # Egyptian-blue keyline on cream papyrus
+        "red": (170, 52, 42),   # brick-red index for red suits
+        "black": (30, 38, 72),  # deep ink-navy index for black suits
         "ace_fit": (0.42, 0.42),
     },
     "roman": {

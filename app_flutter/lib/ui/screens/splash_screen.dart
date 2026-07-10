@@ -148,7 +148,21 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                           opacity: s.opacity.clamp(0.0, 1.0),
                           child: Transform.translate(
                             offset: Offset(0, s.dy),
-                            child: PlayingCardView(card: _cards[i], theme: theme, width: cardWidth),
+                            // A crisp hairline traces the card edge so dark
+                            // decks (Greek, Tarot…) still read against the black
+                            // splash — no glow. Foreground so it sits on the art.
+                            child: DecoratedBox(
+                              position: DecorationPosition.foreground,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(cardWidth * 0.06),
+                                border: Border.all(
+                                  color: Colors.white.withValues(alpha: 0.25),
+                                  width: 1,
+                                ),
+                              ),
+                              child: PlayingCardView(
+                                  card: _cards[i], theme: theme, width: cardWidth),
+                            ),
                           ),
                         ),
                       );
