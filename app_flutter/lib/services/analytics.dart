@@ -1,13 +1,23 @@
 import 'package:firebase_analytics/firebase_analytics.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
-/// Thin wrapper over Firebase Analytics for the growth funnel (shares, invites,
-/// referral rewards). Fire-and-forget: telemetry must never break a user flow,
-/// so every call swallows its errors.
+import 'analytics_gtag_stub.dart'
+    if (dart.library.js_interop) 'analytics_gtag_web.dart';
+
+/// Thin wrapper over analytics for the growth funnel (shares, invites, referral
+/// rewards). Fire-and-forget: telemetry must never break a user flow, so every
+/// call swallows its errors.
 class Analytics {
   static final FirebaseAnalytics _a = FirebaseAnalytics.instance;
 
   static void _log(String name, [Map<String, Object>? params]) {
-    _a.logEvent(name: name, parameters: params).catchError((_) {});
+    if (kIsWeb) {
+      // The firebase_analytics web plugin doesn't reliably deliver custom
+      // events; send them through the gtag.js loaded in index.html instead.
+      gtagEvent(name, params ?? const <String, Object>{});
+    } else {
+      _a.logEvent(name: name, parameters: params).catchError((_) {});
+    }
   }
 
   /// Forces analytics to initialize (loading gtag on web) and records an
@@ -30,6 +40,9 @@ class Analytics {
 
   /// The user tapped "Share invite" to send their referral code.
   static void inviteShared() => _log('invite_shared');
+
+  /// The user copied their referral code to the clipboard.
+  static void inviteCodeCopied() => _log('invite_code_copied');
 
   /// An invite code redemption was attempted. [outcome] is the enum name;
   /// [rewarded] is whether a card back was actually granted.

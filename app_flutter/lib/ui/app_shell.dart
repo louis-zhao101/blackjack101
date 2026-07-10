@@ -921,18 +921,31 @@ class _InviteFriendsSheetState extends ConsumerState<_InviteFriendsSheet> {
 
   void _copy(String code) {
     selectionHaptic();
+    Analytics.inviteCodeCopied();
     Clipboard.setData(ClipboardData(text: code));
     // The sheet covers a snackbar, so confirm the copy inline. It stays checked
     // for the life of the sheet (state resets when it's reopened).
     setState(() => _copied = true);
   }
 
-  void _share(String code) {
+  Future<void> _share(String code) async {
     final link = '$kAppShareUrl/?ref=$code';
+    final message = 'Learn blackjack strategy with me on Blackjack 101 🃏 '
+        'Use my invite code $code or tap $link';
     Analytics.inviteShared();
-    Share.share(
-        'Learn blackjack strategy with me on Blackjack 101 🃏 '
-        'Use my invite code $code or tap $link');
+    try {
+      await Share.share(message);
+    } catch (_) {
+      // Desktop browsers often lack the Web Share sheet — copy instead so the
+      // button always does something.
+      await Clipboard.setData(ClipboardData(text: message));
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        width: _snackWidth(context),
+        behavior: SnackBarBehavior.floating,
+        content: const Text('Invite link copied to clipboard'),
+      ));
+    }
   }
 
   void _showRedeem() {
