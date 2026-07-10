@@ -376,6 +376,12 @@ DECKS = {
             "no scene."
         ),
         "emblem_fill": "a solid flat {color} shape with a bold black outline",
+        "ace_style": (
+            "vibrant polychrome ancient Egyptian tomb-painting style: bold clean black "
+            "outlines and flat unshaded fields of bright turquoise and azure blue, gold "
+            "and yellow ochre, terracotta brick-red and deep navy; flat, ornate and "
+            "decorative; no shading, no gradients, no photorealism."
+        ),
         "iso_note": (
             "Render ONLY the figure's own solid silhouette shape — no rectangular "
             "panel, box, block, tablet or background field of any kind behind or "
@@ -392,11 +398,11 @@ DECKS = {
             "A playing-card BACK in vibrant polychrome ancient Egyptian tomb-painting "
             "style: a SINGLE CENTERED medallion of a winged scarab beetle holding a "
             "golden sun disk, enclosed in a thin circular band, richly colored in "
-            "turquoise-blue, gold, terracotta-red and navy with bold black outlines, on "
-            "a plain deep azure-blue ground. Flat and decorative. The medallion sits in "
-            "the middle with a GENEROUS plain blue margin all around it and empty blue "
-            "ground extending to every edge. Portrait orientation. NO border frame at "
-            "the card edges, NO text, NO numbers, NO letters, NO pips."
+            "turquoise-blue, gold and navy with bold black outlines, on a plain deep "
+            "warm terracotta red-ochre ground. Flat and decorative. The medallion sits "
+            "in the middle with a GENEROUS plain terracotta margin all around it and "
+            "empty terracotta ground extending to every edge. Portrait orientation. NO "
+            "border frame at the card edges, NO text, NO numbers, NO letters, NO pips."
         ),
         "courts": {
             ("spades", "K"): "the god Osiris as a wrapped mummy with green skin, wearing the tall white Atef crown with two feathers, holding the crook and flail across his chest",
@@ -646,12 +652,16 @@ def ace_prompt(deck, suit):
         body = f"One single {objects[suit]}, centered, symmetric and upright"
     else:
         body = d["ace"].format(emblem=emblem, color=color)
+    # A figure-describing style (e.g. Egyptian) can leak a spurious person next to
+    # an object ace, so an ace_style overrides it with a figure-free style.
+    style = d.get("ace_style", eff_style(deck, suit)) if objects else eff_style(deck, suit)
     return (
-        f"{body} In {eff_style(deck, suit)} The complete subject occupies only the central "
+        f"{body} In {style} The complete subject occupies only the central "
         f"~60% of the frame with generous empty margin on all sides — its top and "
-        f"bottom must NOT touch or be cropped by any edge. Isolated on a 100% "
-        f"transparent background, no washi paper or texture behind it. No card, no "
-        f"border, no text.{_iso(deck)}"
+        f"bottom must NOT touch or be cropped by any edge. It is JUST the single object "
+        f"alone — NO extra human figure, NO person, NO god, NO scene, nothing else. "
+        f"Isolated on a 100% transparent background, no washi paper or texture behind "
+        f"it. No card, no border, no text.{_iso(deck)}"
     )
 
 

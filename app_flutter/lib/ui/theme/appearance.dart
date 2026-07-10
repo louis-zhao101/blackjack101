@@ -342,7 +342,7 @@ const CardBack cardBackGreek = CardBack(
 const CardBack cardBackEgyptian = CardBack(
   id: 'back-egyptian',
   name: 'Egyptian',
-  color: Color(0xFFEEB23D),
+  color: Color(0xFFB83E14),
   pattern: CardBackPattern.solid,
   asset: 'assets/card_backs/egyptian_back.png',
 );
