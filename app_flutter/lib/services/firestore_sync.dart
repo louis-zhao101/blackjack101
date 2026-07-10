@@ -1,8 +1,12 @@
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../engine/stats.dart';
+
+/// Result of attempting to redeem an invite code.
+enum ReferralRedeemOutcome { success, invalid, ownCode, already, error }
 
 /// Cloud persistence on Firestore, replacing the Supabase `sync.ts` layer.
 ///
@@ -152,6 +156,108 @@ class FirestoreSync {
       SetOptions(merge: true),
     );
     await batch.commit();
+  }
+
+  // --- Referrals ----------------------------------------------------------
+
+  CollectionReference<Map<String, dynamic>> get _codesCol =>
+      _db.collection('referral_codes');
+  CollectionReference<Map<String, dynamic>> get _referralsCol =>
+      _db.collection('referrals');
+
+  // Unambiguous alphabet (no 0/O/1/I/L) for codes people read aloud/retype.
+  static const _codeAlphabet = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+
+  String _genCode([Random? rng]) {
+    final r = rng ?? Random();
+    return List.generate(6, (_) => _codeAlphabet[r.nextInt(_codeAlphabet.length)]).join();
+  }
+
+  /// Returns the user's referral code, generating and registering a unique one
+  /// on first call. Idempotent — later calls return the stored code.
+  Future<String> ensureReferralCode(String uid) async {
+    final existing = (await _userDoc(uid).get()).data()?['referralCode'] as String?;
+    if (existing != null && existing.isNotEmpty) return existing;
+
+    for (var attempt = 0; attempt < 6; attempt++) {
+      final code = _genCode();
+      final codeRef = _codesCol.doc(code);
+      if ((await codeRef.get()).exists) continue;
+      final batch = _db.batch();
+      batch.set(codeRef, {'uid': uid, 'createdAt': FieldValue.serverTimestamp()});
+      batch.set(
+        _userDoc(uid),
+        {'referralCode': code, 'updatedAt': FieldValue.serverTimestamp()},
+        SetOptions(merge: true),
+      );
+      await batch.commit();
+      return code;
+    }
+    throw StateError('Could not allocate a referral code');
+  }
+
+  /// Records that [refereeUid] was referred via [rawCode], setting their
+  /// `referredBy` and writing a referral record the referrer can count. Enforces
+  /// the code exists, isn't the user's own, and hasn't already been redeemed.
+  Future<ReferralRedeemOutcome> redeemReferral(String refereeUid, String rawCode) async {
+    final code = rawCode.trim().toUpperCase();
+    if (code.isEmpty) return ReferralRedeemOutcome.invalid;
+    try {
+      final referrer = (await _codesCol.doc(code).get()).data()?['uid'] as String?;
+      if (referrer == null) return ReferralRedeemOutcome.invalid;
+      if (referrer == refereeUid) return ReferralRedeemOutcome.ownCode;
+
+      final already = (await _userDoc(refereeUid).get()).data()?['referredBy'] as String?;
+      if (already != null) return ReferralRedeemOutcome.already;
+
+      final batch = _db.batch();
+      batch.set(
+        _userDoc(refereeUid),
+        {'referredBy': referrer, 'updatedAt': FieldValue.serverTimestamp()},
+        SetOptions(merge: true),
+      );
+      batch.set(_referralsCol.doc(refereeUid), {
+        'referrer': referrer,
+        'code': code,
+        'at': FieldValue.serverTimestamp(),
+      });
+      await batch.commit();
+      return ReferralRedeemOutcome.success;
+    } catch (_) {
+      return ReferralRedeemOutcome.error;
+    }
+  }
+
+  /// How many people have redeemed [uid]'s code.
+  Future<int> countReferrals(String uid) async {
+    final agg = await _referralsCol.where('referrer', isEqualTo: uid).count().get();
+    return agg.count ?? 0;
+  }
+
+  /// One-shot fetch of everything the Invite Friends UI needs: the user's own
+  /// code, who (if anyone) referred them, how many they've referred, and whether
+  /// their referrer reward has already been claimed (so it's granted only once).
+  Future<({String code, String? referredBy, int referralCount, bool referrerRewarded})>
+      loadReferralInfo(String uid) async {
+    final code = await ensureReferralCode(uid);
+    final data = (await _userDoc(uid).get()).data() ?? const <String, dynamic>{};
+    final count = await countReferrals(uid);
+    return (
+      code: code,
+      referredBy: data['referredBy'] as String?,
+      referralCount: count,
+      referrerRewarded: (data['referrerRewarded'] as bool?) ?? false,
+    );
+  }
+
+  /// Marks the referrer reward as claimed so it is never granted twice, even
+  /// across devices (the reward is "the next card back you don't own", so
+  /// re-granting would hand out a new back on every launch).
+  Future<void> markReferrerRewarded(String uid) {
+    return _userDoc(uid).set(
+      {'referrerRewarded': true, 'updatedAt': FieldValue.serverTimestamp()},
+      SetOptions(merge: true),
+    );
   }
 
   /// Permanently removes the user's profile and all their sessions.

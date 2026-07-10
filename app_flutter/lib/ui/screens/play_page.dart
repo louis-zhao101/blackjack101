@@ -639,7 +639,9 @@ class _DealFlourishState extends State<_DealFlourish> with TickerProviderStateMi
 
   @override
   Widget build(BuildContext context) {
-    final screenW = MediaQuery.of(context).size.width;
+    // Cap the fly-off distance so it's a short flourish that fades out in place,
+    // not a card streaking the full width of a wide (desktop web) window.
+    final travel = MediaQuery.of(context).size.width.clamp(0.0, 340.0);
     return IgnorePointer(
       child: Stack(
         clipBehavior: Clip.none,
@@ -652,11 +654,13 @@ class _DealFlourishState extends State<_DealFlourish> with TickerProviderStateMi
               builder: (context, _) {
                 final e = Curves.easeIn.transform(c.value);
                 return Transform.translate(
-                  offset: Offset(-e * screenW, -e * widget.width * 0.25),
+                  offset: Offset(-e * travel, -e * widget.width * 0.25),
                   child: Transform.rotate(
                     angle: -0.25 - e * 0.6,
                     child: Opacity(
-                      opacity: (1 - e).clamp(0.0, 1.0),
+                      // Stay fully visible through most of the flight, then fade
+                      // out quickly over the last stretch.
+                      opacity: 1 - ((e - 0.7) / 0.25).clamp(0.0, 1.0),
                       child: PlayingCardView(
                         card: const bj.Card(rank: 'A', suit: '♠', faceDown: true),
                         theme: widget.theme,
@@ -855,7 +859,7 @@ class _BetPanel extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Wrap(
-          spacing: 12,
+          spacing: 6,
           children: [
             for (final d in _chipDenoms)
               ChipWidget(

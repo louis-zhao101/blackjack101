@@ -8,6 +8,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'firebase_options.dart';
+import 'services/analytics.dart';
+import 'services/local_store.dart';
 import 'services/purchases_service.dart';
 import 'state/achievements_provider.dart';
 import 'state/app_providers.dart';
@@ -15,16 +17,21 @@ import 'state/appearance_provider.dart';
 import 'state/auth_provider.dart';
 import 'state/game_provider.dart';
 import 'state/learn_provider.dart';
+import 'state/referral_provider.dart';
 import 'state/stats_provider.dart';
 import 'state/store_provider.dart';
 import 'ui/app_shell.dart';
 import 'ui/screens/onboarding_page.dart';
 import 'ui/screens/splash_screen.dart';
+import 'ui/screens/web_landing_page.dart';
 import 'ui/theme/appearance.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  // Kick analytics awake so a session registers on open (loads gtag on web) —
+  // otherwise it only initializes lazily when the first event is logged.
+  Analytics.appOpen();
   await PurchasesService.configure();
   // Android emulators have no Play Integrity, so in debug let configured test
   // numbers bypass verification. iOS uses the reCAPTCHA fallback instead (the
@@ -38,6 +45,14 @@ Future<void> main() async {
     await FirebaseAuth.instance.useAuthEmulator('localhost', 9099);
   }
   final prefs = await SharedPreferences.getInstance();
+  // A ?ref=CODE link (web) stashes the code so it can be redeemed once the
+  // visitor signs in. Cleared after a successful/definitive redemption.
+  if (kIsWeb) {
+    final ref = Uri.base.queryParameters['ref'];
+    if (ref != null && ref.trim().isNotEmpty) {
+      await LocalStore(prefs).savePendingReferral(ref.trim().toUpperCase());
+    }
+  }
   runApp(
     ProviderScope(
       overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
@@ -139,7 +154,10 @@ class AuthGate extends ConsumerWidget {
     // cards off once the first data load has finished, and only then flips
     // splashDone. Cross-fade whatever comes next so the reveal isn't a hard cut.
     final Widget child;
-    if (!ref.watch(splashDoneProvider)) {
+    if (!ref.watch(landingSeenProvider)) {
+      // Web-only marketing page; `landingSeenProvider` is always true on mobile.
+      child = const WebLandingPage();
+    } else if (!ref.watch(splashDoneProvider)) {
       child = const SplashScreen();
     } else if (!ref.watch(onboardingSeenProvider)) {
       child = const OnboardingPage();
@@ -171,6 +189,18 @@ class AuthGate extends ConsumerWidget {
   }
 
   Future<void> _loadUserIntoApp(WidgetRef ref, String uid) async {
+    // Reconciling cloud stats re-derives every already-earned achievement; keep
+    // that silent so a fresh device doesn't fire a storm of "unlocked" toasts.
+    // Only badges earned during live play (after this window) celebrate.
+    ref.read(achievementsProvider.notifier).beginSilentSync();
+    try {
+      await _loadUserData(ref, uid);
+    } finally {
+      ref.read(achievementsProvider.notifier).endSilentSync();
+    }
+  }
+
+  Future<void> _loadUserData(WidgetRef ref, String uid) async {
     await PurchasesService.logIn(uid);
     ref.read(proStatusProvider.notifier).refresh();
     final data = await ref.read(firestoreSyncProvider).loadUserData(uid);
@@ -257,5 +287,9 @@ class AuthGate extends ConsumerWidget {
     }
 
     ref.read(achievementsProvider.notifier).evaluate();
+
+    // Load the user's referral code / count, grant any earned referrer reward,
+    // and redeem a pending ?ref= code now that they're signed in.
+    ref.read(referralProvider.notifier).refresh();
   }
 }

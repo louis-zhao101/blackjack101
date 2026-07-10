@@ -21,8 +21,10 @@ class LocalStore {
   static const _achievementsKey = 'bj101-achievements';
   static const _drillStatsKey = 'bj101-drill-stats';
   static const _onboardedKey = 'bj101-onboarded';
+  static const _landingSeenKey = 'bj101-landing-seen';
   static const _reviewRequestedKey = 'bj101-review-requested';
   static const _deviceIdKey = 'bj101-device-id';
+  static const _pendingReferralKey = 'bj101-pending-referral';
 
   final SharedPreferences _prefs;
   LocalStore(this._prefs);
@@ -44,6 +46,21 @@ class LocalStore {
   bool loadOnboarded() => _prefs.getBool(_onboardedKey) ?? false;
 
   Future<void> saveOnboarded(bool value) => _prefs.setBool(_onboardedKey, value);
+
+  // --- web marketing landing (whether the visitor has entered the app) ---
+
+  bool loadLandingSeen() => _prefs.getBool(_landingSeenKey) ?? false;
+
+  Future<void> saveLandingSeen(bool value) => _prefs.setBool(_landingSeenKey, value);
+
+  // --- pending invite code (captured from a ?ref= link before sign-in) ---
+
+  String? loadPendingReferral() => _prefs.getString(_pendingReferralKey);
+
+  Future<void> savePendingReferral(String code) =>
+      _prefs.setString(_pendingReferralKey, code);
+
+  Future<void> clearPendingReferral() => _prefs.remove(_pendingReferralKey);
 
   // --- app-store review nudge (whether we've asked in-app already) ---
 

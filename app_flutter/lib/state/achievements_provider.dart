@@ -77,9 +77,20 @@ class AchievementsController extends Notifier<Set<String>> {
   @override
   Set<String> build() => ref.read(localStoreProvider).loadAchievementIds();
 
+  /// While true, [evaluate] still records newly-earned achievements but skips
+  /// the celebration toast. The login flow wraps its cloud reconcile in this so
+  /// restored progress on a fresh device doesn't fire a storm of "unlocked"
+  /// toasts — only badges earned during live play celebrate.
+  bool _silent = false;
+  void beginSilentSync() => _silent = true;
+  void endSilentSync() => _silent = false;
+
   /// Recomputes achievements from the latest stats and unlocks any newly earned.
   /// Cheap and idempotent — call it after every hand, lesson, or cloud load.
+  /// No-ops for guests: you must be signed in to earn (and sync) badges, so
+  /// they can't be farmed before an account exists. Re-runs right after sign-in.
   void evaluate() {
+    if (ref.read(authServiceProvider).currentUser == null) return;
     final earned = evaluateAchievements(_snapshot(ref))
         .where((s) => s.unlocked)
         .map((s) => s.achievement.id)
@@ -88,6 +99,7 @@ class AchievementsController extends Notifier<Set<String>> {
     if (fresh.isEmpty) return;
     state = {...state, ...fresh};
     _persist();
+    if (_silent) return;
     final unlocked = kAchievements.where((a) => fresh.contains(a.id)).toList();
     ref.read(achievementCelebrationProvider.notifier).push(unlocked);
   }

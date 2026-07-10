@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:in_app_review/in_app_review.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../engine/stats.dart';
 import '../services/firestore_sync.dart';
@@ -177,6 +178,50 @@ class OnboardingController extends Notifier<bool> {
 final onboardingSeenProvider =
     NotifierProvider<OnboardingController, bool>(OnboardingController.new);
 
+/// Whether the visitor has stepped past the web marketing landing page into the
+/// app. Web-only: on mobile there's no landing page, so it's always "seen" and
+/// never gates. Persisted so a returning web visitor boots straight into play.
+class LandingController extends Notifier<bool> {
+  @override
+  bool build() =>
+      !kIsWeb || ref.read(localStoreProvider).loadLandingSeen();
+
+  void enter() {
+    if (state) return;
+    state = true;
+    ref.read(localStoreProvider).saveLandingSeen(true);
+  }
+
+  /// Return to the landing page from inside the app (web only). Re-showing it
+  /// doesn't replay the splash or onboarding — those flags stay set — so
+  /// tapping "Play" again drops straight back into the game.
+  void exit() {
+    state = false;
+    ref.read(localStoreProvider).saveLandingSeen(false);
+  }
+}
+
+final landingSeenProvider =
+    NotifierProvider<LandingController, bool>(LandingController.new);
+
+/// Canonical hosted address of the privacy policy, used for the in-app link on
+/// native platforms (where there's no same-origin `/privacy.html` to resolve).
+// Firebase Hosting subdomain; swap to a custom domain here when one is added.
+const String kPrivacyPolicyUrl = 'https://blackjack101-app.web.app/privacy.html';
+
+/// Public URL included in shared result cards / invites so recipients can open
+/// the (instantly playable) web app.
+// Firebase Hosting subdomain; swap to a custom domain here when one is added.
+const String kAppShareUrl = 'https://blackjack101-app.web.app';
+
+/// Opens the privacy policy. On web the page ships alongside the app at the same
+/// origin, so a relative path resolves; on mobile it opens the hosted copy.
+Future<void> openPrivacyPolicy() async {
+  final target = kIsWeb ? '/privacy.html' : kPrivacyPolicyUrl;
+  await launchUrl(Uri.base.resolve(target),
+      webOnlyWindowName: '_self', mode: LaunchMode.externalApplication);
+}
+
 /// True once startup work is done — the initial Firebase load finished, or the
 /// user is a guest with nothing to load. The splash watches this to know when it
 /// may begin its exit; visual timing (minimum deal cycles) is owned by the
@@ -241,3 +286,35 @@ class ReviewController extends Notifier<bool> {
 
 final reviewPromptProvider =
     NotifierProvider<ReviewController, bool>(ReviewController.new);
+
+/// A one-shot nudge to share a result, raised at a positive moment (a strong
+/// session, a hot streak). The app shell listens and surfaces a snackbar with a
+/// "Share" action; [carries] the numbers a results card needs so the shell
+/// doesn't have to recompute them. Kept separate from the achievement toast,
+/// which shares the specific badge instead.
+class ShareInvite {
+  final String message;
+  final int accuracy;
+  final int totalHands;
+  final int bestStreak;
+  const ShareInvite({
+    required this.message,
+    required this.accuracy,
+    required this.totalHands,
+    required this.bestStreak,
+  });
+}
+
+class ShareInviteController extends Notifier<ShareInvite?> {
+  @override
+  ShareInvite? build() => null;
+
+  void push(ShareInvite invite) => state = invite;
+
+  void consume() {
+    if (state != null) state = null;
+  }
+}
+
+final shareInviteProvider =
+    NotifierProvider<ShareInviteController, ShareInvite?>(ShareInviteController.new);

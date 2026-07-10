@@ -61,6 +61,28 @@ class StatsController extends Notifier<StatsState> {
     final updated = recordHand(current, record);
     _set(state.copyWith(currentSession: updated));
     _syncSession(updated);
+    _maybeInviteStreakShare(updated);
+  }
+
+  static const _streakMilestones = {10, 25, 50, 100};
+
+  /// A run of correct decisions crossing a milestone is a hype moment — invite
+  /// the player to share it. Fires only when the trailing streak lands exactly
+  /// on a milestone, so it triggers once per crossing rather than every hand.
+  void _maybeInviteStreakShare(Session session) {
+    var streak = 0;
+    for (var i = session.hands.length - 1; i >= 0; i--) {
+      if (!session.hands[i].wasCorrect) break;
+      streak++;
+    }
+    if (!_streakMilestones.contains(streak)) return;
+    final s = summarizeSession(session);
+    ref.read(shareInviteProvider.notifier).push(ShareInvite(
+          message: '🔥 $streak correct decisions in a row!',
+          accuracy: s.correctPct.round(),
+          totalHands: s.handsPlayed,
+          bestStreak: streak,
+        ));
   }
 
   void finishSession(int endBankroll) {
@@ -78,6 +100,7 @@ class StatsController extends Notifier<StatsState> {
     ));
     _syncSession(finished);
     _maybeAskForReview(finished);
+    _maybeInviteSessionShare(finished);
   }
 
   /// A well-played, profitable session is a genuine feel-good moment — a good
@@ -86,6 +109,20 @@ class StatsController extends Notifier<StatsState> {
     final s = summarizeSession(session);
     if (s.handsPlayed >= 10 && s.correctPct >= 80 && s.profitLoss >= 0) {
       ref.read(reviewPromptProvider.notifier).maybePrompt();
+    }
+  }
+
+  /// A strong finished session is worth showing off — raise a share invite the
+  /// shell can surface. Bar is a notch above the review bar so it stays special.
+  void _maybeInviteSessionShare(Session session) {
+    final s = summarizeSession(session);
+    if (s.handsPlayed >= 15 && s.correctPct >= 85) {
+      ref.read(shareInviteProvider.notifier).push(ShareInvite(
+            message: 'Great session — ${s.correctPct.round()}% strategy accuracy!',
+            accuracy: s.correctPct.round(),
+            totalHands: s.handsPlayed,
+            bestStreak: computeLongestStreak(session.hands),
+          ));
     }
   }
 

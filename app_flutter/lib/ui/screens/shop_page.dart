@@ -8,6 +8,7 @@ import '../../services/purchases_service.dart';
 import '../../state/appearance_provider.dart';
 import '../../state/auth_provider.dart';
 import '../../state/store_provider.dart';
+import '../app_shell.dart' show InviteFriendsBanner;
 import '../theme/appearance.dart';
 import '../widgets/chip_widget.dart';
 import '../widgets/game_button.dart';
@@ -189,14 +190,16 @@ class _GoProScreenState extends ConsumerState<GoProScreen> {
     final theme = ref.watch(appearanceProvider);
     final isPremium = ref.watch(entitlementsProvider).isPremium;
     final packages = _offering == null ? const <Package>[] : _ordered(_offering!);
+    final bottomInset = MediaQuery.of(context).padding.bottom;
 
     return Scaffold(
       backgroundColor: theme.feltDark,
       appBar: _shopAppBar(theme, isPremium ? 'Pro' : 'Go Pro'),
       body: SafeArea(
         top: false,
+        bottom: false,
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 40),
+          padding: EdgeInsets.fromLTRB(16, 8, 16, 40 + bottomInset),
           children: [
             if (isPremium)
               _ProActiveCard(theme: theme)
@@ -444,18 +447,22 @@ class _ShopScreenState extends ConsumerState<ShopScreen> {
   Widget build(BuildContext context) {
     final theme = ref.watch(appearanceProvider);
     final ent = ref.watch(entitlementsProvider);
+    final bottomInset = MediaQuery.of(context).padding.bottom;
 
     return Scaffold(
       backgroundColor: theme.feltDark,
       appBar: _shopAppBar(theme, 'Shop'),
       body: SafeArea(
         top: false,
+        bottom: false,
         child: Stack(
           children: [
             ListView(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 48),
+              padding: EdgeInsets.fromLTRB(16, 8, 16, 48 + bottomInset),
               children: [
                 _GoProBanner(theme: theme, isPremium: ent.isPremium),
+                const SizedBox(height: 12),
+                const InviteFriendsBanner(),
                 _BundlesSection(theme: theme),
                 const SizedBox(height: 18),
                 AppSegmentedTabs(
@@ -480,7 +487,7 @@ class _ShopScreenState extends ConsumerState<ShopScreen> {
             ),
             Positioned(
               right: 8,
-              bottom: 6,
+              bottom: 6 + bottomInset,
               child: TextButton.icon(
                 onPressed: ent.busy ? null : () => _restore(context, ref),
                 icon: const Icon(Icons.restore, size: 15),

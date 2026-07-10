@@ -31,6 +31,17 @@
 
   <title>blackjack101</title>
   <link rel="manifest" href="manifest.json">
+
+  <!-- Google Analytics (GA4). Loaded directly so web page-views/active-users
+       register on load; the Flutter firebase_analytics plugin reuses this gtag
+       for custom events. Measurement ID matches firebase_options.dart (web). -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-JJMKNYF9Y2"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-JJMKNYF9Y2');
+  </script>
 </head>
 <body>
   <!--

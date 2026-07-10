@@ -53,6 +53,7 @@ class DefaultFirebaseOptions {
     projectId: 'blackjack101-app',
     authDomain: 'blackjack101-app.firebaseapp.com',
     storageBucket: 'blackjack101-app.firebasestorage.app',
+    measurementId: 'G-JJMKNYF9Y2',
   );
 
   static const FirebaseOptions android = FirebaseOptions(

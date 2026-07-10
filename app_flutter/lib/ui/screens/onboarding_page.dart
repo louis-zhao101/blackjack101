@@ -10,6 +10,7 @@ import '../../engine/cards.dart' as bj;
 import '../../services/sound_service.dart';
 import '../../state/app_providers.dart';
 import '../../state/appearance_provider.dart';
+import '../../state/referral_provider.dart';
 import '../theme/appearance.dart';
 import '../widgets/blackjack_hand.dart';
 import '../widgets/game_button.dart';
@@ -73,6 +74,45 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
     ref.read(onboardingSeenProvider.notifier).complete();
   }
 
+  /// Lets a new player (still a guest here) enter a friend's invite code. It's
+  /// stashed as pending and redeemed automatically once they sign in — the same
+  /// path a web ?ref= link takes.
+  void _showInviteCodeEntry() {
+    final ctrl = TextEditingController();
+    showDialog<void>(
+      context: context,
+      builder: (dctx) => AlertDialog(
+        title: const Text('Enter invite code'),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          textCapitalization: TextCapitalization.characters,
+          decoration: const InputDecoration(hintText: 'e.g. AB3K9P'),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(dctx), child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () async {
+              final code = ctrl.text.trim().toUpperCase();
+              Navigator.pop(dctx);
+              if (code.isEmpty) return;
+              await ref.read(localStoreProvider).savePendingReferral(code);
+              // Redeems now if already signed in; otherwise waits for sign-in.
+              ref.read(referralProvider.notifier).refresh();
+              if (!mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                content: Text(
+                    "Invite code saved — your reward unlocks when you sign in."),
+              ));
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _hit() {
     if (_player.length > 2) return; // one hit only
     SoundService.instance.cardDeal();
@@ -112,24 +152,45 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
       body: DecoratedBox(
         decoration: BoxDecoration(gradient: theme.feltGradient),
         child: SafeArea(
-          child: Column(
-            children: [
-              const SizedBox(height: 16),
-              Expanded(
-                child: PageView.builder(
-                  controller: _controller,
-                  physics: const NeverScrollableScrollPhysics(),
-                  onPageChanged: (i) => setState(() => _index = i),
-                  itemCount: _pages.length,
-                  itemBuilder: (context, i) => _pageBody(_pages[i], theme),
-                ),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 480),
+              child: Column(
+                children: [
+                  const SizedBox(height: 16),
+                  Expanded(
+                    child: PageView.builder(
+                      controller: _controller,
+                      physics: const NeverScrollableScrollPhysics(),
+                      onPageChanged: (i) => setState(() => _index = i),
+                      itemCount: _pages.length,
+                      itemBuilder: (context, i) => _pageBody(_pages[i], theme),
+                    ),
+                  ),
+                  _Dots(count: _pages.length, index: _index, theme: theme),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
+                    child: SizedBox(
+                      width: double.infinity,
+                      height: 52,
+                      child: _cta(theme),
+                    ),
+                  ),
+                  if (_page != _Page.review)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: TextButton(
+                        onPressed: _showInviteCodeEntry,
+                        child: const Text('Have an invite code?',
+                            style: TextStyle(
+                                color: AppTokens.textSecondary, fontSize: 13)),
+                      ),
+                    )
+                  else
+                    const SizedBox(height: 20),
+                ],
               ),
-              _Dots(count: _pages.length, index: _index, theme: theme),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(24, 24, 24, 28),
-                child: SizedBox(width: double.infinity, height: 52, child: _cta(theme)),
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -137,11 +198,15 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
   }
 
   Widget _pageBody(_Page page, AppearanceTheme theme) => switch (page) {
-        _Page.playHand => _PlayHandView(
-            player: _player, dealer: _dealer, won: _won, theme: theme),
-        _Page.stats => _StatsPreviewView(theme: theme),
-        _Page.review => const _ReviewView(),
-      };
+    _Page.playHand => _PlayHandView(
+      player: _player,
+      dealer: _dealer,
+      won: _won,
+      theme: theme,
+    ),
+    _Page.stats => _StatsPreviewView(theme: theme),
+    _Page.review => const _ReviewView(),
+  };
 
   Widget _cta(AppearanceTheme theme) {
     String label;
@@ -173,7 +238,10 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
           leading = SizedBox(
             width: 16,
             height: 16,
-            child: CircularProgressIndicator(strokeWidth: 2, color: theme.feltDark),
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: theme.feltDark,
+            ),
           );
         }
     }
@@ -184,7 +252,9 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
         foregroundColor: theme.feltDark,
         disabledBackgroundColor: theme.gold.withValues(alpha: 0.5),
         disabledForegroundColor: theme.feltDark,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTokens.radiusLg)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppTokens.radiusLg),
+        ),
       ),
       onPressed: onPressed == null ? null : withHaptic(onPressed),
       child: AnimatedSwitcher(
@@ -194,7 +264,10 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (leading != null) ...[leading, const SizedBox(width: 10)],
-            Text(label, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+            Text(
+              label,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+            ),
           ],
         ),
       ),
@@ -208,8 +281,12 @@ class _PlayHandView extends StatelessWidget {
   final List<bj.Card> dealer;
   final bool won;
   final AppearanceTheme theme;
-  const _PlayHandView(
-      {required this.player, required this.dealer, required this.won, required this.theme});
+  const _PlayHandView({
+    required this.player,
+    required this.dealer,
+    required this.won,
+    required this.theme,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -235,13 +312,23 @@ class _PlayHandView extends StatelessWidget {
             child: AnimatedSwitcher(
               duration: const Duration(milliseconds: 300),
               child: won
-                  ? Text('Twenty-one — you win!',
+                  ? Text(
+                      'Twenty-one — you win!',
                       key: const ValueKey('win'),
                       style: TextStyle(
-                          color: theme.goldLight, fontSize: 20, fontWeight: FontWeight.bold))
-                  : const Text('You have 15. Your move — tap Hit.',
+                        color: theme.goldLight,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    )
+                  : const Text(
+                      'You have 15. Your move — tap Hit.',
                       key: ValueKey('prompt'),
-                      style: TextStyle(color: AppTokens.textSecondary, fontSize: 14)),
+                      style: TextStyle(
+                        color: AppTokens.textSecondary,
+                        fontSize: 14,
+                      ),
+                    ),
             ),
           ),
           const SizedBox(height: 22),
@@ -253,9 +340,14 @@ class _PlayHandView extends StatelessWidget {
     );
   }
 
-  Widget _label(String text) => Text(text,
-      style: const TextStyle(
-          color: AppTokens.textSecondary, fontSize: 12, letterSpacing: 1.5));
+  Widget _label(String text) => Text(
+    text,
+    style: const TextStyle(
+      color: AppTokens.textSecondary,
+      fontSize: 12,
+      letterSpacing: 1.5,
+    ),
+  );
 }
 
 /// Page 2 — a taste of what the app tracks.
@@ -270,13 +362,16 @@ class _StatsPreviewView extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Text('Track every decision',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                  color: AppTokens.textPrimary,
-                  fontSize: 24,
-                  fontWeight: FontWeight.w800,
-                  height: 1.15)),
+          const Text(
+            'Track every decision',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: AppTokens.textPrimary,
+              fontSize: 24,
+              fontWeight: FontWeight.w800,
+              height: 1.15,
+            ),
+          ),
           const SizedBox(height: 28),
           Container(
             padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
@@ -287,18 +382,36 @@ class _StatsPreviewView extends StatelessWidget {
             ),
             child: Column(
               children: [
-                const Text('87%',
-                    style: TextStyle(
-                        color: Color(0xFF6EE7B7), fontSize: 52, fontWeight: FontWeight.w800)),
-                const Text('STRATEGY ACCURACY',
-                    style: TextStyle(
-                        color: AppTokens.textSecondary, fontSize: 11, letterSpacing: 2)),
+                const Text(
+                  '87%',
+                  style: TextStyle(
+                    color: Color(0xFF6EE7B7),
+                    fontSize: 52,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const Text(
+                  'STRATEGY ACCURACY',
+                  style: TextStyle(
+                    color: AppTokens.textSecondary,
+                    fontSize: 11,
+                    letterSpacing: 2,
+                  ),
+                ),
                 const SizedBox(height: 20),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    for (final h in const [12.0, 16.0, 13.0, 20.0, 24.0, 22.0, 30.0])
+                    for (final h in const [
+                      12.0,
+                      16.0,
+                      13.0,
+                      20.0,
+                      24.0,
+                      22.0,
+                      30.0,
+                    ])
                       Container(
                         width: 9,
                         height: h,
@@ -311,8 +424,13 @@ class _StatsPreviewView extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 6),
-                const Text('last 7 sessions',
-                    style: TextStyle(color: AppTokens.textSecondary, fontSize: 10)),
+                const Text(
+                  'last 7 sessions',
+                  style: TextStyle(
+                    color: AppTokens.textSecondary,
+                    fontSize: 10,
+                  ),
+                ),
               ],
             ),
           ),
@@ -321,7 +439,11 @@ class _StatsPreviewView extends StatelessWidget {
             'Every play is graded against basic strategy. Watch your accuracy '
             'climb, session over session — and earn badges as you go.',
             textAlign: TextAlign.center,
-            style: TextStyle(color: AppTokens.textSecondary, fontSize: 15, height: 1.5),
+            style: TextStyle(
+              color: AppTokens.textSecondary,
+              fontSize: 15,
+              height: 1.5,
+            ),
           ),
         ],
       ),
@@ -347,25 +469,35 @@ class _ReviewView extends ConsumerWidget {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: theme.gold.withValues(alpha: 0.14),
-              border: Border.all(color: theme.gold.withValues(alpha: 0.5), width: 1.5),
+              border: Border.all(
+                color: theme.gold.withValues(alpha: 0.5),
+                width: 1.5,
+              ),
             ),
             child: Icon(Icons.favorite, size: 60, color: theme.goldLight),
           ),
           const SizedBox(height: 40),
-          const Text("We're a small team",
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                  color: AppTokens.textPrimary,
-                  fontSize: 26,
-                  fontWeight: FontWeight.w800,
-                  height: 1.15)),
+          const Text(
+            "We're a small team",
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: AppTokens.textPrimary,
+              fontSize: 26,
+              fontWeight: FontWeight.w800,
+              height: 1.15,
+            ),
+          ),
           const SizedBox(height: 16),
           const Text(
             'Blackjack 101 is built by a tiny group of developers. If it helps '
             'your game, a quick review would mean the world — and helps others '
             'find us.',
             textAlign: TextAlign.center,
-            style: TextStyle(color: AppTokens.textSecondary, fontSize: 16, height: 1.5),
+            style: TextStyle(
+              color: AppTokens.textSecondary,
+              fontSize: 16,
+              height: 1.5,
+            ),
           ),
         ],
       ),
@@ -392,7 +524,9 @@ class _Dots extends StatelessWidget {
             width: i == index ? 22 : 8,
             height: 8,
             decoration: BoxDecoration(
-              color: i == index ? theme.gold : AppTokens.textSecondary.withValues(alpha: 0.35),
+              color: i == index
+                  ? theme.gold
+                  : AppTokens.textSecondary.withValues(alpha: 0.35),
               borderRadius: BorderRadius.circular(4),
             ),
           ),

@@ -9,5 +9,30 @@ service cloud.firestore {
         allow read, write: if request.auth != null && request.auth.uid == uid;
       }
     }
+
+    // Referral code registry: code -> owning uid. Any signed-in user may read a
+    // code to look up its owner when redeeming. A user may only create the code
+    // document for their own uid, and codes are immutable once claimed.
+    match /referral_codes/{code} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+                    && request.resource.data.uid == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // Redemption records, one per referee (doc id == referee uid). The referee
+    // creates their own record pointing at the referrer (never themselves); the
+    // referrer reads records that name them to count/grant their reward. Records
+    // are immutable — a referee can be referred by at most one person.
+    match /referrals/{refereeUid} {
+      allow read: if request.auth != null
+                  && (resource.data.referrer == request.auth.uid
+                      || request.auth.uid == refereeUid);
+      allow create: if request.auth != null
+                    && request.auth.uid == refereeUid
+                    && request.resource.data.referrer is string
+                    && request.resource.data.referrer != refereeUid;
+      allow update, delete: if false;
+    }
   }
 }

@@ -1,14 +1,20 @@
 import 'dart:math' show pi;
+import 'dart:typed_data';
 import 'dart:ui' show ImageFilter;
+import 'dart:ui' as ui;
 
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show RenderRepaintBoundary;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../engine/achievements.dart';
 import '../../engine/stats.dart';
+import '../../services/analytics.dart';
 import '../../engine/strategy.dart' as st;
 import '../../state/achievements_provider.dart';
+import '../../state/app_providers.dart';
 import '../../state/appearance_provider.dart';
 import '../../state/auth_provider.dart';
 import '../../state/stats_provider.dart';
@@ -101,6 +107,22 @@ class StatsPage extends ConsumerWidget {
       children: [
         _Section(
           title: 'Overview',
+          trailing: totalHands > 0
+              ? IconButton(
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  tooltip: 'Share your results',
+                  icon: Icon(Icons.ios_share, size: 19, color: theme.gold),
+                  onPressed: () => showResultShareCard(
+                    context,
+                    theme: theme,
+                    accuracy: overallAccuracy,
+                    totalHands: totalHands,
+                    bestStreak: bestStreak,
+                  ),
+                )
+              : null,
           children: [
             _StatRow(icon: Icons.style_outlined, label: 'Total hands', value: '$totalHands'),
             _StatRow(
@@ -479,7 +501,7 @@ class _AchievementsSectionState extends ConsumerState<_AchievementsSection> {
                     style: const TextStyle(
                         color: AppTokens.textSecondary, fontSize: 14, height: 1.4)),
                 const SizedBox(height: 18),
-                if (s.unlocked)
+                if (s.unlocked) ...[
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -489,8 +511,20 @@ class _AchievementsSectionState extends ConsumerState<_AchievementsSection> {
                           style: TextStyle(
                               color: _good, fontSize: 14, fontWeight: FontWeight.bold)),
                     ],
-                  )
-                else ...[
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        showAchievementShareCard(context,
+                            theme: theme, achievement: s.achievement);
+                      },
+                      child: const Text('Share'),
+                    ),
+                  ),
+                ] else ...[
                   ClipRRect(
                     borderRadius: BorderRadius.circular(4),
                     child: LinearProgressIndicator(
@@ -1197,6 +1231,311 @@ class _MistakesChart extends StatelessWidget {
                 ),
               ),
             ]),
+        ],
+      ),
+    );
+  }
+}
+
+// --- Result sharing -------------------------------------------------------
+
+/// Opens a preview of a branded, shareable results image. The card is rendered
+/// on screen inside a [RepaintBoundary] so "Share image" can capture it to a PNG
+/// and hand it to the OS share sheet — carrying the wordmark + app URL to
+/// wherever the user posts it.
+void showResultShareCard(
+  BuildContext context, {
+  required AppearanceTheme theme,
+  required int accuracy,
+  required int totalHands,
+  required int bestStreak,
+}) {
+  _openShareSheet(
+    context,
+    theme: theme,
+    type: 'result',
+    card: _ShareResultCard(
+        theme: theme, accuracy: accuracy, totalHands: totalHands, bestStreak: bestStreak),
+    caption: "I'm playing $accuracy% perfect blackjack strategy over "
+        "$totalHands hands on Blackjack 101 🃏 Try it free: $kAppShareUrl",
+  );
+}
+
+void showAchievementShareCard(
+  BuildContext context, {
+  required AppearanceTheme theme,
+  required Achievement achievement,
+}) {
+  _openShareSheet(
+    context,
+    theme: theme,
+    type: 'achievement',
+    card: _AchievementShareCard(theme: theme, achievement: achievement),
+    caption: 'I just unlocked "${achievement.title}" on Blackjack 101 🃏 '
+        'Practice perfect strategy free: $kAppShareUrl',
+  );
+}
+
+void _openShareSheet(
+  BuildContext context, {
+  required AppearanceTheme theme,
+  required String type,
+  required Widget card,
+  required String caption,
+}) {
+  showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (_) =>
+        _ShareSheet(theme: theme, type: type, card: card, caption: caption),
+  );
+}
+
+class _ShareSheet extends StatefulWidget {
+  final AppearanceTheme theme;
+  final String type;
+  final Widget card;
+  final String caption;
+  const _ShareSheet({
+    required this.theme,
+    required this.type,
+    required this.card,
+    required this.caption,
+  });
+
+  @override
+  State<_ShareSheet> createState() => _ShareSheetState();
+}
+
+class _ShareSheetState extends State<_ShareSheet> {
+  final _cardKey = GlobalKey();
+  bool _sharing = false;
+
+  Future<void> _share() async {
+    if (_sharing) return;
+    setState(() => _sharing = true);
+    Analytics.shared(widget.type);
+    final caption = widget.caption;
+    try {
+      final boundary =
+          _cardKey.currentContext!.findRenderObject() as RenderRepaintBoundary;
+      final image = await boundary.toImage(pixelRatio: 3.0);
+      final data = await image.toByteData(format: ui.ImageByteFormat.png);
+      if (data == null) throw StateError('encode failed');
+      final Uint8List bytes = data.buffer.asUint8List();
+      await Share.shareXFiles(
+        [XFile.fromData(bytes, mimeType: 'image/png', name: 'blackjack101-result.png')],
+        text: caption,
+      );
+    } catch (_) {
+      // Fall back to a plain text/link share if image capture or file sharing
+      // isn't available (e.g. browsers without Web Share level-2 file support).
+      await Share.share(caption);
+    } finally {
+      if (mounted) setState(() => _sharing = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = widget.theme;
+    return SafeArea(
+      top: false,
+      child: Container(
+        margin: const EdgeInsets.all(12),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+        decoration: BoxDecoration(
+          color: theme.feltDark,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: theme.feltBorder),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppTokens.textSecondary.withValues(alpha: 0.4),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 18),
+            RepaintBoundary(key: _cardKey, child: widget.card),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Close'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: FilledButton(
+                    onPressed: _sharing ? null : _share,
+                    child: _sharing
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Text('Share'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The branded image that gets captured and shared. Fixed width so the exported
+/// PNG is consistent regardless of screen size.
+class _ShareResultCard extends StatelessWidget {
+  final AppearanceTheme theme;
+  final int accuracy;
+  final int totalHands;
+  final int bestStreak;
+  const _ShareResultCard({
+    required this.theme,
+    required this.accuracy,
+    required this.totalHands,
+    required this.bestStreak,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final domain = kAppShareUrl.replaceFirst(RegExp(r'^https?://'), '');
+    return Container(
+      width: 300,
+      padding: const EdgeInsets.fromLTRB(26, 26, 26, 22),
+      decoration: BoxDecoration(
+        gradient: theme.feltGradient,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: theme.gold.withValues(alpha: 0.55), width: 1.5),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text('♠ Blackjack 101 ♥',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                  color: theme.gold, fontSize: 16, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 26),
+          Text('$accuracy%',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                  color: theme.goldLight,
+                  fontSize: 68,
+                  height: 1.0,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -1)),
+          const SizedBox(height: 6),
+          const Text('STRATEGY ACCURACY',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                  color: AppTokens.textSecondary,
+                  fontSize: 12,
+                  letterSpacing: 2,
+                  fontWeight: FontWeight.w600)),
+          const SizedBox(height: 26),
+          Row(
+            children: [
+              Expanded(child: _stat('$totalHands', 'HANDS')),
+              Container(
+                  width: 1, height: 34, color: Colors.white.withValues(alpha: 0.12)),
+              Expanded(child: _stat('$bestStreak', 'BEST STREAK')),
+            ],
+          ),
+          const SizedBox(height: 24),
+          Text('Practice perfect strategy · $domain',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                  color: theme.gold, fontSize: 12, fontWeight: FontWeight.w600)),
+        ],
+      ),
+    );
+  }
+
+  Widget _stat(String value, String label) => Column(
+        children: [
+          Text(value,
+              style: const TextStyle(
+                  color: AppTokens.textPrimary,
+                  fontSize: 26,
+                  fontWeight: FontWeight.bold)),
+          const SizedBox(height: 3),
+          Text(label,
+              style: const TextStyle(
+                  color: AppTokens.textSecondary,
+                  fontSize: 10.5,
+                  letterSpacing: 1.2,
+                  fontWeight: FontWeight.w600)),
+        ],
+      );
+}
+
+/// Share card for a single unlocked achievement — its emoji + title, branded.
+class _AchievementShareCard extends StatelessWidget {
+  final AppearanceTheme theme;
+  final Achievement achievement;
+  const _AchievementShareCard({required this.theme, required this.achievement});
+
+  @override
+  Widget build(BuildContext context) {
+    final domain = kAppShareUrl.replaceFirst(RegExp(r'^https?://'), '');
+    return Container(
+      width: 300,
+      padding: const EdgeInsets.fromLTRB(26, 26, 26, 22),
+      decoration: BoxDecoration(
+        gradient: theme.feltGradient,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: theme.gold.withValues(alpha: 0.55), width: 1.5),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text('♠ Blackjack 101 ♥',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                  color: theme.gold, fontSize: 16, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 22),
+          Text(achievement.emoji,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 72, height: 1.0)),
+          const SizedBox(height: 18),
+          const Text('ACHIEVEMENT UNLOCKED',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                  color: AppTokens.textSecondary,
+                  fontSize: 12,
+                  letterSpacing: 2,
+                  fontWeight: FontWeight.w600)),
+          const SizedBox(height: 8),
+          Text(achievement.title,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                  color: theme.goldLight,
+                  fontSize: 23,
+                  height: 1.15,
+                  fontWeight: FontWeight.w800)),
+          const SizedBox(height: 8),
+          Text(achievement.description,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                  color: AppTokens.textSecondary, fontSize: 13, height: 1.4)),
+          const SizedBox(height: 22),
+          Text('Play free at $domain',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                  color: theme.gold, fontSize: 12, fontWeight: FontWeight.w600)),
         ],
       ),
     );

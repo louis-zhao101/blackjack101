@@ -1,5 +1,8 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../engine/achievements.dart';
 import '../engine/strategy.dart';
@@ -10,7 +13,10 @@ import '../state/achievements_provider.dart';
 import '../state/app_providers.dart';
 import '../state/appearance_provider.dart';
 import '../state/auth_provider.dart';
+import '../services/analytics.dart';
+import '../services/firestore_sync.dart' show ReferralRedeemOutcome;
 import '../state/game_provider.dart';
+import '../state/referral_provider.dart';
 import '../state/settings_provider.dart';
 import '../state/stats_provider.dart';
 import '../state/store_provider.dart';
@@ -55,12 +61,61 @@ class _AppShellState extends ConsumerState<AppShell> {
 
     ref.listen(achievementCelebrationProvider, (_, unlocked) {
       if (unlocked.isEmpty) return;
+      // Read the live appearance at fire time so the toast matches the theme the
+      // user currently has selected (not whatever was active when registered).
+      final theme = ref.read(appearanceProvider);
       successHaptic();
       final messenger = ScaffoldMessenger.of(context);
+      final width = _snackWidth(context);
       for (final a in unlocked) {
-        messenger.showSnackBar(_achievementSnackBar(theme, a));
+        messenger.showSnackBar(_achievementSnackBar(theme, a,
+            width: width,
+            onShare: () =>
+                showAchievementShareCard(context, theme: theme, achievement: a)));
       }
       ref.read(achievementCelebrationProvider.notifier).consume();
+    });
+
+    // A "positive moment" (strong session, hot streak) invites a share.
+    ref.listen(shareInviteProvider, (_, invite) {
+      if (invite == null) return;
+      final theme = ref.read(appearanceProvider);
+      ScaffoldMessenger.of(context).showSnackBar(_shareInviteSnackBar(
+        theme,
+        invite,
+        width: _snackWidth(context),
+        onShare: () => showResultShareCard(
+          context,
+          theme: theme,
+          accuracy: invite.accuracy,
+          totalHands: invite.totalHands,
+          bestStreak: invite.bestStreak,
+        ),
+      ));
+      ref.read(shareInviteProvider.notifier).consume();
+    });
+
+    // A friend redeemed the user's code → celebrate the card back they unlocked.
+    ref.listen(referralRewardProvider, (_, name) {
+      if (name == null) return;
+      final theme = ref.read(appearanceProvider);
+      successHaptic();
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        duration: const Duration(seconds: 5),
+        width: _snackWidth(context),
+        backgroundColor: theme.feltDark,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+          side: BorderSide(color: theme.gold.withValues(alpha: 0.6)),
+        ),
+        content: Text('🎉 A friend joined — you unlocked the $name card back!',
+            style: const TextStyle(
+                color: AppTokens.textPrimary,
+                fontSize: 14,
+                fontWeight: FontWeight.w600)),
+      ));
+      ref.read(referralRewardProvider.notifier).consume();
     });
 
     ref.listen(entitlementsProvider, (_, _) {
@@ -106,15 +161,55 @@ class _AppShellState extends ConsumerState<AppShell> {
   }
 }
 
-SnackBar _achievementSnackBar(AppearanceTheme theme, Achievement a) {
+/// Caps floating snackbars so they don't stretch the full width of a desktop
+/// web window; stays near-full-width on phones.
+double _snackWidth(BuildContext context) {
+  final w = MediaQuery.of(context).size.width;
+  return w < 512 ? w - 32 : 480;
+}
+
+SnackBar _shareInviteSnackBar(
+  AppearanceTheme theme,
+  ShareInvite invite, {
+  required VoidCallback onShare,
+  required double width,
+}) {
   return SnackBar(
-    duration: const Duration(seconds: 3),
+    duration: const Duration(seconds: 5),
+    width: width,
     backgroundColor: theme.feltDark,
     behavior: SnackBarBehavior.floating,
     shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(14),
       side: BorderSide(color: theme.gold.withValues(alpha: 0.6)),
     ),
+    content: Text(invite.message,
+        style: const TextStyle(
+            color: AppTokens.textPrimary,
+            fontSize: 14,
+            fontWeight: FontWeight.w600)),
+    action: SnackBarAction(
+        label: 'Share', textColor: theme.goldLight, onPressed: onShare),
+  );
+}
+
+SnackBar _achievementSnackBar(
+  AppearanceTheme theme,
+  Achievement a, {
+  required VoidCallback onShare,
+  required double width,
+}) {
+  return SnackBar(
+    duration: const Duration(seconds: 4),
+    width: width,
+    backgroundColor: theme.feltDark,
+    behavior: SnackBarBehavior.floating,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(14),
+      side: BorderSide(color: theme.gold.withValues(alpha: 0.6)),
+    ),
+    action: SnackBarAction(
+        label: 'Share', textColor: theme.goldLight, onPressed: onShare),
     content: Row(
       children: [
         Text(a.emoji,
@@ -177,6 +272,12 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final brand = Text(
+      '♠ Blackjack 101 ♥',
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: TextStyle(color: theme.gold, fontSize: 17, fontWeight: FontWeight.bold),
+    );
     return Container(
       height: 56,
       padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -190,13 +291,21 @@ class _Header extends StatelessWidget {
             child: Row(
               children: [
                 Flexible(
-                  child: Text(
-                    '♠ Blackjack 101 ♥',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                        color: theme.gold, fontSize: 17, fontWeight: FontWeight.bold),
-                  ),
+                  // On web the wordmark doubles as a home link back to the
+                  // marketing landing page; on mobile it's just the title.
+                  child: kIsWeb
+                      ? Consumer(
+                          builder: (context, ref, _) => MouseRegion(
+                            cursor: SystemMouseCursors.click,
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTap: () =>
+                                  ref.read(landingSeenProvider.notifier).exit(),
+                              child: brand,
+                            ),
+                          ),
+                        )
+                      : brand,
                 ),
                 if (showNav) ...[
                   const SizedBox(width: 12),
@@ -488,6 +597,16 @@ class AccountPage extends ConsumerWidget {
                       )
                   : () => showSignInSheet(context),
             ),
+            if (signedIn)
+              _SettingRow(
+                icon: Icons.card_giftcard_outlined,
+                title: 'Invite friends',
+                subtitle: ref.watch(entitlementsProvider).hasUnlockableCardBack
+                    ? 'Share your code — unlock free card backs'
+                    : 'Share your code with friends',
+                onTap: () => _showSheet(context,
+                    title: 'Invite friends', child: const _InviteFriendsSheet()),
+              ),
           ],
         ),
         const SizedBox(height: 16),
@@ -609,6 +728,25 @@ class AccountPage extends ConsumerWidget {
           ],
         ),
         const SizedBox(height: 16),
+        _SectionCard(
+          title: 'About',
+          children: [
+            if (kIsWeb)
+              _SettingRow(
+                icon: Icons.home_outlined,
+                title: 'Landing page',
+                subtitle: 'Return to the Blackjack 101 home page',
+                onTap: () => ref.read(landingSeenProvider.notifier).exit(),
+              ),
+            _SettingRow(
+              icon: Icons.privacy_tip_outlined,
+              title: 'Privacy Policy',
+              subtitle: 'How your data is handled',
+              onTap: () => openPrivacyPolicy(),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
         // TODO: remove (or gate behind kDebugMode) before App Store release.
         _SectionCard(
           title: 'Developer',
@@ -643,9 +781,273 @@ class AccountPage extends ConsumerWidget {
                 ref.read(onboardingSeenProvider.notifier).reset();
               },
             ),
+            _SettingRow(
+              icon: Icons.emoji_events_outlined,
+              title: 'Reset achievements',
+              subtitle: 'Lock every badge again to re-test unlocks',
+              onTap: () => _confirm(
+                context,
+                title: 'Reset achievements?',
+                message:
+                    'Locks every earned badge so unlock toasts can fire again. '
+                    'The next qualifying hand re-earns them.',
+                confirmLabel: 'Reset',
+                onConfirm: () => ref.read(achievementsProvider.notifier).reset(),
+              ),
+            ),
           ],
         ),
       ],
+    );
+  }
+}
+
+/// Two-sided referral detail, shown in a modal sheet from the Account list:
+/// the user's invite code (share/copy), how many friends have joined, and —
+/// until they've redeemed one — an entry to enter a friend's code. Rewards (a
+/// free card back each side) are granted by [ReferralController].
+class _InviteFriendsSheet extends ConsumerStatefulWidget {
+  const _InviteFriendsSheet();
+
+  @override
+  ConsumerState<_InviteFriendsSheet> createState() => _InviteFriendsSheetState();
+}
+
+class _InviteFriendsSheetState extends ConsumerState<_InviteFriendsSheet> {
+  bool _copied = false;
+
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(() => ref.read(referralProvider.notifier).refresh());
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = ref.watch(appearanceProvider);
+    final r = ref.watch(referralProvider);
+    final canUnlock = ref.watch(entitlementsProvider).hasUnlockableCardBack;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          canUnlock
+              ? 'Share your code. Your friend unlocks a free card back when they '
+                  'redeem it — and you unlock one on your first invite.'
+              : 'Share your code. Your friend unlocks a free card back when they '
+                  'redeem it. (You already own every card back.)',
+          style: const TextStyle(
+              color: AppTokens.textSecondary, fontSize: 13, height: 1.45),
+        ),
+        const SizedBox(height: 18),
+        if (r.code == null)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 20),
+            child: Center(
+                child: SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(strokeWidth: 2))),
+          )
+        else ...[
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => _copy(r.code!),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              decoration: BoxDecoration(
+                color: _tileBg,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: theme.feltBorder),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(r.code!,
+                        style: TextStyle(
+                            color: theme.goldLight,
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 3)),
+                  ),
+                  Icon(_copied ? Icons.check_rounded : Icons.copy,
+                      size: 18,
+                      color: _copied
+                          ? const Color(0xFF6EE7B7)
+                          : AppTokens.textSecondary),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              onPressed: () => _share(r.code!),
+              child: const Text('Share invite'),
+            ),
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Icon(Icons.people_outline, size: 16, color: theme.goldLight),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  r.referralCount == 0
+                      ? 'No friends have joined yet'
+                      : '${r.referralCount} friend${r.referralCount == 1 ? '' : 's'} joined',
+                  style: const TextStyle(
+                      color: AppTokens.textSecondary, fontSize: 13),
+                ),
+              ),
+            ],
+          ),
+          if (!r.hasRedeemed) ...[
+            const SizedBox(height: 14),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                onPressed: _showRedeem,
+                child: const Text('Have an invite code?'),
+              ),
+            ),
+          ],
+        ],
+      ],
+    );
+  }
+
+  void _copy(String code) {
+    selectionHaptic();
+    Clipboard.setData(ClipboardData(text: code));
+    // The sheet covers a snackbar, so confirm the copy inline. It stays checked
+    // for the life of the sheet (state resets when it's reopened).
+    setState(() => _copied = true);
+  }
+
+  void _share(String code) {
+    final link = '$kAppShareUrl/?ref=$code';
+    Analytics.inviteShared();
+    Share.share(
+        'Learn blackjack strategy with me on Blackjack 101 🃏 '
+        'Use my invite code $code or tap $link');
+  }
+
+  void _showRedeem() {
+    final ctrl = TextEditingController();
+    showDialog<void>(
+      context: context,
+      builder: (dctx) => AlertDialog(
+        title: const Text('Enter invite code'),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          textCapitalization: TextCapitalization.characters,
+          decoration: const InputDecoration(hintText: 'e.g. AB3K9P'),
+        ),
+        actions: [
+          TextButton(
+              onPressed: withHaptic(() => Navigator.pop(dctx)),
+              child: const Text('Cancel')),
+          FilledButton(
+            onPressed: withHaptic(() {
+              final code = ctrl.text.trim();
+              Navigator.pop(dctx);
+              if (code.isNotEmpty) _redeem(code);
+            }),
+            child: const Text('Redeem'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _redeem(String code) async {
+    final res = await ref.read(referralProvider.notifier).redeem(code);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(_redeemMessage(res.outcome, res.rewarded))));
+  }
+
+  String _redeemMessage(ReferralRedeemOutcome o, bool rewarded) => switch (o) {
+        ReferralRedeemOutcome.success => rewarded
+            ? 'Code redeemed — a free card back is unlocked! 🃏'
+            : 'Invite code redeemed — thanks for joining! 🃏',
+        ReferralRedeemOutcome.invalid => "That code doesn't exist.",
+        ReferralRedeemOutcome.ownCode => "You can't redeem your own code.",
+        ReferralRedeemOutcome.already => "You've already redeemed an invite code.",
+        ReferralRedeemOutcome.error => 'Something went wrong — try again.',
+      };
+}
+
+/// Opens the Invite Friends detail sheet. Public so cosmetic surfaces (Shop,
+/// Customize) can hook into the referral program right where players browse the
+/// card backs an invite can unlock.
+void openInviteFriends(BuildContext context) =>
+    _showSheet(context, title: 'Invite friends', child: const _InviteFriendsSheet());
+
+/// Tappable banner promoting the referral program, for cosmetic screens. Hidden
+/// for guests (no code yet) and Pro users (who already own every card back).
+class InviteFriendsBanner extends ConsumerWidget {
+  const InviteFriendsBanner({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final signedIn = ref.watch(authStateProvider).value != null;
+    final ent = ref.watch(entitlementsProvider);
+    // Only pitch the reward where it's real — hide once every back is owned.
+    if (!signedIn || !ent.hasUnlockableCardBack) return const SizedBox.shrink();
+    final theme = ref.watch(appearanceProvider);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Material(
+        color: theme.gold.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () {
+            selectionHaptic();
+            openInviteFriends(context);
+          },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            child: Row(
+              children: [
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: theme.gold.withValues(alpha: 0.18),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(Icons.card_giftcard_outlined,
+                      size: 20, color: theme.goldLight),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Invite friends',
+                          style: TextStyle(
+                              color: theme.goldLight,
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 2),
+                      const Text('Unlock a free card back when they join',
+                          style: TextStyle(
+                              color: AppTokens.textSecondary, fontSize: 12)),
+                    ],
+                  ),
+                ),
+                Icon(Icons.chevron_right, size: 20, color: theme.goldLight),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -910,6 +1312,7 @@ class _CustomizeScreenState extends State<_CustomizeScreen> {
   Widget build(BuildContext context) {
     return Consumer(builder: (context, ref, _) {
       final theme = ref.watch(appearanceProvider);
+      final bottomInset = MediaQuery.of(context).padding.bottom;
       return Scaffold(
         backgroundColor: theme.feltDark,
         appBar: AppBar(
@@ -922,9 +1325,11 @@ class _CustomizeScreenState extends State<_CustomizeScreen> {
         ),
         body: SafeArea(
           top: false,
+          bottom: false,
           child: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 40),
+            padding: EdgeInsets.fromLTRB(16, 8, 16, 40 + bottomInset),
             children: [
+              const InviteFriendsBanner(),
               AppSegmentedTabs(
                 labels: _labels,
                 current: _tab,

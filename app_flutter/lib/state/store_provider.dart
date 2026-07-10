@@ -445,6 +445,11 @@ class EntitlementsState {
 
   bool ownsProduct(String productId) => owned.contains(productId);
 
+  /// Whether any card back is still unowned — false for Pro or a completionist.
+  /// The referral UI uses this so it never promises a reward it can't grant.
+  bool get hasUnlockableCardBack =>
+      cardBackProducts.any((p) => !isCosmeticUnlocked(p.cosmeticId));
+
   EntitlementsState copyWith({Set<String>? owned, bool? busy}) =>
       EntitlementsState(owned: owned ?? this.owned, busy: busy ?? this.busy);
 }
@@ -497,6 +502,15 @@ class EntitlementsController extends Notifier<EntitlementsState> {
     final owned = {...state.owned, ...productIds};
     _persist(owned);
     state = EntitlementsState(owned: owned, busy: false);
+  }
+
+  /// Grants products for free — referral rewards, promos. Idempotent: returns
+  /// false without writing if everything is already owned, so callers can tell
+  /// whether a reward was newly unlocked (e.g. to celebrate it).
+  bool grantFree(Set<String> productIds) {
+    if (productIds.difference(state.owned).isEmpty) return false;
+    _grant(productIds);
+    return true;
   }
 
   /// Merges cosmetics loaded from the user's cloud profile (on login) into the

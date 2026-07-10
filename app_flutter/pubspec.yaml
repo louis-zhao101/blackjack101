@@ -36,6 +36,7 @@ dependencies:
   cupertino_icons: ^1.0.8
   firebase_core: ^4.11.0
   firebase_auth: ^6.5.4
+  firebase_analytics: ^12.0.0
   cloud_firestore: ^6.6.0
   flutter_riverpod: ^3.3.2
   shared_preferences: ^2.5.5
@@ -45,6 +46,8 @@ dependencies:
   purchases_flutter: ^10.3.0
   purchases_ui_flutter: ^10.3.0
   in_app_review: ^2.0.9
+  url_launcher: ^6.3.0
+  share_plus: ^10.1.4
 
 dependency_overrides:
   # path_provider_foundation 2.6.0 (pulled in transitively by audioplayers)
