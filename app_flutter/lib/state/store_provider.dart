@@ -181,6 +181,12 @@ const List<StoreProduct> storeProducts = [
       cosmeticId: 'back-tarot',
       name: 'Tarot',
       priceLabel: _cosmeticPrice),
+  StoreProduct(
+      id: 'back_audubon',
+      kind: CosmeticKind.cardBack,
+      cosmeticId: 'back-audubon',
+      name: 'Audubon',
+      priceLabel: _cosmeticPrice),
   // Chip styles.
   StoreProduct(
       id: 'chips_monochrome',
@@ -262,6 +268,12 @@ const List<StoreProduct> storeProducts = [
       cosmeticId: 'deck-tarot',
       name: 'Tarot',
       priceLabel: _deckPrice),
+  StoreProduct(
+      id: 'deck_audubon',
+      kind: CosmeticKind.deck,
+      cosmeticId: 'deck-audubon',
+      name: 'Audubon Birds',
+      priceLabel: _deckPrice),
   // Theme sets — a premium deck paired with its matching card back, discounted
   // against buying both separately. Owning a bundle unlocks each granted product.
   StoreProduct(
@@ -306,6 +318,13 @@ const List<StoreProduct> storeProducts = [
       name: 'Tarot Set',
       priceLabel: _bundlePrice,
       grants: ['deck_tarot', 'back_tarot']),
+  StoreProduct(
+      id: 'bundle_audubon',
+      kind: CosmeticKind.bundle,
+      cosmeticId: 'deck-audubon',
+      name: 'Audubon Set',
+      priceLabel: _bundlePrice,
+      grants: ['deck_audubon', 'back_audubon']),
 ];
 
 /// The headline lifetime product.

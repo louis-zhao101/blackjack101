@@ -15,7 +15,7 @@ Face design (matches the app's minimalist cards):
 import argparse
 import os
 import random
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageFont
 
 HERE = os.path.dirname(__file__)
 COMP_ROOT = os.path.join(HERE, "components")
@@ -44,6 +44,18 @@ DECK_STYLES = {
                    "spades": "terracotta", "clubs": "terracotta"},
         "court_fit": (0.64, 0.58),   # (×W, ×H) — a touch smaller than default
         "ace_fit": (0.42, 0.40),     # themed object centerpiece
+    },
+    "audubon": {
+        "border": None,          # number cards: no card-edge border (just the bird)
+        "red": (168, 44, 40),
+        "black": (44, 40, 34),
+        "ace_print": True,       # the ace is a full-bleed plate too
+        "print_yshift": 55,      # nudge the full-plate art down a touch
+        "number_fit": (0.56, 0.54),  # the isolated bird replacing the center pip
+        "gold_outline": True,    # trace the isolated number birds in gold
+        "gold_outline_width": 23,  # thick rim
+        "face_trim": ((198, 164, 92), (150, 118, 58)),  # gold edge-trim on the face plates
+        "pop_out": True,         # knock out the plate's white bg so the bird sits above the frame
     },
     "tarot": {
         "border": ((44, 36, 60), (24, 18, 36)),  # dark ink keyline on the cream cards
@@ -144,6 +156,49 @@ def roman_mosaic_bg(seed):
     return img.convert("RGBA")
 
 
+def gold_outline(fig, width=7, color=(212, 176, 92)):
+    """Trace a gold rim around an isolated (transparent) subject's silhouette by
+    dilating its alpha edge and filling the ring with gold, behind the subject."""
+    alpha = fig.split()[3]
+    k = width if width % 2 else width + 1   # MaxFilter needs an odd kernel
+    ring = ImageChops.subtract(alpha.filter(ImageFilter.MaxFilter(k)), alpha)
+    ring = ring.filter(ImageFilter.GaussianBlur(1))
+    layer = Image.new("RGBA", fig.size, color + (255,))
+    layer.putalpha(ring)
+    return Image.alpha_composite(layer, fig)   # gold rim behind, subject on top
+
+
+def remove_white_bg(path, thresh=55):
+    """Knock out the near-white background of a plate by flooding inward from the
+    edges, leaving the bird + botanical as a transparent cutout. Interior whites
+    (blossoms, pale feathers) survive — they aren't connected to the edge."""
+    im = Image.open(path).convert("RGB").copy()
+    w, h = im.size
+    SENT = (255, 0, 254)
+    seeds = [(2, 2), (w - 3, 2), (2, h - 3), (w - 3, h - 3),
+             (w // 2, 2), (w // 2, h - 3), (2, h // 2), (w - 3, h // 2)]
+    for xy in seeds:
+        ImageDraw.floodfill(im, xy, SENT, thresh=thresh)
+    out = Image.open(path).convert("RGBA")
+    op, ip = out.load(), im.load()
+    for y in range(h):
+        for x in range(w):
+            if ip[x, y] == SENT:
+                r, g, b, _ = op[x, y]
+                op[x, y] = (r, g, b, 0)
+    return out
+
+
+def draw_edge_trim(card, colors):
+    """A single bold continuous gold trim hugging the whole outer edge (no gaps)."""
+    gold = colors[0]
+    m = int(CARD_W * 0.038)
+    r = int(CARD_W * 0.05)
+    w = int(CARD_W * 0.020)
+    ImageDraw.Draw(card).rounded_rectangle(
+        [m, m, CARD_W - 1 - m, CARD_H - 1 - m], radius=r, outline=gold, width=w)
+
+
 def parchment_plain(suit):
     """The card's background texture, cropped from the (per-suit) frame center."""
     ground = GROUND.get(suit)
@@ -194,13 +249,16 @@ def draw_border_with_gaps(card, bg):
         card.paste(bg, (0, 0), mask)
 
 
-def cover_fit(img):
-    """Scale [img] to fill the whole card, cropping the overflow (BoxFit.cover)."""
+def cover_fit(img, yshift=0):
+    """Scale [img] to fill the whole card, cropping the overflow (BoxFit.cover).
+    [yshift] > 0 biases the crop so the art sits lower on the card (in card px)."""
     img = img.convert("RGBA")
     scale = max(CARD_W / img.width, CARD_H / img.height)
     img = img.resize((round(img.width * scale), round(img.height * scale)), Image.LANCZOS)
     left = (img.width - CARD_W) // 2
     top = (img.height - CARD_H) // 2
+    if yshift:
+        top = max(0, min(img.height - CARD_H, top - yshift))
     return img.crop((left, top, left + CARD_W, top + CARD_H))
 
 
@@ -251,13 +309,15 @@ def build(deck, suit, do_clean):
     elif border:
         GOLD, GOLD_DK = border
 
-    pip = autocrop(Image.open(os.path.join(COMP, f"pip_{suit}.png")).convert("RGBA"))
+    # A per-number-subject deck (e.g. Audubon) has no shared suit pip.
+    pip_path = os.path.join(COMP, f"pip_{suit}.png")
+    pip = autocrop(Image.open(pip_path).convert("RGBA")) if os.path.exists(pip_path) else None
     ace = autocrop(Image.open(os.path.join(COMP, f"ace_{suit}.png")).convert("RGBA"))
     out_dir = os.path.join(OUT_ROOT, deck, suit)
     os.makedirs(out_dir, exist_ok=True)
 
     center = (CARD_W / 2, CARD_H / 2)
-    big_pip = fit(pip, CARD_W * 0.31, CARD_W * 0.30)   # match app center emblem ~0.29W
+    big_pip = fit(pip, CARD_W * 0.31, CARD_W * 0.30) if pip else None
     court_fit = style.get("court_fit", (0.58, 0.62))
     ace_fit = style.get("ace_fit", (0.36, 0.34))
 
@@ -273,12 +333,25 @@ def build(deck, suit, do_clean):
             print_path = os.path.join(COMP, f"ace_{suit}.png")
 
         if print_path:
-            # The index gets a light outline so it stays legible over the art.
-            bg = cover_fit(Image.open(print_path))
-            card = bg.copy()
-            if border and style.get("print_border", True):
-                draw_border_with_gaps(card, bg)
-            draw_indices(card, suit, rank, stroke=CREAM)
+            idx_stroke = CREAM
+            if style.get("pop_out"):
+                # White plate ground + gold frame, then the bird cutout ON TOP so the
+                # subject sits above the frame (its white background knocked out).
+                card = parchment_plain(suit)
+                idx_stroke = card.getpixel((20, 20))[:3]   # match the plate ground
+                if style.get("face_trim"):
+                    draw_edge_trim(card, style["face_trim"])
+                cut = autocrop(remove_white_bg(print_path))
+                pf = style.get("pop_fit", (0.84, 0.9))
+                fitted = fit(cut, CARD_W * pf[0], CARD_H * pf[1])
+                paste_center(card, fitted, CARD_W / 2,
+                             CARD_H / 2 + style.get("print_yshift", 0))
+            else:
+                bg = cover_fit(Image.open(print_path), yshift=style.get("print_yshift", 0))
+                card = bg.copy()
+                if border and style.get("print_border", True):
+                    draw_border_with_gaps(card, bg)
+            draw_indices(card, suit, rank, stroke=idx_stroke)
             card.convert("RGB").save(os.path.join(out_dir, f"{suit}_{rank}.png"))
             print(f"  {suit} {rank} (print)")
             continue
@@ -294,7 +367,19 @@ def build(deck, suit, do_clean):
         if rank == "A":
             paste_center(card, fit(ace, CARD_W * ace_fit[0], CARD_W * ace_fit[1]), *center)
         elif rank in PIP_RANKS:
-            paste_center(card, big_pip, *center)
+            # A deck may give each number card its own isolated subject (e.g. a bird)
+            # instead of a repeated center pip.
+            num_path = os.path.join(COMP, f"number_{suit}_{rank}.png")
+            if os.path.exists(num_path):
+                fig = Image.open(num_path).convert("RGBA")
+                if do_clean:
+                    fig = clean_halo(fig)
+                if style.get("gold_outline"):
+                    fig = gold_outline(fig, width=style.get("gold_outline_width", 7))
+                nf = style.get("number_fit", (0.5, 0.5))
+                paste_center(card, fit(fig, CARD_W * nf[0], CARD_H * nf[1]), *center)
+            else:
+                paste_center(card, big_pip, *center)
         else:
             court_path = os.path.join(COMP, f"court_{suit}_{rank}.png")
             if not os.path.exists(court_path):

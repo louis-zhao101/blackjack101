@@ -360,6 +360,13 @@ const CardBack cardBackTarot = CardBack(
   pattern: CardBackPattern.solid,
   asset: 'assets/card_backs/tarot_back.png',
 );
+const CardBack cardBackAudubon = CardBack(
+  id: 'back-audubon',
+  name: 'Audubon',
+  color: Color(0xFF743716),
+  pattern: CardBackPattern.solid,
+  asset: 'assets/card_backs/audubon_back.png',
+);
 
 const List<CardBack> cardBackPresets = [
   cardBackRoyalBlue,
@@ -377,6 +384,7 @@ const List<CardBack> cardBackPresets = [
   cardBackEgyptian,
   cardBackGyotaku,
   cardBackTarot,
+  cardBackAudubon,
 ];
 
 const String kFreeCardBackId = 'back-royal-blue';
@@ -442,6 +450,11 @@ const CardDeck cardDeckTarot = CardDeck(
   name: 'Tarot',
   faceDir: 'assets/card_faces/tarot',
 );
+const CardDeck cardDeckAudubon = CardDeck(
+  id: 'deck-audubon',
+  name: 'Audubon Birds',
+  faceDir: 'assets/card_faces/audubon',
+);
 
 const List<CardDeck> cardDeckPresets = [
   cardDeckClassic,
@@ -451,6 +464,7 @@ const List<CardDeck> cardDeckPresets = [
   cardDeckEgyptian,
   cardDeckGyotaku,
   cardDeckTarot,
+  cardDeckAudubon,
 ];
 
 const String kFreeCardDeckId = 'deck-classic';

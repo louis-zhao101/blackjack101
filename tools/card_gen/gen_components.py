@@ -62,6 +62,13 @@ ROMAN_STYLE = (
     "cream, deep red, olive, slate-blue and black, flat and decorative with a "
     "weathered antique look, no smooth shading, no photorealism."
 )
+AUDUBON_STYLE = (
+    "a vintage hand-colored ornithological plate in the style of John James "
+    "Audubon's 'Birds of America': one lifelike bird in a natural pose, finely "
+    "detailed naturalist illustration with delicate hand-colored aquatint washes, "
+    "accurate soft-colored plumage and fine feather detail, elegant, scientific and "
+    "refined; no cartoon, no flat vector look, no harsh outlines."
+)
 TAROT_STYLE = (
     "a vintage Rider-Waite-Smith tarot illustration style: bold black ink outlines, "
     "flat storybook color in rich blues, reds, ochre-gold, teal and cream, symbolic "
@@ -419,6 +426,91 @@ DECKS = {
             ("clubs", "J"): "the ibis-headed god Thoth holding a scribe's palette and a reed pen",
         },
     },
+    "audubon": {
+        "style": AUDUBON_STYLE,
+        "suits": {
+            "hearts": ("heart", "deep red"),
+            "diamonds": ("diamond lozenge", "deep red"),
+            "spades": ("spade", "black"),
+            "clubs": ("trefoil club (clover)", "black"),
+        },
+        "frame": (
+            "A blank sheet of bright off-white naturalist-plate paper, a clean pale "
+            "near-white with only a very faint warm antique tone, evenly lit. Completely "
+            "EMPTY: no birds, no figures, no border, no text — just the plain near-white "
+            "paper filling the whole image. Portrait orientation."
+        ),
+        "print_note": (
+            "The bird and its botanical branch are set against a plain clean near-WHITE "
+            "background — no colored landscape, no sky, no scenery, no ground, just soft "
+            "white behind them, exactly like an Audubon 'Birds of America' hand-colored "
+            "plate."
+        ),
+        "iso_note": (
+            "Render ONLY the single bird itself (with at most a small perch twig) on a "
+            "fully transparent background — NO landscape, NO sky, NO scenery, NO paper, "
+            "NO panel or field of any kind behind or around it."
+        ),
+        # Number cards 2-10: a distinct isolated bird each, by suit family.
+        "numbers": {
+            # Hearts — songbirds
+            ("hearts", "2"): "American Robin", ("hearts", "3"): "Eastern Bluebird",
+            ("hearts", "4"): "American Goldfinch", ("hearts", "5"): "Baltimore Oriole",
+            ("hearts", "6"): "Cedar Waxwing", ("hearts", "7"): "Scarlet Tanager",
+            ("hearts", "8"): "Rose-breasted Grosbeak", ("hearts", "9"): "Indigo Bunting",
+            ("hearts", "10"): "Painted Bunting",
+            # Spades — raptors
+            ("spades", "2"): "Red-tailed Hawk", ("spades", "3"): "Peregrine Falcon",
+            ("spades", "4"): "American Kestrel", ("spades", "5"): "Osprey",
+            ("spades", "6"): "Cooper's Hawk", ("spades", "7"): "Northern Harrier",
+            ("spades", "8"): "Merlin", ("spades", "9"): "Sharp-shinned Hawk",
+            ("spades", "10"): "Swallow-tailed Kite",
+            # Diamonds — waterbirds
+            ("diamonds", "2"): "Mallard drake", ("diamonds", "3"): "Wood Duck drake",
+            ("diamonds", "4"): "Belted Kingfisher", ("diamonds", "5"): "Common Loon",
+            ("diamonds", "6"): "Sandhill Crane", ("diamonds", "7"): "American Avocet",
+            ("diamonds", "8"): "Roseate Spoonbill", ("diamonds", "9"): "American White Pelican",
+            ("diamonds", "10"): "Green Heron",
+            # Clubs — woodland & game birds
+            ("clubs", "2"): "Northern Bobwhite quail", ("clubs", "3"): "Ruffed Grouse",
+            ("clubs", "4"): "Ring-necked Pheasant", ("clubs", "5"): "Blue Jay",
+            ("clubs", "6"): "Northern Flicker", ("clubs", "7"): "Red-headed Woodpecker",
+            ("clubs", "8"): "American Crow", ("clubs", "9"): "Common Raven",
+            ("clubs", "10"): "Cedar Waxwing",
+        },
+        # Aces: the suit's signature bird as a full-bleed plate (like the faces).
+        "ace_print": True,
+        "ace_objects": {
+            "hearts": "a Northern Cardinal, a bright red male, perched on a flowering dogwood branch",
+            "spades": "a Bald Eagle perched on a bare branch, head turned in sharp profile",
+            "diamonds": "a Great Blue Heron standing tall among marsh reeds",
+            "clubs": "a Wild Turkey standing in profile in tall grass",
+        },
+        # Face cards: full-bleed plate illustrations of grander birds.
+        "prints": {
+            ("hearts", "K"): "a Northern Mockingbird singing atop a flowering branch, hand-colored Audubon plate, full scene",
+            ("hearts", "Q"): "a Ruby-throated Hummingbird hovering at red trumpet-vine flowers, hand-colored Audubon plate, full scene",
+            ("hearts", "J"): "a pair of Barn Swallows swooping over a summer meadow, hand-colored Audubon plate, full scene",
+            ("spades", "K"): "a Golden Eagle perched on a rocky crag against a wide sky, hand-colored Audubon plate, full scene",
+            ("spades", "Q"): "a Snowy Owl in flight low over snow, hand-colored Audubon plate, full scene",
+            ("spades", "J"): "a Great Horned Owl perched on a branch at dusk, hand-colored Audubon plate, full scene",
+            ("diamonds", "K"): "a Trumpeter Swan gliding on still water, hand-colored Audubon plate, full scene",
+            ("diamonds", "Q"): "an American Flamingo bending down to feed at the water, hand-colored Audubon plate, full scene",
+            ("diamonds", "J"): "a Great Egret displaying its long breeding plumes in a marsh, hand-colored Audubon plate, full scene",
+            ("clubs", "K"): "a Wild Turkey in full strut with fanned tail, hand-colored Audubon plate, full scene",
+            ("clubs", "Q"): "a Pileated Woodpecker climbing a dead tree trunk, hand-colored Audubon plate, full scene",
+            ("clubs", "J"): "a pair of Blue Jays with acorns on an oak branch, hand-colored Audubon plate, full scene",
+        },
+        "back": (
+            "A playing-card BACK: a SINGLE CENTERED oval medallion framing a lifelike "
+            "hand-colored Audubon-style songbird perched on a twig, ringed by a thin "
+            "elegant gold botanical wreath, on a plain rich warm chestnut-brown ground. "
+            "Flat and refined. The medallion sits centered with a GENEROUS plain brown "
+            "margin all around and empty brown ground extending to every edge. Portrait "
+            "orientation. NO border frame at the card edges, NO text, NO numbers, NO "
+            "letters, NO pips."
+        ),
+    },
     "tarot": {
         "style": TAROT_STYLE,
         "suits": {
@@ -600,6 +692,7 @@ def print_prompt(deck, suit, rank):
         f"— absolutely NO card, NO cream or white card border, NO outer margin, NO "
         f"frame, NO keyline and NO border band of any kind around the scene; the "
         f"artwork reaches and runs past every edge. No text, no title, no signature."
+        f"{_print_note(deck)}"
     )
 
 
@@ -636,6 +729,7 @@ def ace_prompt(deck, suit):
             f"An image of {objects[suit]}, in {eff_style(deck, suit)} A vertical "
             f"portrait composition that fills the entire image edge to edge "
             f"(full-bleed). No card, no border, no text, no signature."
+            f"{_print_note(deck)}"
         )
     if objects and d.get("ace_portrait"):
         return (
@@ -680,8 +774,28 @@ def court_prompt(deck, suit, rank):
     )
 
 
+def number_prompt(deck, suit, rank):
+    """An isolated single bird (or subject) for a number card, on transparent bg."""
+    d = DECKS[deck]
+    subject = d["numbers"][(suit, rank)]
+    return (
+        f"A single {subject} in a natural lifelike pose, drawn as a detailed "
+        f"hand-colored ornithological plate in {eff_style(deck, suit)} "
+        f"The bird occupies the central ~58% of the frame, centered, with WIDE empty "
+        f"margins on all sides — it must NOT touch or be cropped by any edge. It is "
+        f"JUST the single bird (at most on a small perch twig) — no other birds, no "
+        f"scene. The background is 100% fully transparent behind it. No card, no "
+        f"border, no text.{_iso(deck)}"
+    )
+
+
 def _iso(deck):
     note = DECKS[deck].get("iso_note")
+    return " " + note if note else ""
+
+
+def _print_note(deck):
+    note = DECKS[deck].get("print_note")
     return " " + note if note else ""
 
 
@@ -734,7 +848,8 @@ def main():
     ap.add_argument("--deck", choices=DECKS.keys(), default="ukiyo-e")
     ap.add_argument("--suit", choices=["hearts", "diamonds", "spades", "clubs"], default="hearts")
     ap.add_argument("--what", default="all",
-                    choices=["all", "suit", "frame", "pip", "ace", "courts", "prints", "back"])
+                    choices=["all", "suit", "frame", "pip", "ace", "courts", "prints",
+                             "numbers", "back"])
     ap.add_argument("--ranks", default="J,Q,K", help="court/print ranks to make")
     ap.add_argument("--quality", default="medium", choices=["low", "medium", "high", "auto"])
     ap.add_argument("--jobs", type=int, default=8,
@@ -761,8 +876,12 @@ def main():
                 jobs.append((f"frame_{ground}.png", prompt, "1024x1536", False))
         else:
             jobs.append(("frame.png", d["frame"], "1024x1536", False))
-    if args.what in ("all", "suit", "pip"):
+    if args.what in ("all", "suit", "pip") and "numbers" not in d:
         jobs.append((f"pip_{suit}.png", emblem_prompt(deck, suit), "1024x1024", True))
+    if args.what in ("all", "suit", "numbers") and "numbers" in d:
+        for rank in ["2", "3", "4", "5", "6", "7", "8", "9", "10"]:
+            jobs.append((f"number_{suit}_{rank}.png", number_prompt(deck, suit, rank),
+                         "1024x1024", True))
     if args.what in ("all", "suit", "ace"):
         ace_print = d.get("ace_print")
         ace_size = "1024x1536" if (ace_print or d.get("ace_portrait")) else "1024x1024"
