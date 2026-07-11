@@ -8,7 +8,7 @@ import '../../services/purchases_service.dart';
 import '../../state/appearance_provider.dart';
 import '../../state/auth_provider.dart';
 import '../../state/store_provider.dart';
-import '../app_shell.dart' show InviteFriendsBanner;
+import '../app_shell.dart' show InviteFriendsBanner, cosmeticGrid, CosmeticTile;
 import '../theme/appearance.dart';
 import '../widgets/chip_widget.dart';
 import '../widgets/game_button.dart';
@@ -476,10 +476,7 @@ class _ShopScreenState extends ConsumerState<ShopScreen> {
                 SlideTabSwitcher(
                   tabIndex: _tab,
                   dir: _dir,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: _rowsForTab(theme),
-                  ),
+                  child: cosmeticGrid(_rowsForTab(theme)),
                 ),
                 const SizedBox(height: 8),
                 const _PolicyNote(),
@@ -1306,25 +1303,32 @@ class _BundlesSection extends ConsumerWidget {
                     fontSize: 12,
                     fontWeight: FontWeight.w600)),
           ),
-          for (final b in open)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: _BundleBanner(theme: theme, bundle: b),
+          SizedBox(
+            height: 152,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              clipBehavior: Clip.none,
+              itemCount: open.length,
+              separatorBuilder: (_, _) => const SizedBox(width: 10),
+              itemBuilder: (_, i) => _BundleCard(theme: theme, bundle: open[i]),
             ),
+          ),
         ],
       ),
     );
   }
 }
 
-class _BundleBanner extends ConsumerWidget {
+/// Compact set card for the horizontal "Sets" carousel: the deck's signature
+/// face overlapping its matching back, the set name, and the discounted price.
+class _BundleCard extends ConsumerWidget {
   final AppearanceTheme theme;
   final StoreProduct bundle;
-  const _BundleBanner({required this.theme, required this.bundle});
+  const _BundleCard({required this.theme, required this.bundle});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final t = theme;
     final deck = cardDeckById(bundle.cosmeticId);
     final back = _bundleBack(bundle);
     final sig = _bundleSignature[bundle.id] ?? ('A', '♠');
@@ -1335,50 +1339,45 @@ class _BundleBanner extends ConsumerWidget {
       behavior: HitTestBehavior.opaque,
       onTap: withHaptic(() => showBundlePreview(context, bundle)),
       child: Container(
-        padding: const EdgeInsets.all(12),
+        width: 148,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
         decoration: BoxDecoration(
           color: const Color(0x14FFFFFF),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: t.gold.withValues(alpha: 0.35)),
+          border: Border.all(color: theme.gold.withValues(alpha: 0.35)),
         ),
-        child: Row(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            _BundlePreview(theme: t, deck: deck, back: back, rank: sig.$1, suit: sig.$2),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(bundle.name,
+            _BundlePreview(
+                theme: theme, deck: deck, back: back, rank: sig.$1, suit: sig.$2),
+            const SizedBox(height: 12),
+            Text(bundle.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                    color: AppTokens.textPrimary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold)),
+            const SizedBox(height: 4),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (original > 0) ...[
+                  Text('\$${original.toStringAsFixed(2)}',
                       style: const TextStyle(
-                          color: AppTokens.textPrimary,
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 2),
-                  const Text('Deck + matching back',
-                      style: TextStyle(color: AppTokens.textSecondary, fontSize: 12)),
-                  const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      if (original > 0)
-                        Text('\$${original.toStringAsFixed(2)}',
-                            style: const TextStyle(
-                                color: AppTokens.textSecondary,
-                                fontSize: 12,
-                                decoration: TextDecoration.lineThrough)),
-                      const SizedBox(width: 6),
-                      Text(bundle.priceLabel,
-                          style: TextStyle(
-                              color: t.goldLight,
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold)),
-                    ],
-                  ),
+                          color: AppTokens.textSecondary,
+                          fontSize: 11,
+                          decoration: TextDecoration.lineThrough)),
+                  const SizedBox(width: 5),
                 ],
-              ),
+                Text(bundle.priceLabel,
+                    style: TextStyle(
+                        color: theme.goldLight,
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold)),
+              ],
             ),
-            const SizedBox(width: 8),
-            const Icon(Icons.chevron_right, color: AppTokens.textSecondary, size: 22),
           ],
         ),
       ),
@@ -1615,79 +1614,14 @@ class _CosmeticRow extends ConsumerWidget {
             ? (isActive ? null : onUse)
             : (ent.busy || product == null ? null : () => _buy(context, ref, product));
 
-    Widget trailing;
-    if (unlocked) {
-      // Radio-style indicator: filled check when in use, empty circle otherwise.
-      trailing = AnimatedSwitcher(
-        duration: const Duration(milliseconds: 200),
-        transitionBuilder: (child, anim) =>
-            ScaleTransition(scale: anim, child: FadeTransition(opacity: anim, child: child)),
-        child: Icon(
-          isActive ? Icons.check_circle : Icons.circle_outlined,
-          key: ValueKey(isActive),
-          color: isActive ? active.goldLight : AppTokens.textSecondary,
-          size: 24,
-        ),
-      );
-    } else {
-      trailing = Container(
-        width: 76,
-        height: 34,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: active.gold,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Text(product?.priceLabel ?? '',
-            style: TextStyle(
-                color: active.feltDark, fontWeight: FontWeight.bold, fontSize: 14)),
-      );
-    }
-
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: withHaptic(onTap),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeOut,
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: isActive ? active.gold.withValues(alpha: 0.10) : const Color(0x14FFFFFF),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: isActive ? active.gold : const Color(0x18FFFFFF),
-            width: 1.5,
-          ),
-        ),
-        child: Row(
-          children: [
-            SizedBox(width: swatchWidth, child: Center(child: swatch)),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(name,
-                      style: const TextStyle(
-                          color: AppTokens.textPrimary,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600)),
-                  if (product == null) ...[
-                    const SizedBox(height: 4),
-                    _cosmeticTag('Free', active),
-                  ] else if (unlocked) ...[
-                    const SizedBox(height: 4),
-                    ownedTag(active),
-                  ],
-                ],
-              ),
-            ),
-            SizedBox(width: 84, child: Align(alignment: Alignment.centerRight, child: trailing)),
-          ],
-        ),
-      ),
+    return CosmeticTile(
+      theme: active,
+      preview: swatch,
+      name: name,
+      selected: isActive,
+      priceLabel: unlocked ? null : product?.priceLabel,
+      ownedLabel: product != null ? 'Owned' : 'Free',
+      onTap: onTap,
     );
   }
 }

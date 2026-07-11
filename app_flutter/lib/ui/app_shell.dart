@@ -1065,6 +1065,137 @@ class InviteFriendsBanner extends ConsumerWidget {
   }
 }
 
+/// Lays cosmetic rows out two-up on roomy widths (web, tablets, landscape) and
+/// one-up on narrow phones, capped so they don't stretch across a desktop
+/// window. Shared by the Customize sheets and the Shop tabs. Uses a fixed cell
+/// height so tiles align into a clean grid regardless of whether an item has a
+/// tag/subtitle; titles are single-line (see the row widgets) so they don't
+/// wrap past that height.
+Widget cosmeticGrid(List<Widget> items) {
+  return Center(
+    child: ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 680),
+      child: LayoutBuilder(
+        builder: (context, c) {
+          // Two-up on essentially every phone; only the very narrowest (<320)
+          // fall back to one column.
+          final cols = c.maxWidth >= 320 ? 2 : 1;
+          return GridView(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            padding: EdgeInsets.zero,
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: cols,
+              crossAxisSpacing: 10,
+              mainAxisSpacing: 0,
+              mainAxisExtent: 134,
+            ),
+            children: items,
+          );
+        },
+      ),
+    ),
+  );
+}
+
+/// A cosmetic grid tile: preview on top, name on its own full-width line (so it
+/// rarely truncates), and a status line below (price when locked, else Owned /
+/// Free). Selected state = gold border + a corner check. Used by the Shop tabs
+/// and the Customize sheets so both read identically.
+class CosmeticTile extends StatelessWidget {
+  final AppearanceTheme theme;
+  final Widget preview;
+  final String name;
+  final bool selected;
+
+  /// Non-null when the item is locked — shown as a price pill.
+  final String? priceLabel;
+
+  /// Shown when unlocked (e.g. 'Owned', 'Free').
+  final String? ownedLabel;
+  final VoidCallback? onTap;
+
+  const CosmeticTile({
+    super.key,
+    required this.theme,
+    required this.preview,
+    required this.name,
+    required this.selected,
+    this.priceLabel,
+    this.ownedLabel,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final locked = priceLabel != null;
+    final Widget status = locked
+        ? Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+            decoration: BoxDecoration(
+              color: theme.gold,
+              borderRadius: BorderRadius.circular(7),
+            ),
+            child: Text(priceLabel!,
+                style: TextStyle(
+                    color: theme.feltDark,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12)),
+          )
+        : Text(ownedLabel ?? '',
+            style: TextStyle(
+                color: selected ? theme.goldLight : AppTokens.textSecondary,
+                fontSize: 11,
+                fontWeight: FontWeight.w500));
+
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap == null ? null : withHaptic(onTap!),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+        decoration: BoxDecoration(
+          color: selected ? theme.gold.withValues(alpha: 0.10) : _cardBg,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: selected ? theme.gold : const Color(0x18FFFFFF),
+            width: 1.5,
+          ),
+        ),
+        child: Stack(
+          children: [
+            Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                SizedBox(height: 48, child: Center(child: preview)),
+                const SizedBox(height: 8),
+                Text(name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                        color: selected ? theme.goldLight : AppTokens.textPrimary,
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold)),
+                const SizedBox(height: 4),
+                status,
+              ],
+            ),
+            if (selected)
+              Positioned(
+                top: 0,
+                right: 0,
+                child: Icon(Icons.check_circle, color: theme.goldLight, size: 18),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _SectionCard extends StatelessWidget {
   final String title;
   final List<Widget> children;
@@ -1211,22 +1342,16 @@ class _SheetShell extends ConsumerWidget {
 }
 
 class _SheetOption extends StatelessWidget {
-  final Widget? leading;
-  final double leadingWidth;
   final String title;
   final String? subtitle;
   final IconData? subtitleIcon;
-  final bool owned;
   final bool selected;
   final VoidCallback onTap;
   final AppearanceTheme theme;
   const _SheetOption({
-    this.leading,
-    this.leadingWidth = 40,
     required this.title,
     this.subtitle,
     this.subtitleIcon,
-    this.owned = false,
     required this.selected,
     required this.onTap,
     required this.theme,
@@ -1253,23 +1378,18 @@ class _SheetOption extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            if (leading != null) ...[
-              SizedBox(width: leadingWidth, height: 40, child: Center(child: leading!)),
-              const SizedBox(width: 14),
-            ],
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                           color: selected ? theme.goldLight : AppTokens.textPrimary,
                           fontSize: 15,
                           fontWeight: FontWeight.bold)),
-                  if (owned) ...[
-                    const SizedBox(height: 5),
-                    ownedTag(theme),
-                  ] else if (subtitle != null) ...[
+                  if (subtitle != null) ...[
                     const SizedBox(height: 4),
                     Row(
                       children: [
@@ -1378,35 +1498,31 @@ class _SkinSheet extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = ref.watch(appearanceProvider);
     final ent = ref.watch(entitlementsProvider);
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
+    return cosmeticGrid([
         for (final p in appearancePresets)
           () {
             final unlocked = ent.isCosmeticUnlocked(p.id);
-            final price = productForCosmeticId(p.id)?.priceLabel;
-            return _SheetOption(
+            final product = productForCosmeticId(p.id);
+            return CosmeticTile(
               theme: theme,
               selected: p.id == ref.watch(tableThemeProvider).id,
-              leading: Container(
-                width: 36,
-                height: 36,
+              preview: Container(
+                width: 40,
+                height: 40,
                 decoration: BoxDecoration(
                   color: p.felt,
                   shape: BoxShape.circle,
                   border: Border.all(color: p.gold, width: 2),
                 ),
               ),
-              title: p.name,
-              owned: unlocked && productForCosmeticId(p.id) != null,
-              subtitle: unlocked ? null : 'Locked${price != null ? ' · $price' : ''}',
-              subtitleIcon: unlocked ? null : Icons.lock_outline,
+              name: p.name,
+              priceLabel: unlocked ? null : product?.priceLabel,
+              ownedLabel: product != null ? 'Owned' : 'Free',
               onTap: () => showCosmeticPreview(context,
                   kind: CosmeticKind.theme, cosmeticId: p.id, name: p.name),
             );
           }(),
-      ],
-    );
+    ]);
   }
 }
 
@@ -1418,31 +1534,27 @@ class _CardBackSheet extends ConsumerWidget {
     final theme = ref.watch(appearanceProvider);
     final ent = ref.watch(entitlementsProvider);
     final selectedId = ref.watch(cardBackProvider).id;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
+    return cosmeticGrid([
         for (final b in cardBackPresets)
           () {
             final unlocked = ent.isCosmeticUnlocked(b.id);
-            final price = productForCosmeticId(b.id)?.priceLabel;
-            return _SheetOption(
+            final product = productForCosmeticId(b.id);
+            return CosmeticTile(
               theme: theme,
               selected: b.id == selectedId,
-              leading: PlayingCardView(
+              preview: PlayingCardView(
                 card: const bj.Card(rank: 'A', suit: '♠', faceDown: true),
                 theme: theme.copyWith(cardBack: b),
-                width: 28,
+                width: 34,
               ),
-              title: b.name,
-              owned: unlocked && productForCosmeticId(b.id) != null,
-              subtitle: unlocked ? null : 'Locked${price != null ? ' · $price' : ''}',
-              subtitleIcon: unlocked ? null : Icons.lock_outline,
+              name: b.name,
+              priceLabel: unlocked ? null : product?.priceLabel,
+              ownedLabel: product != null ? 'Owned' : 'Free',
               onTap: () => showCosmeticPreview(context,
                   kind: CosmeticKind.cardBack, cosmeticId: b.id, name: b.name),
             );
           }(),
-      ],
-    );
+    ]);
   }
 }
 
@@ -1454,28 +1566,23 @@ class _ChipStyleSheet extends ConsumerWidget {
     final theme = ref.watch(appearanceProvider);
     final ent = ref.watch(entitlementsProvider);
     final selectedId = ref.watch(chipStyleProvider).id;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
+    return cosmeticGrid([
         for (final c in chipStylePresets)
           () {
             final unlocked = ent.isCosmeticUnlocked(c.id);
-            final price = productForCosmeticId(c.id)?.priceLabel;
-            return _SheetOption(
+            final product = productForCosmeticId(c.id);
+            return CosmeticTile(
               theme: theme,
               selected: c.id == selectedId,
-              leadingWidth: 84,
-              leading: ChipStripPreview(theme: theme.copyWith(chipStyle: c), size: 30),
-              title: c.name,
-              owned: unlocked && productForCosmeticId(c.id) != null,
-              subtitle: unlocked ? null : 'Locked${price != null ? ' · $price' : ''}',
-              subtitleIcon: unlocked ? null : Icons.lock_outline,
+              preview: ChipStripPreview(theme: theme.copyWith(chipStyle: c), size: 28),
+              name: c.name,
+              priceLabel: unlocked ? null : product?.priceLabel,
+              ownedLabel: product != null ? 'Owned' : 'Free',
               onTap: () => showCosmeticPreview(context,
                   kind: CosmeticKind.chipStyle, cosmeticId: c.id, name: c.name),
             );
           }(),
-      ],
-    );
+    ]);
   }
 }
 
@@ -1487,32 +1594,28 @@ class _DeckSheet extends ConsumerWidget {
     final theme = ref.watch(appearanceProvider);
     final ent = ref.watch(entitlementsProvider);
     final selectedId = ref.watch(cardDeckProvider).id;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
+    return cosmeticGrid([
         for (final d in cardDeckPresets)
           () {
             final unlocked = ent.isCosmeticUnlocked(d.id);
-            final price = productForCosmeticId(d.id)?.priceLabel;
-            return _SheetOption(
+            final product = productForCosmeticId(d.id);
+            return CosmeticTile(
               theme: theme,
               selected: d.id == selectedId,
-              leading: PlayingCardView(
+              preview: PlayingCardView(
                 card: const bj.Card(rank: 'A', suit: '♠'),
                 theme: theme.copyWith(deck: d),
-                width: 28,
+                width: 34,
                 showShadow: false,
               ),
-              title: d.name,
-              owned: unlocked && productForCosmeticId(d.id) != null,
-              subtitle: unlocked ? null : 'Locked${price != null ? ' · $price' : ''}',
-              subtitleIcon: unlocked ? null : Icons.lock_outline,
+              name: d.name,
+              priceLabel: unlocked ? null : product?.priceLabel,
+              ownedLabel: product != null ? 'Owned' : 'Free',
               onTap: () => showCosmeticPreview(context,
                   kind: CosmeticKind.deck, cosmeticId: d.id, name: d.name),
             );
           }(),
-      ],
-    );
+    ]);
   }
 }
 
