@@ -69,6 +69,14 @@ AUDUBON_STYLE = (
     "accurate soft-colored plumage and fine feather detail, elegant, scientific and "
     "refined; no cartoon, no flat vector look, no harsh outlines."
 )
+BOTANICAL_STYLE = (
+    "a vintage hand-colored botanical plate in the manner of Pierre-Joseph Redouté "
+    "and Curtis's Botanical Magazine: one specimen plant rendered as a fine elegant "
+    "copperplate engraving with delicate hand-colored watercolor washes, botanically "
+    "accurate leaves, stems, flowers, buds and fruit with fine venation and soft "
+    "stippled shading, refined, graceful and scientific; no cartoon, no flat vector "
+    "look, no harsh outlines, no photorealism."
+)
 TAROT_STYLE = (
     "a vintage Rider-Waite-Smith tarot illustration style: bold black ink outlines, "
     "flat storybook color in rich blues, reds, ochre-gold, teal and cream, symbolic "
@@ -511,6 +519,112 @@ DECKS = {
             "letters, NO pips."
         ),
     },
+    "botanical": {
+        "style": BOTANICAL_STYLE,
+        "number_kind": "plant",
+        "plate_kind": "botanical",
+        "number_pose": "",  # plants have no "pose"
+        "number_size": "1024x1536",  # specimens are tall — a portrait canvas keeps tips uncropped
+        "suits": {
+            "hearts": ("heart", "deep red"),
+            "diamonds": ("diamond lozenge", "deep red"),
+            "spades": ("spade", "black"),
+            "clubs": ("trefoil club (clover)", "black"),
+        },
+        "frame": (
+            "A blank sheet of bright off-white naturalist-plate paper, a clean pale "
+            "near-white with only a very faint warm antique tone, evenly lit. Completely "
+            "EMPTY: no plants, no leaves, no border, no text — just the plain near-white "
+            "paper filling the whole image. Portrait orientation."
+        ),
+        "print_note": (
+            "The plant specimen is set against a plain clean near-WHITE background — no "
+            "colored landscape, no scenery, no ground, just soft white behind it, exactly "
+            "like a Redouté hand-colored botanical plate."
+        ),
+        "iso_note": (
+            "Render ONLY the single plant cutting itself on a fully transparent "
+            "background — NO landscape, NO scenery, NO soil, NO pot, NO paper, NO panel "
+            "or field of any kind behind or around it."
+        ),
+        # Number cards 2-10: a distinct isolated specimen each, by suit family.
+        # Hearts = flowers, Diamonds = fruits & berries, Clubs = culinary herbs,
+        # Spades = trees, ferns & thorns.
+        "numbers": {
+            # Hearts — flowers
+            ("hearts", "2"): "a single flowering rose stem with one open bloom, a bud and leaves",
+            ("hearts", "3"): "a single tulip flower on its stem with two long leaves",
+            ("hearts", "4"): "a single red poppy flower with its hairy stem and a seed pod",
+            ("hearts", "5"): "a single bearded iris flower on its stem with sword-shaped leaves",
+            ("hearts", "6"): "a single pink peony bloom with lush leaves",
+            ("hearts", "7"): "a single foxglove stalk with a spire of tubular pink bell flowers",
+            ("hearts", "8"): "a single white lily flower with stamens on a leafy stem",
+            ("hearts", "9"): "a single sunflower head on a stem with a couple of broad leaves",
+            ("hearts", "10"): "a single camellia flower with glossy dark leaves",
+            # Diamonds — fruits & berries
+            ("diamonds", "2"): "a single strawberry plant sprig with one ripe red berry, a white blossom and trifoliate leaves",
+            ("diamonds", "3"): "a small cherry branch with a cluster of two ripe red cherries and leaves",
+            ("diamonds", "4"): "a single fig branch with one ripe purple fig and broad lobed leaves",
+            ("diamonds", "5"): "a single pomegranate on a branch, split to show red seeds, with leaves",
+            ("diamonds", "6"): "a hanging cluster of purple grapes with a curling tendril and a vine leaf",
+            ("diamonds", "7"): "a blackberry sprig with ripe dark berries, a blossom and toothed leaves",
+            ("diamonds", "8"): "a small plum branch with two ripe purple plums and leaves",
+            ("diamonds", "9"): "a single quince fruit on a leafy branch",
+            ("diamonds", "10"): "a hanging sprig of red currants with lobed leaves",
+            # Clubs — culinary herbs
+            ("clubs", "2"): "a single sprig of flowering rosemary with needle leaves and small blue flowers",
+            ("clubs", "3"): "a single sprig of garden sage with soft grey-green leaves",
+            ("clubs", "4"): "a small bundle of thyme sprigs with tiny leaves and pale flowers",
+            ("clubs", "5"): "a single stem of lavender with a spike of purple flowers and narrow leaves",
+            ("clubs", "6"): "a single sprig of spearmint with bright toothed leaves",
+            ("clubs", "7"): "a single sprig of sweet basil with broad green leaves",
+            ("clubs", "8"): "a single fennel stalk with feathery foliage and a yellow flower umbel",
+            ("clubs", "9"): "a single chamomile stem with white daisy-like flowers and feathery leaves",
+            ("clubs", "10"): "a single nasturtium sprig with one orange flower and a round leaf",
+            # Spades — trees, ferns & thorns
+            ("spades", "2"): "a single oak twig with a cluster of acorns and lobed oak leaves",
+            ("spades", "3"): "a single maple twig with a winged seed pair and a broad lobed leaf",
+            ("spades", "4"): "a single unfurling green fern frond",
+            ("spades", "5"): "a single thistle stem with one purple flower head and spiny leaves",
+            ("spades", "6"): "a single holly sprig with glossy spiny leaves and red berries",
+            ("spades", "7"): "a single pine twig with green needles and one brown pinecone",
+            ("spades", "8"): "a single horse-chestnut twig with a spiky green seed case and a palmate leaf",
+            ("spades", "9"): "a single flowering prickly-pear cactus pad with spines and a yellow blossom",
+            ("spades", "10"): "a single ginkgo twig with several fan-shaped golden leaves",
+        },
+        # Aces: the suit's signature specimen as a full-bleed plate (like the faces).
+        "ace_print": True,
+        "ace_objects": {
+            "hearts": "a single grand rose bloom with a bud and leaves on a long stem",
+            "spades": "a tall elegant fern frond unfurling",
+            "diamonds": "a pomegranate branch with one whole fruit and one split open showing seeds",
+            "clubs": "a full stem of lavender in flower with several buds",
+        },
+        # Face cards: grander full-plate botanical specimens.
+        "prints": {
+            ("hearts", "K"): "a flowering magnolia branch with large pink-white blooms and buds, hand-colored botanical plate, full plate",
+            ("hearts", "Q"): "a lush pink peony in full bloom with leaves, hand-colored botanical plate, full plate",
+            ("hearts", "J"): "an elegant orchid stem with several open blooms, hand-colored botanical plate, full plate",
+            ("spades", "K"): "an oak branch with a cluster of acorns and autumn-tinged lobed leaves, hand-colored botanical plate, full plate",
+            ("spades", "Q"): "a tall Scotch thistle with a purple flower head and spiny grey leaves, hand-colored botanical plate, full plate",
+            ("spades", "J"): "a passionflower vine with one intricate open bloom, tendrils and leaves, hand-colored botanical plate, full plate",
+            ("diamonds", "K"): "a pineapple plant with one ripe fruit and spiky leaves, hand-colored botanical plate, full plate",
+            ("diamonds", "Q"): "a pomegranate branch with whole and split-open ripe fruit, hand-colored botanical plate, full plate",
+            ("diamonds", "J"): "a grapevine branch heavy with a cluster of purple grapes and broad leaves, hand-colored botanical plate, full plate",
+            ("clubs", "K"): "a globe artichoke plant with one large flowering purple head and grey leaves, hand-colored botanical plate, full plate",
+            ("clubs", "Q"): "an angelica plant with a large rounded umbel of tiny greenish flowers, hand-colored botanical plate, full plate",
+            ("clubs", "J"): "a hop vine bine with clusters of pale green hop cones and lobed leaves, hand-colored botanical plate, full plate",
+        },
+        "back": (
+            "A playing-card BACK: a SINGLE CENTERED oval medallion framing an elegant "
+            "hand-colored Redouté-style rose with a bud and leaves, ringed by a thin "
+            "elegant gold botanical wreath, on a plain deep botanical-green ground. "
+            "Flat and refined. The medallion sits centered with a GENEROUS plain green "
+            "margin all around and empty green ground extending to every edge. Portrait "
+            "orientation. NO border frame at the card edges, NO text, NO numbers, NO "
+            "letters, NO pips."
+        ),
+    },
     "tarot": {
         "style": TAROT_STYLE,
         "suits": {
@@ -775,17 +889,19 @@ def court_prompt(deck, suit, rank):
 
 
 def number_prompt(deck, suit, rank):
-    """An isolated single bird (or subject) for a number card, on transparent bg."""
+    """An isolated single subject (bird, plant, …) for a number card, transparent bg."""
     d = DECKS[deck]
     subject = d["numbers"][(suit, rank)]
+    kind = d.get("number_kind", "bird")
+    plate = d.get("plate_kind", "ornithological")
+    pose = d.get("number_pose", " in a natural lifelike pose")
     return (
-        f"A single {subject} in a natural lifelike pose, drawn as a detailed "
-        f"hand-colored ornithological plate in {eff_style(deck, suit)} "
-        f"The bird occupies the central ~58% of the frame, centered, with WIDE empty "
+        f"A single {subject}{pose}, drawn as a detailed hand-colored "
+        f"{plate} plate in {eff_style(deck, suit)} "
+        f"The {kind} occupies the central ~58% of the frame, centered, with WIDE empty "
         f"margins on all sides — it must NOT touch or be cropped by any edge. It is "
-        f"JUST the single bird (at most on a small perch twig) — no other birds, no "
-        f"scene. The background is 100% fully transparent behind it. No card, no "
-        f"border, no text.{_iso(deck)}"
+        f"JUST the single {kind} — no other {kind}s, no scene. The background is 100% "
+        f"fully transparent behind it. No card, no border, no text.{_iso(deck)}"
     )
 
 
@@ -879,9 +995,10 @@ def main():
     if args.what in ("all", "suit", "pip") and "numbers" not in d:
         jobs.append((f"pip_{suit}.png", emblem_prompt(deck, suit), "1024x1024", True))
     if args.what in ("all", "suit", "numbers") and "numbers" in d:
+        num_size = d.get("number_size", "1024x1024")
         for rank in ["2", "3", "4", "5", "6", "7", "8", "9", "10"]:
             jobs.append((f"number_{suit}_{rank}.png", number_prompt(deck, suit, rank),
-                         "1024x1024", True))
+                         num_size, True))
     if args.what in ("all", "suit", "ace"):
         ace_print = d.get("ace_print")
         ace_size = "1024x1536" if (ace_print or d.get("ace_portrait")) else "1024x1024"

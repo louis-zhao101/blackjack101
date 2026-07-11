@@ -57,6 +57,18 @@ DECK_STYLES = {
         "face_trim": ((198, 164, 92), (150, 118, 58)),  # gold edge-trim on the face plates
         "pop_out": True,         # knock out the plate's white bg so the bird sits above the frame
     },
+    "botanical": {  # same pipeline as audubon: per-card specimens + pop-out plates
+        "border": None,
+        "red": (168, 44, 40),
+        "black": (44, 40, 34),
+        "ace_print": True,
+        "print_yshift": 55,
+        "number_fit": (0.56, 0.54),
+        "gold_outline": True,
+        "gold_outline_width": 23,
+        "face_trim": ((198, 164, 92), (150, 118, 58)),
+        "pop_out": True,
+    },
     "tarot": {
         "border": ((44, 36, 60), (24, 18, 36)),  # dark ink keyline on the cream cards
         "print_border": False,   # full-bleed Major-Arcana faces bleed to the edge, no frame
@@ -111,6 +123,53 @@ def autocrop(img, thresh=32):
     mask = img.getchannel("A").point(lambda v: 255 if v > thresh else 0)
     bbox = mask.getbbox()
     return img.crop(bbox) if bbox else img
+
+
+def keep_main_subject(img, thresh=32, pad=6):
+    """Drop disconnected stray marks (stray lines/specks the generator leaves near
+    the edges) by keeping only the largest connected blob's region. Connectivity is
+    computed on a downscaled mask for speed; alpha outside that blob's bbox is zeroed
+    so autocrop then centres on the real subject."""
+    img = img.convert("RGBA")
+    w, h = img.size
+    sw = 200
+    sh = max(1, round(h * sw / w))
+    small = img.getchannel("A").resize((sw, sh)).point(lambda v: 1 if v > thresh else 0)
+    px = small.load()
+    seen = [[False] * sw for _ in range(sh)]
+    best = None  # (size, x0, y0, x1, y1)
+    for sy in range(sh):
+        for sx in range(sw):
+            if not px[sx, sy] or seen[sy][sx]:
+                continue
+            stack = [(sx, sy)]
+            seen[sy][sx] = True
+            size = 0
+            x0 = x1 = sx
+            y0 = y1 = sy
+            while stack:
+                cx, cy = stack.pop()
+                size += 1
+                x0, x1 = min(x0, cx), max(x1, cx)
+                y0, y1 = min(y0, cy), max(y1, cy)
+                for nx, ny in ((cx - 1, cy), (cx + 1, cy), (cx, cy - 1), (cx, cy + 1)):
+                    if 0 <= nx < sw and 0 <= ny < sh and px[nx, ny] and not seen[ny][nx]:
+                        seen[ny][nx] = True
+                        stack.append((nx, ny))
+            if best is None or size > best[0]:
+                best = (size, x0, y0, x1, y1)
+    if best is None:
+        return img
+    _, x0, y0, x1, y1 = best
+    fx, fy = w / sw, h / sh
+    l = max(0, int(x0 * fx) - pad)
+    t = max(0, int(y0 * fy) - pad)
+    r = min(w, int((x1 + 1) * fx) + pad)
+    b = min(h, int((y1 + 1) * fy) + pad)
+    out = Image.new("RGBA", img.size, (0, 0, 0, 0))
+    region = img.crop((l, t, r, b))
+    out.paste(region, (l, t))
+    return out
 
 
 def clean_halo(img, sat_thresh=42, alpha_thresh=205):
@@ -374,6 +433,7 @@ def build(deck, suit, do_clean):
                 fig = Image.open(num_path).convert("RGBA")
                 if do_clean:
                     fig = clean_halo(fig)
+                    fig = keep_main_subject(fig)
                 if style.get("gold_outline"):
                     fig = gold_outline(fig, width=style.get("gold_outline_width", 7))
                 nf = style.get("number_fit", (0.5, 0.5))

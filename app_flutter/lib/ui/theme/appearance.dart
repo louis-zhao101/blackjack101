@@ -367,7 +367,6 @@ const CardBack cardBackAudubon = CardBack(
   pattern: CardBackPattern.solid,
   asset: 'assets/card_backs/audubon_back.png',
 );
-
 const List<CardBack> cardBackPresets = [
   cardBackRoyalBlue,
   cardBackCoral,
@@ -455,7 +454,6 @@ const CardDeck cardDeckAudubon = CardDeck(
   name: 'Audubon Birds',
   faceDir: 'assets/card_faces/audubon',
 );
-
 const List<CardDeck> cardDeckPresets = [
   cardDeckClassic,
   cardDeckIlluminated,
