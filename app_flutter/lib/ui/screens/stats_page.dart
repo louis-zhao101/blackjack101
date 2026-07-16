@@ -5,7 +5,7 @@ import 'dart:ui' as ui;
 
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart' show RenderRepaintBoundary;
+import 'package:flutter/rendering.dart' show RenderRepaintBoundary, RenderBox;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -1317,6 +1317,9 @@ class _ShareSheetState extends State<_ShareSheet> {
     setState(() => _sharing = true);
     Analytics.shared(widget.type);
     final caption = widget.caption;
+    // iOS/iPad presents the share sheet as a popover and requires a non-zero
+    // anchor rect in the source view's coordinate space, or it throws.
+    final origin = _shareOrigin();
     try {
       final boundary =
           _cardKey.currentContext!.findRenderObject() as RenderRepaintBoundary;
@@ -1327,14 +1330,31 @@ class _ShareSheetState extends State<_ShareSheet> {
       await Share.shareXFiles(
         [XFile.fromData(bytes, mimeType: 'image/png', name: 'blackjack101-result.png')],
         text: caption,
+        sharePositionOrigin: origin,
       );
     } catch (_) {
       // Fall back to a plain text/link share if image capture or file sharing
       // isn't available (e.g. browsers without Web Share level-2 file support).
-      await Share.share(caption);
+      try {
+        await Share.share(caption, sharePositionOrigin: origin);
+      } catch (_) {}
     } finally {
       if (mounted) setState(() => _sharing = false);
     }
+  }
+
+  Rect _shareOrigin() {
+    final box = context.findRenderObject() as RenderBox?;
+    if (box != null && box.hasSize) {
+      return box.localToGlobal(Offset.zero) & box.size;
+    }
+    // Guarantee a non-zero rect so iOS never rejects the popover anchor.
+    final size = MediaQuery.of(context).size;
+    return Rect.fromCenter(
+      center: Offset(size.width / 2, size.height / 2),
+      width: 1,
+      height: 1,
+    );
   }
 
   @override

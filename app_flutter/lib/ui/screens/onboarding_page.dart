@@ -10,7 +10,6 @@ import '../../engine/cards.dart' as bj;
 import '../../services/sound_service.dart';
 import '../../state/app_providers.dart';
 import '../../state/appearance_provider.dart';
-import '../../state/referral_provider.dart';
 import '../theme/appearance.dart';
 import '../widgets/blackjack_hand.dart';
 import '../widgets/game_button.dart';
@@ -74,45 +73,6 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
     ref.read(onboardingSeenProvider.notifier).complete();
   }
 
-  /// Lets a new player (still a guest here) enter a friend's invite code. It's
-  /// stashed as pending and redeemed automatically once they sign in — the same
-  /// path a web ?ref= link takes.
-  void _showInviteCodeEntry() {
-    final ctrl = TextEditingController();
-    showDialog<void>(
-      context: context,
-      builder: (dctx) => AlertDialog(
-        title: const Text('Enter invite code'),
-        content: TextField(
-          controller: ctrl,
-          autofocus: true,
-          textCapitalization: TextCapitalization.characters,
-          decoration: const InputDecoration(hintText: 'e.g. AB3K9P'),
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(dctx), child: const Text('Cancel')),
-          FilledButton(
-            onPressed: () async {
-              final code = ctrl.text.trim().toUpperCase();
-              Navigator.pop(dctx);
-              if (code.isEmpty) return;
-              await ref.read(localStoreProvider).savePendingReferral(code);
-              // Redeems now if already signed in; otherwise waits for sign-in.
-              ref.read(referralProvider.notifier).refresh();
-              if (!mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                content: Text(
-                    "Invite code saved — your reward unlocks when you sign in."),
-              ));
-            },
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    );
-  }
-
   void _hit() {
     if (_player.length > 2) return; // one hit only
     SoundService.instance.cardDeal();
@@ -169,25 +129,13 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                   ),
                   _Dots(count: _pages.length, index: _index, theme: theme),
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
+                    padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
                     child: SizedBox(
                       width: double.infinity,
                       height: 52,
                       child: _cta(theme),
                     ),
                   ),
-                  if (_page != _Page.review)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 16),
-                      child: TextButton(
-                        onPressed: _showInviteCodeEntry,
-                        child: const Text('Have an invite code?',
-                            style: TextStyle(
-                                color: AppTokens.textSecondary, fontSize: 13)),
-                      ),
-                    )
-                  else
-                    const SizedBox(height: 20),
                 ],
               ),
             ),
@@ -292,6 +240,7 @@ class _PlayHandView extends StatelessWidget {
   Widget build(BuildContext context) {
     final w = MediaQuery.of(context).size.width;
     final cardWidth = w < 400 ? 52.0 : 62.0;
+    final cardHeight = cardWidth * (100 / 72);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Column(
@@ -299,12 +248,21 @@ class _PlayHandView extends StatelessWidget {
         children: [
           _label('DEALER'),
           const SizedBox(height: 6),
-          BlackjackHandView(
-            cards: dealer,
-            theme: theme,
-            cardWidth: cardWidth,
-            dealOffset: 1,
-            showTotal: won,
+          // Reserve the dealer total's slot even before the win reveals it, so
+          // showing the total doesn't grow the hand and push the rest down.
+          // Height = hand vertical padding (16) + card + total row (~28).
+          SizedBox(
+            height: 16 + cardHeight + 28,
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: BlackjackHandView(
+                cards: dealer,
+                theme: theme,
+                cardWidth: cardWidth,
+                dealOffset: 1,
+                showTotal: won,
+              ),
+            ),
           ),
           const SizedBox(height: 22),
           SizedBox(

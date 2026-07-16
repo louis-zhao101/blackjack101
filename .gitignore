@@ -5,3 +5,4 @@ apps/web/dist/
 *.local
 *.tsbuildinfo
 .DS_Store
+tools/icon_out/

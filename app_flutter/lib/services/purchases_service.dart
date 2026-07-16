@@ -7,13 +7,30 @@ import 'package:purchases_ui_flutter/purchases_ui_flutter.dart';
 /// entitlement identifier configured in the RevenueCat dashboard exactly.
 const String kProEntitlement = 'blackjack_pro';
 
-/// Publishable RevenueCat SDK key. Publishable keys are safe to embed in the
-/// binary, but a --dart-define=RC_API_KEY=... override lets each build/flavor
-/// supply its own (e.g. the production appl_… / goog_… platform keys).
-const String _rcApiKey = String.fromEnvironment(
-  'RC_API_KEY',
-  defaultValue: 'test_UhiLxkydXFHZQRnpXzNOLLVsATR',
+/// Publishable RevenueCat SDK key, chosen per platform. Publishable keys
+/// (appl_… for Apple, goog_… for Google) are safe to embed in the binary; a
+/// --dart-define override lets a build/flavor swap them — e.g. a test-store
+/// (test_…) key for local QA without a store connection.
+///
+/// A `test_…` key runs fine in Debug/Simulator, but RevenueCat force-quits any
+/// TestFlight/App Store build that ships one (the "Wrong API Key" crash), so
+/// release builds must use the appl_/goog_ platform keys below.
+const String _rcApiKeyApple = String.fromEnvironment(
+  'RC_API_KEY_APPLE',
+  defaultValue: 'appl_nKVEeqlKzfEmaidtRFGTEvqVvag',
 );
+const String _rcApiKeyGoogle = String.fromEnvironment(
+  'RC_API_KEY_GOOGLE',
+  // TODO: paste the goog_… key here once the Play Store app is added in
+  // RevenueCat. Left empty so Android configures with no key (purchases
+  // disabled) rather than the wrong platform's key.
+  defaultValue: '',
+);
+
+/// The publishable key for the current platform.
+String get _rcApiKey => defaultTargetPlatform == TargetPlatform.android
+    ? _rcApiKeyGoogle
+    : _rcApiKeyApple;
 
 /// Thin wrapper over the RevenueCat SDK. Every method is a no-op on web/desktop
 /// so those builds keep compiling and running without a store backend.
@@ -33,7 +50,7 @@ class PurchasesService {
   /// Call once at startup, before any purchase or paywall UI. A bad or missing
   /// key is swallowed so the rest of the app still launches.
   static Future<void> configure() async {
-    if (!isSupported) return;
+    if (!isSupported || _rcApiKey.isEmpty) return;
     try {
       await Purchases.setLogLevel(kDebugMode ? LogLevel.debug : LogLevel.info);
       await Purchases.configure(PurchasesConfiguration(_rcApiKey));
