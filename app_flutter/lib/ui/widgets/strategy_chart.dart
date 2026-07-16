@@ -9,7 +9,9 @@ import '../theme/appearance.dart';
 import 'game_button.dart';
 
 const _dealerRanks = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'A'];
-const _hardTotals = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21];
+// Stops at 20: you never *decide* on a hard 21 (reaching 21 auto-stands), so it
+// has no strategy cell — matching allStrategyCellKeys() in the engine.
+const _hardTotals = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
 const _softTotals = [13, 14, 15, 16, 17, 18, 19, 20];
 const _pairRanks = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'A'];
 

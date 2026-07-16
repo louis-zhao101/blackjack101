@@ -457,7 +457,10 @@ class _ShopScreenState extends ConsumerState<ShopScreen> {
         bottom: false,
         child: Stack(
           children: [
-            ListView(
+            Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 712),
+                child: ListView(
               padding: EdgeInsets.fromLTRB(16, 8, 16, 48 + bottomInset),
               children: [
                 _GoProBanner(theme: theme, isPremium: ent.isPremium),
@@ -481,6 +484,8 @@ class _ShopScreenState extends ConsumerState<ShopScreen> {
                 const SizedBox(height: 8),
                 const _PolicyNote(),
               ],
+            ),
+              ),
             ),
             Positioned(
               right: 8,
@@ -1308,7 +1313,7 @@ class _BundlesSection extends ConsumerWidget {
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 4),
-              clipBehavior: Clip.none,
+              clipBehavior: Clip.hardEdge,
               itemCount: open.length,
               separatorBuilder: (_, _) => const SizedBox(width: 10),
               itemBuilder: (_, i) => _BundleCard(theme: theme, bundle: open[i]),

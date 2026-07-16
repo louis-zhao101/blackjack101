@@ -607,6 +607,15 @@ class AccountPage extends ConsumerWidget {
                 onTap: () => _showSheet(context,
                     title: 'Invite friends', child: const _InviteFriendsSheet()),
               ),
+            // Redeeming a friend's code lives here, not onboarding, so it can
+            // attach to an account — guests are routed through sign-in first.
+            if (!signedIn || !ref.watch(referralProvider).hasRedeemed)
+              _SettingRow(
+                icon: Icons.confirmation_number_outlined,
+                title: 'Redeem invite code',
+                subtitle: "Enter a friend's code for a free card back",
+                onTap: () => promptRedeemInviteCode(context, ref),
+              ),
           ],
         ),
         const SizedBox(height: 16),
@@ -904,16 +913,6 @@ class _InviteFriendsSheetState extends ConsumerState<_InviteFriendsSheet> {
               ),
             ],
           ),
-          if (!r.hasRedeemed) ...[
-            const SizedBox(height: 14),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton(
-                onPressed: _showRedeem,
-                child: const Text('Have an invite code?'),
-              ),
-            ),
-          ],
         ],
       ],
     );
@@ -948,52 +947,54 @@ class _InviteFriendsSheetState extends ConsumerState<_InviteFriendsSheet> {
     }
   }
 
-  void _showRedeem() {
-    final ctrl = TextEditingController();
-    showDialog<void>(
-      context: context,
-      builder: (dctx) => AlertDialog(
-        title: const Text('Enter invite code'),
-        content: TextField(
-          controller: ctrl,
-          autofocus: true,
-          textCapitalization: TextCapitalization.characters,
-          decoration: const InputDecoration(hintText: 'e.g. AB3K9P'),
-        ),
-        actions: [
-          TextButton(
-              onPressed: withHaptic(() => Navigator.pop(dctx)),
-              child: const Text('Cancel')),
-          FilledButton(
-            onPressed: withHaptic(() {
-              final code = ctrl.text.trim();
-              Navigator.pop(dctx);
-              if (code.isNotEmpty) _redeem(code);
-            }),
-            child: const Text('Redeem'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _redeem(String code) async {
-    final res = await ref.read(referralProvider.notifier).redeem(code);
-    if (!mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(_redeemMessage(res.outcome, res.rewarded))));
-  }
-
-  String _redeemMessage(ReferralRedeemOutcome o, bool rewarded) => switch (o) {
-        ReferralRedeemOutcome.success => rewarded
-            ? 'Code redeemed — a free card back is unlocked! 🃏'
-            : 'Invite code redeemed — thanks for joining! 🃏',
-        ReferralRedeemOutcome.invalid => "That code doesn't exist.",
-        ReferralRedeemOutcome.ownCode => "You can't redeem your own code.",
-        ReferralRedeemOutcome.already => "You've already redeemed an invite code.",
-        ReferralRedeemOutcome.error => 'Something went wrong — try again.',
-      };
 }
+
+/// Redeems a friend's invite code. The reward attaches to an account, so a
+/// signed-out player is sent through sign-in first; if they don't complete it,
+/// nothing happens. Shared by the Settings entry and the Invite Friends sheet.
+Future<void> promptRedeemInviteCode(BuildContext context, WidgetRef ref) async {
+  if (ref.read(authStateProvider).value == null) {
+    await showSignInSheet(context);
+    if (!context.mounted || ref.read(authStateProvider).value == null) return;
+  }
+  final ctrl = TextEditingController();
+  final code = await showDialog<String>(
+    context: context,
+    builder: (dctx) => AlertDialog(
+      title: const Text('Enter invite code'),
+      content: TextField(
+        controller: ctrl,
+        autofocus: true,
+        textCapitalization: TextCapitalization.characters,
+        decoration: const InputDecoration(hintText: 'e.g. AB3K9P'),
+      ),
+      actions: [
+        TextButton(
+            onPressed: withHaptic(() => Navigator.pop(dctx)),
+            child: const Text('Cancel')),
+        FilledButton(
+          onPressed: withHaptic(() => Navigator.pop(dctx, ctrl.text.trim())),
+          child: const Text('Redeem'),
+        ),
+      ],
+    ),
+  );
+  if (code == null || code.isEmpty || !context.mounted) return;
+  final res = await ref.read(referralProvider.notifier).redeem(code);
+  if (!context.mounted) return;
+  ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(_redeemMessageFor(res.outcome, res.rewarded))));
+}
+
+String _redeemMessageFor(ReferralRedeemOutcome o, bool rewarded) => switch (o) {
+      ReferralRedeemOutcome.success => rewarded
+          ? 'Code redeemed — a free card back is unlocked! 🃏'
+          : 'Invite code redeemed — thanks for joining! 🃏',
+      ReferralRedeemOutcome.invalid => "That code doesn't exist.",
+      ReferralRedeemOutcome.ownCode => "You can't redeem your own code.",
+      ReferralRedeemOutcome.already => "You've already redeemed an invite code.",
+      ReferralRedeemOutcome.error => 'Something went wrong — try again.',
+    };
 
 /// Opens the Invite Friends detail sheet. Public so cosmetic surfaces (Shop,
 /// Customize) can hook into the referral program right where players browse the
@@ -1459,7 +1460,10 @@ class _CustomizeScreenState extends State<_CustomizeScreen> {
         body: SafeArea(
           top: false,
           bottom: false,
-          child: ListView(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 712),
+              child: ListView(
             padding: EdgeInsets.fromLTRB(16, 8, 16, 40 + bottomInset),
             children: [
               const InviteFriendsBanner(),
@@ -1484,6 +1488,8 @@ class _CustomizeScreenState extends State<_CustomizeScreen> {
                             : const _DeckSheet(),
               ),
             ],
+          ),
+            ),
           ),
         ),
       );
