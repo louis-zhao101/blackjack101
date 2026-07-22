@@ -1,11 +1,11 @@
 {
-    "name": "blackjack101",
-    "short_name": "blackjack101",
+    "name": "Blackjack 101",
+    "short_name": "Blackjack 101",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#122E20",
+    "theme_color": "#122E20",
+    "description": "Learn and practice optimal blackjack basic strategy.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
