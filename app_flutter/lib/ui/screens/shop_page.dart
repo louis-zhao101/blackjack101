@@ -152,9 +152,6 @@ class _GoProScreenState extends ConsumerState<GoProScreen> {
         _ => p.storeProduct.title,
       };
 
-  static String _planLabelOr(Package? p, String fallback) =>
-      p == null ? fallback : _planLabel(p);
-
   /// The plan to preselect: never the one the user already owns. For an existing
   /// subscriber, favor the lifetime upgrade (the only way to get cosmetics).
   Package? _defaultSelection(List<Package> pkgs, String? activeId, bool isPro) {
@@ -222,14 +219,6 @@ class _GoProScreenState extends ConsumerState<GoProScreen> {
     );
   }
 
-  static Package? _pkgForId(List<Package> pkgs, String? id) {
-    if (id == null) return null;
-    for (final p in pkgs) {
-      if (p.storeProduct.identifier == id) return p;
-    }
-    return null;
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = ref.watch(appearanceProvider);
@@ -262,13 +251,6 @@ class _GoProScreenState extends ConsumerState<GoProScreen> {
             if (hasLifetime)
               _ProActiveCard(theme: theme)
             else ...[
-              if (isSubscriber) ...[
-                _CurrentPlanCard(
-                  theme: theme,
-                  planName: _planLabelOr(_pkgForId(packages, activeId), 'Pro'),
-                ),
-                const SizedBox(height: 10),
-              ],
               if (_loading)
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: 48),
@@ -522,46 +504,6 @@ class _ProActiveCard extends StatelessWidget {
             ),
           ),
           Icon(Icons.check_circle, color: theme.goldLight, size: 22),
-        ],
-      ),
-    );
-  }
-}
-
-/// Shown at the top of the paywall to an active subscriber: which plan they're
-/// on, plus the nudge toward Lifetime (the only way to unlock cosmetics).
-class _CurrentPlanCard extends StatelessWidget {
-  final AppearanceTheme theme;
-  final String planName;
-  const _CurrentPlanCard({required this.theme, required this.planName});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: theme.gold.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: theme.gold.withValues(alpha: 0.5), width: 1.2),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.workspace_premium, color: theme.goldLight, size: 22),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text("You're on Pro $planName",
-                    style: const TextStyle(
-                        color: AppTokens.textPrimary, fontSize: 16, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 2),
-                const Text('Training is unlocked. Get Lifetime to add every cosmetic.',
-                    style:
-                        TextStyle(color: AppTokens.textSecondary, fontSize: 12.5, height: 1.3)),
-              ],
-            ),
-          ),
         ],
       ),
     );
