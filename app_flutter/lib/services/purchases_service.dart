@@ -23,9 +23,12 @@ const String kAllAccessEntitlement = 'all_access';
 /// A `test_…` key runs fine in Debug/Simulator, but RevenueCat force-quits any
 /// TestFlight/App Store build that ships one (the "Wrong API Key" crash), so
 /// release builds must use the appl_/goog_ platform keys below.
+/// Production Apple publishable key, baked into the binary. A --dart-define can
+/// override [_rcApiKeyApple] with a test_ key for local (Debug) QA.
+const String _rcApiKeyAppleProd = 'appl_nKVEeqlKzfEmaidtRFGTEvqVvag';
 const String _rcApiKeyApple = String.fromEnvironment(
   'RC_API_KEY_APPLE',
-  defaultValue: 'appl_nKVEeqlKzfEmaidtRFGTEvqVvag',
+  defaultValue: _rcApiKeyAppleProd,
 );
 const String _rcApiKeyGoogle = String.fromEnvironment(
   'RC_API_KEY_GOOGLE',
@@ -35,10 +38,19 @@ const String _rcApiKeyGoogle = String.fromEnvironment(
   defaultValue: '',
 );
 
-/// The publishable key for the current platform.
-String get _rcApiKey => defaultTargetPlatform == TargetPlatform.android
-    ? _rcApiKeyGoogle
-    : _rcApiKeyApple;
+/// The publishable key for the current platform. A test-store (test_) key
+/// force-quits release builds ("Wrong API Key"), and Flutter bakes the last
+/// --dart-define into ios/Flutter/Generated.xcconfig — so a stale test_ key can
+/// sneak into an Xcode archive. Guard against it: outside Debug, never use a
+/// test_ key — fall back to the production platform key.
+String get _rcApiKey {
+  final isAndroid = defaultTargetPlatform == TargetPlatform.android;
+  final key = isAndroid ? _rcApiKeyGoogle : _rcApiKeyApple;
+  if (!kDebugMode && key.startsWith('test_')) {
+    return isAndroid ? '' : _rcApiKeyAppleProd;
+  }
+  return key;
+}
 
 /// Thin wrapper over the RevenueCat SDK. Every method is a no-op on web/desktop
 /// so those builds keep compiling and running without a store backend.
