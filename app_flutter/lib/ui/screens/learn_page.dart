@@ -496,9 +496,12 @@ class LearnPage extends ConsumerWidget {
                   icon: Icons.bolt,
                   title: 'Cheat Sheet',
                   subtitle: 'The 95% in one page',
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const CheatSheetScreen()),
-                  ),
+                  locked: !isPro,
+                  onTap: isPro
+                      ? () => Navigator.of(context).push(
+                            MaterialPageRoute(builder: (_) => const CheatSheetScreen()),
+                          )
+                      : () => openGoPro(context),
                 ),
               ),
             ],
@@ -898,6 +901,7 @@ class ReferenceScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = ref.watch(appearanceProvider);
+    final isPro = ref.watch(proStatusProvider).isPro;
     return Scaffold(
       backgroundColor: theme.feltDark,
       appBar: AppBar(
@@ -909,7 +913,14 @@ class ReferenceScreen extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 40),
         children: [
-          _CheatSheetTile(theme: theme),
+          _CheatSheetTile(
+            theme: theme,
+            locked: !isPro,
+            onTap: isPro
+                ? () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const CheatSheetScreen()))
+                : () => openGoPro(context),
+          ),
           const SizedBox(height: 16),
           _Card(
             child: Column(
@@ -1023,15 +1034,15 @@ class _ActionCard extends StatelessWidget {
 
 class _CheatSheetTile extends StatelessWidget {
   final AppearanceTheme theme;
-  const _CheatSheetTile({required this.theme});
+  final bool locked;
+  final VoidCallback onTap;
+  const _CheatSheetTile({required this.theme, this.locked = false, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: withHaptic(() => Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const CheatSheetScreen()),
-          )),
+      onTap: withHaptic(onTap),
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
@@ -1067,7 +1078,7 @@ class _CheatSheetTile extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            Icon(Icons.chevron_right, color: theme.gold, size: 22),
+            Icon(locked ? Icons.lock_outline : Icons.chevron_right, color: theme.gold, size: 22),
           ],
         ),
       ),
