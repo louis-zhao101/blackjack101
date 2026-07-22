@@ -100,6 +100,7 @@ class _BlackjackAppState extends ConsumerState<BlackjackApp> with WidgetsBinding
     final appearance = ref.watch(appearanceProvider);
     return MaterialApp(
       title: 'Blackjack 101',
+      debugShowCheckedModeBanner: false,
       theme: appThemeData(appearance),
       scrollBehavior: const MaterialScrollBehavior().copyWith(
         dragDevices: {
