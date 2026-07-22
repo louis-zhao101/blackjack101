@@ -64,7 +64,7 @@ AchievementInput _snapshot(Ref ref) {
     luckyWin: luckyWin,
     wentBroke: wentBroke,
     lostToDealerBlackjack: lostToDealerBlackjack,
-    isPremium: ref.read(entitlementsProvider).isPremium,
+    isPro: ref.read(proStatusProvider).isPro,
     longestSession: longestSession,
     bestWinStreak: bestWinStreak,
     bestHandWin: bestHandWin,

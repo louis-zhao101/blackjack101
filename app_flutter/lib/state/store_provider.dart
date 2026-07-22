@@ -10,12 +10,18 @@ import 'auth_provider.dart';
 /// The default skin every player owns for free.
 const String kFreeThemeId = 'classic-green';
 
-/// Product id for the one-time lifetime unlock: every theme (current and
-/// future) plus any premium features added later.
+/// Internal marker id the app stores in [EntitlementsState.owned] once any
+/// all-access entitlement is active — it means "all cosmetics unlocked". This is
+/// NOT a real store product; the purchasable lifetime SKU is
+/// [kLifetimeAppStoreProductId].
 const String kLifetimeProductId = 'lifetime_access';
 
-/// The lifetime price — the headline offer we push over per-theme purchases.
-const String kLifetimePrice = '\$5.99';
+/// The real App Store / RevenueCat product id the user actually buys for
+/// lifetime access. Used to look up its live price for display.
+const String kLifetimeAppStoreProductId = 'blackjack_pro_lifetime';
+
+/// Fallback lifetime price, shown only until the live store price loads.
+const String kLifetimePrice = '\$34.99';
 
 /// The category of cosmetic a [StoreProduct] unlocks.
 enum CosmeticKind { lifetime, theme, cardBack, chipStyle, deck, bundle }
@@ -419,9 +425,11 @@ class RevenueCatPurchaseBackend implements PurchaseBackend {
     try {
       final info = await Purchases.restorePurchases();
       final owned = {...info.allPurchasedProductIdentifiers};
-      // An active Blackjack Pro entitlement unlocks everything, surfaced to the
-      // app as the lifetime product it already treats as premium.
-      if (info.entitlements.active.containsKey(kProEntitlement)) {
+      // The lifetime (all-access) entitlement unlocks every cosmetic, surfaced
+      // to the app as the lifetime product it treats as premium. A subscription
+      // (blackjack_pro only) restores its training access via the CustomerInfo
+      // listener, not here.
+      if (info.entitlements.active.containsKey(kAllAccessEntitlement)) {
         owned.add(kLifetimeProductId);
       }
       return owned;
@@ -481,10 +489,11 @@ class EntitlementsController extends Notifier<EntitlementsState> {
   @override
   EntitlementsState build() {
     final owned = {...ref.read(localStoreProvider).loadOwnedProducts()};
-    // An active Blackjack Pro subscription (or lifetime) unlocks everything, so
-    // fold it into the owned set as the lifetime product the rest of the app
-    // already treats as premium.
-    if (ref.watch(proStatusProvider).isPro) owned.add(kLifetimeProductId);
+    // Only the lifetime purchase unlocks cosmetics — fold it in as the lifetime
+    // product the rest of the app treats as premium. A subscription grants
+    // training features (via proStatus.isPro) but NOT cosmetics, so it must not
+    // add the lifetime id here.
+    if (ref.watch(proStatusProvider).hasAllAccess) owned.add(kLifetimeProductId);
     return EntitlementsState(owned: owned);
   }
 
@@ -573,18 +582,33 @@ final entitlementsProvider =
 /// update listener (the single source of truth — it fires on purchase, restore,
 /// renewal, expiry, and cross-device changes).
 class ProStatus {
+  /// Training features (drill, lessons, stats, difficulty). True for any plan —
+  /// subscription or lifetime.
   final bool isPro;
+
+  /// All cosmetics unlocked. True only for the lifetime purchase, never a
+  /// subscription.
+  final bool hasAllAccess;
   final CustomerInfo? info;
-  const ProStatus({this.isPro = false, this.info});
+  const ProStatus({this.isPro = false, this.hasAllAccess = false, this.info});
+
+  /// The store product id currently granting Pro (the active subscription, or
+  /// the lifetime product). Null when not Pro. Lets the paywall mark the plan
+  /// the user is already on.
+  String? get activeProductId => info?.entitlements.active[kProEntitlement]?.productIdentifier;
+
+  static ProStatus of(CustomerInfo? info) => ProStatus(
+        isPro: PurchasesService.isProActive(info),
+        hasAllAccess: PurchasesService.isAllAccessActive(info),
+        info: info,
+      );
 }
 
 class ProStatusController extends Notifier<ProStatus> {
   @override
   ProStatus build() {
     if (PurchasesService.isReady) {
-      void listener(CustomerInfo info) {
-        state = ProStatus(isPro: PurchasesService.isProActive(info), info: info);
-      }
+      void listener(CustomerInfo info) => state = ProStatus.of(info);
 
       Purchases.addCustomerInfoUpdateListener(listener);
       ref.onDispose(() => Purchases.removeCustomerInfoUpdateListener(listener));
@@ -594,8 +618,7 @@ class ProStatusController extends Notifier<ProStatus> {
   }
 
   Future<void> _hydrate() async {
-    final info = await PurchasesService.currentInfo();
-    state = ProStatus(isPro: PurchasesService.isProActive(info), info: info);
+    state = ProStatus.of(await PurchasesService.currentInfo());
   }
 
   Future<void> refresh() => _hydrate();
@@ -603,3 +626,31 @@ class ProStatusController extends Notifier<ProStatus> {
 
 final proStatusProvider =
     NotifierProvider<ProStatusController, ProStatus>(ProStatusController.new);
+
+/// Live localized store prices (productId → priceString) for the à la carte
+/// cosmetics and the lifetime unlock. Empty until RevenueCat loads them (web, or
+/// products not yet live in the store), so callers fall back to the built-in
+/// [StoreProduct.priceLabel] / [kLifetimePrice].
+final livePricesProvider = FutureProvider<Map<String, String>>((ref) async {
+  // Re-run once Pro status hydrates, i.e. after RevenueCat finishes configuring,
+  // so prices still load if this was first read before the SDK was ready.
+  ref.watch(proStatusProvider);
+  final ids = <String>[
+    for (final p in storeProducts)
+      if (!p.isLifetime) p.id,
+    kLifetimeAppStoreProductId,
+  ];
+  return PurchasesService.fetchPrices(ids);
+});
+
+/// The price to display for [product]: the live localized store price when
+/// loaded, else the built-in fallback label. Null for products with no store
+/// entry (the free defaults).
+String? livePriceLabel(WidgetRef ref, StoreProduct? product) {
+  if (product == null) return null;
+  return ref.watch(livePricesProvider).value?[product.id] ?? product.priceLabel;
+}
+
+/// The lifetime unlock's live price, falling back to [kLifetimePrice].
+String lifetimePriceLabel(WidgetRef ref) =>
+    ref.watch(livePricesProvider).value?[kLifetimeAppStoreProductId] ?? kLifetimePrice;

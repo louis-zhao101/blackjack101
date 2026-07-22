@@ -29,7 +29,7 @@ class AchievementInput {
   final bool luckyWin;
   final bool wentBroke;
   final bool lostToDealerBlackjack;
-  final bool isPremium;
+  final bool isPro;
 
   /// Hands in the longest single session, longest run of consecutive wins by
   /// outcome, and the biggest net win on a single hand.
@@ -58,7 +58,7 @@ class AchievementInput {
     required this.luckyWin,
     required this.wentBroke,
     required this.lostToDealerBlackjack,
-    required this.isPremium,
+    required this.isPro,
     required this.longestSession,
     required this.bestWinStreak,
     required this.bestHandWin,
@@ -289,7 +289,7 @@ final List<Achievement> kAchievements = [
     emoji: '👑',
     title: 'Going Pro',
     description: 'Unlock Blackjack 101 Pro.',
-    progress: (i) => (i.isPremium ? 1 : 0, 1),
+    progress: (i) => (i.isPro ? 1 : 0, 1),
   ),
 ];
 

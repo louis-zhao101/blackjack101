@@ -57,7 +57,7 @@ class StatsPage extends ConsumerWidget {
     if (!loggedIn) return const _StatsSignInGate();
 
     final theme = ref.watch(appearanceProvider);
-    final isPremium = ref.watch(entitlementsProvider).isPremium;
+    final isPro = ref.watch(proStatusProvider).isPro;
     final stats = ref.watch(statsProvider);
     final hasLive = stats.currentSession != null && stats.currentSession!.hands.isNotEmpty;
     final allSessions = [
@@ -91,7 +91,7 @@ class StatsPage extends ConsumerWidget {
     final eligible = summaries.where((s) => s.handsPlayed >= 5).map((s) => s.correctPct);
     final bestSession = eligible.isEmpty ? 0.0 : eligible.reduce((a, b) => a > b ? a : b);
 
-    final historyLimit = isPremium ? _recentLimit : _freeHistoryLimit;
+    final historyLimit = isPro ? _recentLimit : _freeHistoryLimit;
     final shownSessions = recentFirst.take(historyLimit).toList();
     final hiddenSessions = recentFirst.length - shownSessions.length;
     final topMistakes = mistakes.take(5).toList();
@@ -159,12 +159,12 @@ class StatsPage extends ConsumerWidget {
           const SizedBox(height: 16),
           _Section(
             title: 'Accuracy over sessions',
-            trailing: isPremium && summaries.length > _chartWindow
+            trailing: isPro && summaries.length > _chartWindow
                 ? const Text('last $_chartWindow',
                     style: TextStyle(color: AppTokens.textSecondary, fontSize: 12))
                 : null,
             children: [
-              if (isPremium)
+              if (isPro)
                 Padding(
                   padding: const EdgeInsets.only(top: 8),
                   child: SizedBox(
@@ -193,7 +193,7 @@ class StatsPage extends ConsumerWidget {
         _Section(
           title: 'Strategy accuracy',
           children: [
-            if (isPremium) ...[
+            if (isPro) ...[
               const Padding(
                 padding: EdgeInsets.only(left: 2, top: 2, bottom: 8),
                 child: Text(
@@ -225,7 +225,7 @@ class StatsPage extends ConsumerWidget {
             ],
             if (hiddenSessions > 0) ...[
               const _Divider(),
-              if (isPremium)
+              if (isPro)
                 _StatRow(
                   icon: Icons.unfold_more,
                   label: 'View all ${recentFirst.length} sessions',
@@ -258,7 +258,7 @@ class StatsPage extends ConsumerWidget {
                 const _Divider(),
                 _MistakeTile(
                   m: m,
-                  unlocked: isPremium,
+                  unlocked: isPro,
                   onLockedTap: () => openGoPro(context),
                 ),
               ],

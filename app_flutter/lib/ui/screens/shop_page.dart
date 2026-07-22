@@ -45,9 +45,11 @@ Future<void> openShop(BuildContext context) {
   );
 }
 
-/// What Pro unlocks across the app — shown as a checklist on the Go Pro page.
+/// Training features every plan includes (monthly, annual, and lifetime) —
+/// shown as a checklist on the Go Pro page. Cosmetics are NOT here: they're
+/// lifetime-only and called out separately.
 const List<(IconData, String, String)> _proFeatures = [
-  (Icons.palette_outlined, 'All table themes', 'Every design — current and future'),
+  (Icons.school_outlined, 'All lessons & drills', 'The full learn-to-play path plus Test Yourself'),
   (Icons.history, 'Unlimited stats history', 'Keep every session, not just the last few'),
   (Icons.show_chart, 'Accuracy trends', 'See how you improve over time'),
   (Icons.lightbulb_outline, 'Mistake explanations', 'The "why" behind every wrong play'),
@@ -90,6 +92,10 @@ class _GoProScreenState extends ConsumerState<GoProScreen> {
   Package? _selected;
   bool _purchasing = false;
 
+  /// True once the user taps a tile — until then the selection is derived so it
+  /// never defaults to a plan the user already owns.
+  bool _touched = false;
+
   @override
   void initState() {
     super.initState();
@@ -115,9 +121,8 @@ class _GoProScreenState extends ConsumerState<GoProScreen> {
         if (o.lifetime != null) o.lifetime!,
       ];
 
-  Future<void> _subscribe() async {
-    final package = _selected;
-    if (package == null || _purchasing) return;
+  Future<void> _subscribe(Package package) async {
+    if (_purchasing) return;
     final messenger = ScaffoldMessenger.of(context);
     setState(() => _purchasing = true);
     try {
@@ -127,7 +132,7 @@ class _GoProScreenState extends ConsumerState<GoProScreen> {
       if (nowPro) {
         await ref.read(proStatusProvider.notifier).refresh();
         if (!mounted) return;
-        await _showSuccessDialog();
+        await _showSuccessDialog(isLifetime: package.packageType == PackageType.lifetime);
         if (mounted) Navigator.of(context).pop();
         return;
       }
@@ -140,11 +145,40 @@ class _GoProScreenState extends ConsumerState<GoProScreen> {
     if (mounted) setState(() => _purchasing = false);
   }
 
-  String _ctaLabel(Package p) => p.packageType == PackageType.lifetime
-      ? 'Unlock Lifetime · ${p.storeProduct.priceString}'
-      : 'Subscribe · ${p.storeProduct.priceString}';
+  static String _planLabel(Package p) => switch (p.packageType) {
+        PackageType.monthly => 'Monthly',
+        PackageType.annual => 'Yearly',
+        PackageType.lifetime => 'Lifetime',
+        _ => p.storeProduct.title,
+      };
 
-  Future<void> _showSuccessDialog() {
+  static String _planLabelOr(Package? p, String fallback) =>
+      p == null ? fallback : _planLabel(p);
+
+  /// The plan to preselect: never the one the user already owns. For an existing
+  /// subscriber, favor the lifetime upgrade (the only way to get cosmetics).
+  Package? _defaultSelection(List<Package> pkgs, String? activeId, bool isPro) {
+    final selectable = pkgs.where((p) => p.storeProduct.identifier != activeId).toList();
+    if (selectable.isEmpty) return null;
+    if (isPro) {
+      for (final p in selectable) {
+        if (p.packageType == PackageType.lifetime) return p;
+      }
+    }
+    return selectable.first;
+  }
+
+  /// The CTA wording, given the selected plan and whether the user is already a
+  /// subscriber (upgrading/switching) vs. a first-time buyer.
+  String _ctaLabel(Package p, bool isSubscriber) {
+    final price = p.storeProduct.priceString;
+    if (p.packageType == PackageType.lifetime) {
+      return isSubscriber ? 'Upgrade to Lifetime · $price' : 'Unlock Lifetime · $price';
+    }
+    return isSubscriber ? 'Switch to ${_planLabel(p)} · $price' : 'Subscribe · $price';
+  }
+
+  Future<void> _showSuccessDialog({required bool isLifetime}) {
     final theme = ref.read(appearanceProvider);
     return showDialog<void>(
       context: context,
@@ -164,13 +198,16 @@ class _GoProScreenState extends ConsumerState<GoProScreen> {
               child: Icon(Icons.workspace_premium, color: theme.goldLight, size: 38),
             ),
             const SizedBox(height: 18),
-            Text("You're Pro!",
+            Text(isLifetime ? "You're Lifetime!" : "You're Pro!",
                 style: TextStyle(
                     color: theme.goldLight, fontSize: 22, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
-            const Text('Every theme and Pro feature is unlocked.',
+            Text(
+                isLifetime
+                    ? 'Every Pro feature and cosmetic is unlocked.'
+                    : 'Every Pro training feature is unlocked.',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: AppTokens.textSecondary, fontSize: 14, height: 1.4)),
+                style: const TextStyle(color: AppTokens.textSecondary, fontSize: 14, height: 1.4)),
             const SizedBox(height: 20),
             SizedBox(
               width: double.infinity,
@@ -185,53 +222,93 @@ class _GoProScreenState extends ConsumerState<GoProScreen> {
     );
   }
 
+  static Package? _pkgForId(List<Package> pkgs, String? id) {
+    if (id == null) return null;
+    for (final p in pkgs) {
+      if (p.storeProduct.identifier == id) return p;
+    }
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = ref.watch(appearanceProvider);
+    final proStatus = ref.watch(proStatusProvider);
+    // isPremium == owns lifetime (all cosmetics). isSubscriber == Pro via a
+    // subscription only (training, no cosmetics yet).
     final isPremium = ref.watch(entitlementsProvider).isPremium;
+    final hasLifetime = proStatus.hasAllAccess;
+    final isSubscriber = proStatus.isPro && !hasLifetime;
+    final activeId = proStatus.activeProductId;
     final packages = _offering == null ? const <Package>[] : _ordered(_offering!);
     final bottomInset = MediaQuery.of(context).padding.bottom;
 
+    // Never preselect the plan the user already owns.
+    final selected = (_touched &&
+            _selected != null &&
+            _selected!.storeProduct.identifier != activeId)
+        ? _selected
+        : _defaultSelection(packages, activeId, proStatus.isPro);
+
     return Scaffold(
       backgroundColor: theme.feltDark,
-      appBar: _shopAppBar(theme, isPremium ? 'Pro' : 'Go Pro'),
+      appBar: _shopAppBar(theme, proStatus.isPro ? 'Pro' : 'Go Pro'),
       body: SafeArea(
         top: false,
         bottom: false,
         child: ListView(
           padding: EdgeInsets.fromLTRB(16, 8, 16, 40 + bottomInset),
           children: [
-            if (isPremium)
+            if (hasLifetime)
               _ProActiveCard(theme: theme)
-            else if (_loading)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 48),
-                child: Center(child: CircularProgressIndicator()),
-              )
-            else if (packages.isEmpty)
-              _PaywallUnavailable(theme: theme)
             else ...[
-              for (final p in packages)
-                _PackageTile(
+              if (isSubscriber) ...[
+                _CurrentPlanCard(
                   theme: theme,
-                  package: p,
-                  monthlyRef: _offering!.monthly,
-                  selected: _selected?.identifier == p.identifier,
-                  onTap: () => setState(() => _selected = p),
+                  planName: _planLabelOr(_pkgForId(packages, activeId), 'Pro'),
                 ),
-              const SizedBox(height: 4),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: _purchasing || _selected == null ? null : _subscribe,
-                  child: _purchasing
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2))
-                      : Text(_ctaLabel(_selected!)),
+                const SizedBox(height: 10),
+              ],
+              if (_loading)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 48),
+                  child: Center(child: CircularProgressIndicator()),
+                )
+              else if (packages.isEmpty)
+                _PaywallUnavailable(theme: theme)
+              else ...[
+                for (final p in packages)
+                  _PackageTile(
+                    theme: theme,
+                    package: p,
+                    monthlyRef: _offering!.monthly,
+                    isCurrent: p.storeProduct.identifier == activeId,
+                    selected: p.storeProduct.identifier != activeId &&
+                        selected?.identifier == p.identifier,
+                    onTap: p.storeProduct.identifier == activeId
+                        ? null
+                        : () => setState(() {
+                              _selected = p;
+                              _touched = true;
+                            }),
+                  ),
+                const SizedBox(height: 4),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed:
+                        _purchasing || selected == null ? null : () => _subscribe(selected),
+                    child: _purchasing
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2))
+                        : Text(selected == null
+                            ? 'You have every plan'
+                            : _ctaLabel(selected, isSubscriber)),
+                  ),
                 ),
-              ),
+              ],
             ],
             const SizedBox(height: 20),
             _ShopSection(
@@ -240,6 +317,13 @@ class _GoProScreenState extends ConsumerState<GoProScreen> {
                 children: [
                   for (final (icon, title, sub) in _proFeatures)
                     _FeatureRow(theme: theme, icon: icon, title: title, subtitle: sub),
+                  _FeatureRow(
+                    theme: theme,
+                    icon: Icons.palette_outlined,
+                    title: 'All cosmetics',
+                    subtitle: 'Every theme, card back, deck & chip',
+                    lifetimeOnly: !isPremium,
+                  ),
                 ],
               ),
             ),
@@ -252,7 +336,7 @@ class _GoProScreenState extends ConsumerState<GoProScreen> {
                     onPressed: _purchasing ? null : withHaptic(() => _restore(context, ref)),
                     child: const Text('Restore purchases'),
                   ),
-                  if (!_purchasesMobileOnly && ref.watch(proStatusProvider).isPro)
+                  if (!_purchasesMobileOnly && isSubscriber)
                     TextButton(
                       onPressed: withHaptic(PurchasesService.presentCustomerCenter),
                       child: const Text('Manage subscription'),
@@ -275,12 +359,17 @@ class _PackageTile extends StatelessWidget {
   final Package package;
   final Package? monthlyRef;
   final bool selected;
-  final VoidCallback onTap;
+
+  /// The plan the user is already on — shown with a "CURRENT" tag and not
+  /// selectable (onTap is null).
+  final bool isCurrent;
+  final VoidCallback? onTap;
   const _PackageTile({
     required this.theme,
     required this.package,
     required this.monthlyRef,
     required this.selected,
+    this.isCurrent = false,
     required this.onTap,
   });
 
@@ -302,23 +391,31 @@ class _PackageTile extends StatelessWidget {
     };
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: withHaptic(onTap),
+      onTap: onTap == null ? null : withHaptic(onTap!),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         decoration: BoxDecoration(
-          color: selected ? theme.gold.withValues(alpha: 0.12) : const Color(0x14FFFFFF),
+          color: isCurrent
+              ? theme.gold.withValues(alpha: 0.06)
+              : (selected ? theme.gold.withValues(alpha: 0.12) : const Color(0x14FFFFFF)),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: selected ? theme.gold : const Color(0x18FFFFFF),
+            color: isCurrent
+                ? theme.gold.withValues(alpha: 0.5)
+                : (selected ? theme.gold : const Color(0x18FFFFFF)),
             width: 1.5,
           ),
         ),
         child: Row(
           children: [
-            Icon(selected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
-                color: selected ? theme.goldLight : AppTokens.textSecondary, size: 22),
+            Icon(
+                isCurrent
+                    ? Icons.check_circle
+                    : (selected ? Icons.radio_button_checked : Icons.radio_button_unchecked),
+                color: isCurrent || selected ? theme.goldLight : AppTokens.textSecondary,
+                size: 22),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -331,7 +428,22 @@ class _PackageTile extends StatelessWidget {
                               color: AppTokens.textPrimary,
                               fontSize: 15,
                               fontWeight: FontWeight.bold)),
-                      if (isAnnual) ...[
+                      if (isCurrent) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                          decoration: BoxDecoration(
+                              color: theme.gold.withValues(alpha: 0.18),
+                              borderRadius: BorderRadius.circular(7),
+                              border: Border.all(color: theme.gold, width: 1)),
+                          child: Text('CURRENT',
+                              style: TextStyle(
+                                  color: theme.gold,
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 0.5)),
+                        ),
+                      ] else if (isAnnual) ...[
                         const SizedBox(width: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
@@ -355,7 +467,9 @@ class _PackageTile extends StatelessWidget {
             const SizedBox(width: 10),
             Text(package.storeProduct.priceString,
                 style: TextStyle(
-                    color: theme.goldLight, fontSize: 16, fontWeight: FontWeight.bold)),
+                    color: isCurrent ? AppTokens.textSecondary : theme.goldLight,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold)),
           ],
         ),
       ),
@@ -393,13 +507,61 @@ class _ProActiveCard extends StatelessWidget {
       child: Row(
         children: [
           Icon(Icons.workspace_premium, color: theme.goldLight, size: 22),
-          const SizedBox(width: 10),
+          const SizedBox(width: 12),
           const Expanded(
-            child: Text('Blackjack Pro is active',
-                style: TextStyle(
-                    color: AppTokens.textPrimary, fontSize: 16, fontWeight: FontWeight.bold)),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Lifetime unlocked',
+                    style: TextStyle(
+                        color: AppTokens.textPrimary, fontSize: 16, fontWeight: FontWeight.bold)),
+                SizedBox(height: 2),
+                Text('Every Pro feature and cosmetic — yours forever',
+                    style: TextStyle(color: AppTokens.textSecondary, fontSize: 12.5)),
+              ],
+            ),
           ),
           Icon(Icons.check_circle, color: theme.goldLight, size: 22),
+        ],
+      ),
+    );
+  }
+}
+
+/// Shown at the top of the paywall to an active subscriber: which plan they're
+/// on, plus the nudge toward Lifetime (the only way to unlock cosmetics).
+class _CurrentPlanCard extends StatelessWidget {
+  final AppearanceTheme theme;
+  final String planName;
+  const _CurrentPlanCard({required this.theme, required this.planName});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: theme.gold.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: theme.gold.withValues(alpha: 0.5), width: 1.2),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.workspace_premium, color: theme.goldLight, size: 22),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text("You're on Pro $planName",
+                    style: const TextStyle(
+                        color: AppTokens.textPrimary, fontSize: 16, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 2),
+                const Text('Training is unlocked. Get Lifetime to add every cosmetic.',
+                    style:
+                        TextStyle(color: AppTokens.textSecondary, fontSize: 12.5, height: 1.3)),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -954,7 +1116,7 @@ class _CosmeticPreviewDialog extends ConsumerWidget {
                 await _buy(context, ref, product);
                 if (context.mounted) Navigator.pop(context);
               },
-        child: Text(product == null ? 'Locked' : 'Unlock · ${product.priceLabel}'),
+        child: Text(product == null ? 'Locked' : 'Unlock · ${livePriceLabel(ref, product)}'),
       );
     }
 
@@ -1338,7 +1500,7 @@ class _BundleCard extends ConsumerWidget {
     final back = _bundleBack(bundle);
     final sig = _bundleSignature[bundle.id] ?? ('A', '♠');
     final original =
-        bundle.grants.fold<double>(0, (s, id) => s + _priceValue(productById(id)?.priceLabel ?? ''));
+        bundle.grants.fold<double>(0, (s, id) => s + _priceValue(livePriceLabel(ref, productById(id)) ?? ''));
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -1376,7 +1538,7 @@ class _BundleCard extends ConsumerWidget {
                           decoration: TextDecoration.lineThrough)),
                   const SizedBox(width: 5),
                 ],
-                Text(bundle.priceLabel,
+                Text(livePriceLabel(ref, bundle) ?? bundle.priceLabel,
                     style: TextStyle(
                         color: theme.goldLight,
                         fontSize: 13,
@@ -1473,7 +1635,7 @@ class _BundlePreviewDialog extends ConsumerWidget {
                     await _buy(context, ref, bundle);
                     if (context.mounted) Navigator.pop(context);
                   },
-            child: Text('Unlock · ${bundle.priceLabel}'),
+            child: Text('Unlock · ${livePriceLabel(ref, bundle) ?? bundle.priceLabel}'),
           );
 
     return AlertDialog(
@@ -1546,8 +1708,16 @@ class _FeatureRow extends StatelessWidget {
   final IconData icon;
   final String title;
   final String subtitle;
+
+  /// When true, tags the row with a "Lifetime" pill (a perk subscriptions don't
+  /// include).
+  final bool lifetimeOnly;
   const _FeatureRow(
-      {required this.theme, required this.icon, required this.title, required this.subtitle});
+      {required this.theme,
+      required this.icon,
+      required this.title,
+      required this.subtitle,
+      this.lifetimeOnly = false});
 
   @override
   Widget build(BuildContext context) {
@@ -1562,9 +1732,33 @@ class _FeatureRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title,
-                    style: const TextStyle(
-                        color: AppTokens.textPrimary, fontSize: 14, fontWeight: FontWeight.w600)),
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(title,
+                          style: const TextStyle(
+                              color: AppTokens.textPrimary,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600)),
+                    ),
+                    if (lifetimeOnly) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: theme.gold.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: theme.gold, width: 1),
+                        ),
+                        child: Text('Lifetime',
+                            style: TextStyle(
+                                color: theme.gold,
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.bold)),
+                      ),
+                    ],
+                  ],
+                ),
                 const SizedBox(height: 2),
                 Text(subtitle,
                     style: const TextStyle(color: AppTokens.textSecondary, fontSize: 12)),
@@ -1624,7 +1818,7 @@ class _CosmeticRow extends ConsumerWidget {
       preview: swatch,
       name: name,
       selected: isActive,
-      priceLabel: unlocked ? null : product?.priceLabel,
+      priceLabel: unlocked ? null : livePriceLabel(ref, product),
       ownedLabel: product != null ? 'Owned' : 'Free',
       onTap: onTap,
     );

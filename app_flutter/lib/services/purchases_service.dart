@@ -3,9 +3,17 @@ import 'package:flutter/services.dart' show PlatformException;
 import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:purchases_ui_flutter/purchases_ui_flutter.dart';
 
-/// RevenueCat entitlement identifier that unlocks Blackjack Pro. Must match the
-/// entitlement identifier configured in the RevenueCat dashboard exactly.
+/// RevenueCat entitlement for the Pro *training* features (drill, lessons,
+/// unlimited stats, accuracy trends, mistake explanations, all difficulty tiers
+/// and game modes, no ads). Granted by every plan — monthly, annual, AND
+/// lifetime. Must match the entitlement id in the RevenueCat dashboard exactly.
 const String kProEntitlement = 'blackjack_pro';
+
+/// RevenueCat entitlement that unlocks *all cosmetics* (every theme, card back,
+/// deck and chip). Attached ONLY to the lifetime product — subscriptions do not
+/// grant it, so a subscriber gets training features but still buys cosmetics à
+/// la carte. Must match the entitlement id in the RevenueCat dashboard exactly.
+const String kAllAccessEntitlement = 'all_access';
 
 /// Publishable RevenueCat SDK key, chosen per platform. Publishable keys
 /// (appl_… for Apple, goog_… for Google) are safe to embed in the binary; a
@@ -91,6 +99,26 @@ class PurchasesService {
 
   static bool isProActive(CustomerInfo? info) =>
       info?.entitlements.active.containsKey(kProEntitlement) ?? false;
+
+  /// Whether the all-cosmetics (lifetime) entitlement is active.
+  static bool isAllAccessActive(CustomerInfo? info) =>
+      info?.entitlements.active.containsKey(kAllAccessEntitlement) ?? false;
+
+  /// Live localized prices (productId → priceString) for the given non-consumable
+  /// products. Empty on web/desktop, or if the store hasn't loaded them, so
+  /// callers fall back to their built-in price labels.
+  static Future<Map<String, String>> fetchPrices(List<String> productIds) async {
+    if (!isReady || productIds.isEmpty) return const {};
+    try {
+      final products = await Purchases.getProducts(
+        productIds,
+        productCategory: ProductCategory.nonSubscription,
+      );
+      return {for (final p in products) p.identifier: p.priceString};
+    } on PlatformException {
+      return const {};
+    }
+  }
 
   /// The current Offering (its packages back the custom Go Pro paywall).
   /// Returns null on web/desktop or if fetching fails / none is configured.

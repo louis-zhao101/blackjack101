@@ -1094,7 +1094,7 @@ class _StrategyHint extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final correct = info.wasCorrect;
-    final locked = !ref.watch(entitlementsProvider).isPremium;
+    final locked = !ref.watch(proStatusProvider).isPro;
     return GestureDetector(
       onTap: withHaptic(
         () => showDialog(

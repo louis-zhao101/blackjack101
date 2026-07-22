@@ -547,12 +547,22 @@ Future<void> _showSheet(BuildContext context, {required String title, required W
 }
 
 Future<void> _deleteAccount(BuildContext context, WidgetRef ref) async {
-  final messenger = ScaffoldMessenger.of(context);
-  final uid = ref.read(authServiceProvider).currentUser?.uid;
+  final auth = ref.read(authServiceProvider);
+  final uid = auth.currentUser?.uid;
   if (uid == null) return;
+
+  // deleteAccount() needs a recent sign-in, and once the account is gone the
+  // client can no longer delete its Firestore data (rules require auth). So
+  // re-verify identity FIRST; only on success delete cloud data, then the
+  // account. If re-auth is cancelled or fails, nothing is touched — this avoids
+  // stranding the user with their data wiped but the account still alive.
+  final reauthed = await showReauthSheet(context);
+  if (!context.mounted || !reauthed) return;
+
+  final messenger = ScaffoldMessenger.of(context);
   try {
     await ref.read(firestoreSyncProvider).deleteUserData(uid);
-    await ref.read(authServiceProvider).deleteAccount();
+    await auth.deleteAccount();
     ref.read(statsProvider.notifier).clearHistory();
     ref.read(phoneAuthControllerProvider.notifier).reset();
   } catch (e) {
@@ -572,6 +582,10 @@ class AccountPage extends ConsumerWidget {
     final user = ref.watch(authStateProvider).value;
     final signedIn = user != null;
     final phone = user?.phoneNumber ?? '';
+    // isPro = training features (subscription or lifetime); isPremium = all
+    // cosmetics unlocked (lifetime only).
+    final isPro = ref.watch(proStatusProvider).isPro;
+    final isPremium = ref.watch(entitlementsProvider).isPremium;
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
@@ -624,15 +638,18 @@ class AccountPage extends ConsumerWidget {
           children: [
             _SettingRow(
               icon: Icons.workspace_premium_outlined,
-              title: ref.watch(entitlementsProvider).isPremium ? 'Pro' : 'Go Pro',
-              subtitle: ref.watch(entitlementsProvider).isPremium
+              title: isPro ? 'Pro' : 'Go Pro',
+              subtitle: isPremium
                   ? 'Everything unlocked'
-                  : 'Unlock everything for $kLifetimePrice',
+                  : isPro
+                      ? 'Get Lifetime to unlock all cosmetics'
+                      : 'Unlock everything for ${lifetimePriceLabel(ref)}',
               onTap: () => openGoPro(context),
             ),
-            // Pro unlocks every cosmetic, so the à la carte Shop is redundant —
-            // Pro users equip everything straight from Customize.
-            if (!ref.watch(entitlementsProvider).isPremium)
+            // Lifetime unlocks every cosmetic, so the à la carte Shop is
+            // redundant for those members — they equip everything from
+            // Customize. Subscribers still see the Shop to buy cosmetics.
+            if (!isPremium)
               _SettingRow(
                 icon: Icons.storefront_outlined,
                 title: 'Shop',
@@ -763,7 +780,7 @@ class AccountPage extends ConsumerWidget {
             _SettingRow(
               icon: Icons.bug_report_outlined,
               title: 'Reset purchases',
-              subtitle: ref.watch(entitlementsProvider).isPremium
+              subtitle: isPro
                   ? 'Pro active — tap to lock everything again'
                   : 'No purchases to reset',
               onTap: () => _confirm(
@@ -1089,7 +1106,9 @@ Widget cosmeticGrid(List<Widget> items) {
               crossAxisCount: cols,
               crossAxisSpacing: 10,
               mainAxisSpacing: 0,
-              mainAxisExtent: 134,
+              // Tall enough for a locked tile (the gold price pill adds height a
+              // free/owned tile's plain status text doesn't).
+              mainAxisExtent: 142,
             ),
             children: items,
           );
@@ -1522,7 +1541,7 @@ class _SkinSheet extends ConsumerWidget {
                 ),
               ),
               name: p.name,
-              priceLabel: unlocked ? null : product?.priceLabel,
+              priceLabel: unlocked ? null : livePriceLabel(ref, product),
               ownedLabel: product != null ? 'Owned' : 'Free',
               onTap: () => showCosmeticPreview(context,
                   kind: CosmeticKind.theme, cosmeticId: p.id, name: p.name),
@@ -1554,7 +1573,7 @@ class _CardBackSheet extends ConsumerWidget {
                 width: 34,
               ),
               name: b.name,
-              priceLabel: unlocked ? null : product?.priceLabel,
+              priceLabel: unlocked ? null : livePriceLabel(ref, product),
               ownedLabel: product != null ? 'Owned' : 'Free',
               onTap: () => showCosmeticPreview(context,
                   kind: CosmeticKind.cardBack, cosmeticId: b.id, name: b.name),
@@ -1582,7 +1601,7 @@ class _ChipStyleSheet extends ConsumerWidget {
               selected: c.id == selectedId,
               preview: ChipStripPreview(theme: theme.copyWith(chipStyle: c), size: 28),
               name: c.name,
-              priceLabel: unlocked ? null : product?.priceLabel,
+              priceLabel: unlocked ? null : livePriceLabel(ref, product),
               ownedLabel: product != null ? 'Owned' : 'Free',
               onTap: () => showCosmeticPreview(context,
                   kind: CosmeticKind.chipStyle, cosmeticId: c.id, name: c.name),
@@ -1615,7 +1634,7 @@ class _DeckSheet extends ConsumerWidget {
                 showShadow: false,
               ),
               name: d.name,
-              priceLabel: unlocked ? null : product?.priceLabel,
+              priceLabel: unlocked ? null : livePriceLabel(ref, product),
               ownedLabel: product != null ? 'Owned' : 'Free',
               onTap: () => showCosmeticPreview(context,
                   kind: CosmeticKind.deck, cosmeticId: d.id, name: d.name),
@@ -1635,13 +1654,13 @@ class _RuleSetSheet extends ConsumerWidget {
     final theme = ref.watch(appearanceProvider);
     final selectedId = ref.watch(settingsProvider).ruleSet.id;
     final locked = ref.watch(gameProvider).hasDealtInSession;
-    final isPremium = ref.watch(entitlementsProvider).isPremium;
+    final isPro = ref.watch(proStatusProvider).isPro;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         for (final r in rulePresets)
           () {
-            final premiumLocked = r.id != _freeRuleSetId && !isPremium;
+            final premiumLocked = r.id != _freeRuleSetId && !isPro;
             return _SheetOption(
               theme: theme,
               selected: r.id == selectedId,
@@ -1691,13 +1710,13 @@ class _DifficultySheet extends ConsumerWidget {
     final theme = ref.watch(appearanceProvider);
     final selected = ref.watch(settingsProvider).difficulty;
     final locked = ref.watch(gameProvider).hasDealtInSession;
-    final isPremium = ref.watch(entitlementsProvider).isPremium;
+    final isPro = ref.watch(proStatusProvider).isPro;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         for (final d in difficultyPresets)
           () {
-            final premiumLocked = d != Difficulty.regular && !isPremium;
+            final premiumLocked = d != Difficulty.regular && !isPro;
             return _SheetOption(
               theme: theme,
               selected: d == selected,
