@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -772,8 +772,9 @@ class AccountPage extends ConsumerWidget {
             ),
           ],
         ),
+        // Debug-only tools — hidden in release builds (TestFlight / App Store).
+        if (kDebugMode) ...[
         const SizedBox(height: 16),
-        // TODO: remove (or gate behind kDebugMode) before App Store release.
         _SectionCard(
           title: 'Developer',
           children: [
@@ -823,6 +824,7 @@ class AccountPage extends ConsumerWidget {
             ),
           ],
         ),
+        ],
       ],
     );
   }
