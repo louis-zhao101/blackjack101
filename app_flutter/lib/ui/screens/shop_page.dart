@@ -9,6 +9,7 @@ import '../../state/appearance_provider.dart';
 import '../../state/auth_provider.dart';
 import '../../state/store_provider.dart';
 import '../app_shell.dart' show InviteFriendsBanner, cosmeticGrid, CosmeticTile;
+import '../auth_screen.dart' show showSignInSheet;
 import '../theme/appearance.dart';
 import '../widgets/chip_widget.dart';
 import '../widgets/game_button.dart';
@@ -123,6 +124,8 @@ class _GoProScreenState extends ConsumerState<GoProScreen> {
 
   Future<void> _subscribe(Package package) async {
     if (_purchasing) return;
+    if (!await _ensureSignedIn(context, ref)) return;
+    if (!mounted) return;
     final messenger = ScaffoldMessenger.of(context);
     setState(() => _purchasing = true);
     try {
@@ -797,11 +800,22 @@ class _PolicyNote extends StatelessWidget {
   }
 }
 
+/// Purchases must tie to a signed-in account so entitlements sync across devices
+/// and survive reinstall. Returns true if signed in, prompting the sign-in sheet
+/// first if not (false if the user dismisses it without signing in).
+Future<bool> _ensureSignedIn(BuildContext context, WidgetRef ref) async {
+  if (ref.read(authServiceProvider).currentUser != null) return true;
+  await showSignInSheet(context);
+  return ref.read(authServiceProvider).currentUser != null;
+}
+
 Future<void> _buy(BuildContext context, WidgetRef ref, StoreProduct product) async {
   if (_purchasesMobileOnly) {
     _notifyMobileOnly(context);
     return;
   }
+  if (!await _ensureSignedIn(context, ref)) return;
+  if (!context.mounted) return;
   final messenger = ScaffoldMessenger.of(context);
   final result = await ref.read(entitlementsProvider.notifier).purchase(product);
   if (result == PurchaseResult.success) {
