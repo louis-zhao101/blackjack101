@@ -79,17 +79,22 @@ class FirebaseAuthService {
     }
   }
 
-  Future<void> signInDevAccount() async {
-    const email = 'dev@test.local';
-    const password = 'devaccount123';
+  /// Re-verifies the CURRENT user with a freshly received SMS [smsCode] — needed
+  /// before security-sensitive actions (e.g. account deletion) when the last
+  /// sign-in is too old for [deleteAccount]. Throws a friendly message on a bad
+  /// code, or 'user-mismatch' if the code was for a different number.
+  Future<void> reauthenticateWithCode(PhoneCodeHandle handle, String smsCode) async {
+    final user = _auth.currentUser;
+    if (user == null) throw 'Your session ended — please sign in again.';
+    final verificationId =
+        handle.verificationId ?? handle.confirmationResult?.verificationId;
+    if (verificationId == null) throw 'Could not verify that code. Request a new one.';
     try {
-      await _auth.createUserWithEmailAndPassword(email: email, password: password);
+      final credential =
+          PhoneAuthProvider.credential(verificationId: verificationId, smsCode: smsCode);
+      await user.reauthenticateWithCredential(credential);
     } on FirebaseAuthException catch (e) {
-      if (e.code == 'email-already-in-use') {
-        await _auth.signInWithEmailAndPassword(email: email, password: password);
-      } else {
-        rethrow;
-      }
+      throw _friendlyError(e);
     }
   }
 
@@ -117,6 +122,8 @@ class FirebaseAuthService {
         return 'The code expired. Request a new one.';
       case 'requires-recent-login':
         return 'For security, please sign out and sign in again, then retry.';
+      case 'user-mismatch':
+        return 'That code was for a different number than this account.';
       default:
         return e.message ?? 'Authentication failed. Please try again.';
     }
