@@ -214,6 +214,91 @@ List<_Step> _doubleSplit(RuleSet rs) => [
       ),
     ];
 
+List<_Step> _softHands(RuleSet rs) => [
+      _Step(
+        heading: 'What makes a hand "soft"',
+        body:
+            "A hand is 'soft' when it holds an Ace still counted as 11. The magic: a single hit can't bust you — draw a card that would put you over 21 and the Ace quietly drops to 1. A-6 is 'soft 17'; hit it, catch a 10, and you simply have a hard 17.",
+        takeaway: 'A soft hand is safe to hit — the Ace is a built-in safety net.',
+        widget: const _ExampleHand([
+          ('Soft 17', [bj.Card(rank: 'A', suit: '♥'), bj.Card(rank: '6', suit: '♠')]),
+        ]),
+      ),
+      _Step(
+        heading: 'Never stand on soft 17 or lower',
+        body:
+            "Because one hit can't bust you, standing on a low soft total just throws away free improvement. Soft 17 is the classic trap — it looks like a made 17, but it's a weak hand you should always hit or double. Never stand on soft 17 or anything below it.",
+        takeaway: 'Soft 17 or lower → always hit or double, never stand.',
+      ),
+      _Step(
+        heading: 'Double soft hands when the dealer is weak',
+        body:
+            "The Ace's safety net makes soft hands great doubling hands against a bust-prone dealer. The core rule: double soft 13–18 versus a dealer 4, 5, or 6. The lowest hands (A-2, A-3) only reach down to a 5–6; A-6 and A-7 stretch up to include a 3. Can't double a three-card hand? Just hit.",
+        takeaway: 'Weak dealer (4–6) + soft hand = double down.',
+        widget: const _ExampleHand([
+          ('You have', [bj.Card(rank: 'A', suit: '♦'), bj.Card(rank: '4', suit: '♠')]),
+          ('Dealer', [bj.Card(rank: '5', suit: '♥')]),
+        ]),
+      ),
+      _Step(
+        heading: 'Soft 18 — the hand everyone misplays',
+        body:
+            "Soft 18 (A-7) is the most misplayed hand in blackjack, with three different answers:\n• vs 2, 7, 8 → stand. 18 is good enough.\n• vs 3, 4, 5, 6 → double if you can, otherwise stand.\n• vs 9, 10, A → hit. 18 loses to a strong dealer, and the Ace means the hit can't bust you.",
+        takeaway: 'Soft 18: stand vs 2/7/8, double vs 3–6, HIT vs 9/10/A.',
+        widget: const _ExampleHand([
+          ('You have', [bj.Card(rank: 'A', suit: '♠'), bj.Card(rank: '7', suit: '♥')]),
+          ('Dealer', [bj.Card(rank: '9', suit: '♣')]),
+        ]),
+      ),
+      _Step(
+        heading: 'Soft 19 and 20 are already done',
+        body:
+            "Soft 19 (A-8) and soft 20 (A-9) are among the best hands you can hold. There's nothing to improve — always stand and let the dealer chase you.",
+        takeaway: 'Soft 19 or higher → always stand.',
+      ),
+    ];
+
+List<_Step> _splitsDepth(RuleSet rs) => [
+      _Step(
+        heading: 'Start with the automatics',
+        body:
+            "You already know the four automatics: always split Aces and 8s, never split 10s or 5s. Every other pair is conditional — whether you split depends on the dealer's upcard. This lesson fills in the rest.",
+        takeaway: 'A/8 always, 10/5 never — the rest depends on the dealer.',
+      ),
+      _Step(
+        heading: 'Split the small pairs against a weak dealer',
+        body:
+            "Low pairs split when the dealer is likely to bust and hit when the dealer is strong:\n• 2s, 3s, 7s → split vs dealer 2–7, otherwise hit.\n• 6s → split vs dealer 2–6, otherwise hit.\nAgainst a strong upcard, two weak hands only give the dealer two chances to beat you.",
+        takeaway: 'Split 2s/3s/7s vs 2–7, and 6s vs 2–6.',
+        widget: const _ExampleHand([
+          ('Split vs 6', [bj.Card(rank: '7', suit: '♠'), bj.Card(rank: '7', suit: '♥')]),
+          ('Dealer', [bj.Card(rank: '6', suit: '♦')]),
+        ]),
+      ),
+      _Step(
+        heading: '4s — only against the weakest dealers',
+        body:
+            "A pair of 4s is a hard 8 — a perfectly fine hand to just hit. Only split it against a dealer 5 or 6, and only because this game lets you double after a split. Against anything else, hit.",
+        takeaway: '4s: split only vs 5–6, otherwise hit.',
+      ),
+      _Step(
+        heading: '9s — the exception that trips people up',
+        body:
+            "Split 9s (your 18) against most upcards — but stand vs 7, 10, and Ace. Vs a 7, the dealer most likely makes 17, so your 18 already wins — don't break it up. Vs 10 or Ace the dealer is too strong; splitting just hands them two targets. The oddity: you split vs 8 and 9, but stand on the 7 between them.",
+        takeaway: 'Split 9s except vs 7, 10, A — there, stand on your 18.',
+        widget: const _ExampleHand([
+          ('Stand vs 7', [bj.Card(rank: '9', suit: '♠'), bj.Card(rank: '9', suit: '♥')]),
+          ('Dealer', [bj.Card(rank: '7', suit: '♦')]),
+        ]),
+      ),
+      _Step(
+        heading: 'Why 5s and 10s never split',
+        body:
+            "The two 'nevers,' explained:\n• 5s are a hard 10 — one of the best doubling hands in the game. Splitting trades a powerhouse for two weak 5s. Double instead.\n• 10s are a 20, which wins the vast majority of the time. Never break up a near-certain winner to chase two unknowns.",
+        takeaway: '5s → double as a 10. 10s → keep your 20.',
+      ),
+    ];
+
 List<_Step> _chartLesson(RuleSet rs) => [
       _Step(
         heading: 'The complete answer key',
@@ -314,6 +399,20 @@ final List<_Lesson> _lessons = [
     build: _doubleSplit,
   ),
   _Lesson(
+    id: 'soft',
+    title: 'Soft Hands',
+    subtitle: 'Playing the Ace',
+    icon: Icons.swap_horiz,
+    build: _softHands,
+  ),
+  _Lesson(
+    id: 'splits',
+    title: 'Splitting, in Depth',
+    subtitle: 'Every pair, every dealer',
+    icon: Icons.alt_route,
+    build: _splitsDepth,
+  ),
+  _Lesson(
     id: 'chart',
     title: 'The Strategy Chart',
     subtitle: 'The complete answer key',
@@ -341,7 +440,7 @@ class LearnPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = ref.watch(appearanceProvider);
     final done = ref.watch(learnProvider);
-    final isPremium = ref.watch(entitlementsProvider).isPremium;
+    final isPro = ref.watch(proStatusProvider).isPro;
 
     final teachable = _lessons.where((l) => !l.isPractice).toList();
     final completed = teachable.where((l) => done.contains(l.id)).length;
@@ -382,8 +481,8 @@ class LearnPage extends ConsumerWidget {
                   icon: _lessons.firstWhere((l) => l.isPractice).icon,
                   title: 'Test Yourself',
                   subtitle: 'Drill any hand',
-                  locked: !isPremium,
-                  onTap: isPremium
+                  locked: !isPro,
+                  onTap: isPro
                       ? () => Navigator.of(context).push(
                             MaterialPageRoute(builder: (_) => const PracticeScreen()),
                           )
@@ -406,27 +505,33 @@ class LearnPage extends ConsumerWidget {
           ),
         ),
         const SizedBox(height: 16),
-        // Lessons unlock in order: a lesson is available only once every earlier
-        // one is done. Since [nextId] is the first incomplete lesson, everything
-        // before it is done (unlocked) and everything after it stays locked.
-        ...teachable.map((lesson) {
+        // The first lesson is a free taste; every later one is behind Pro. Among
+        // unlocked lessons, they still open in order — [nextId] is the first
+        // incomplete one, so everything before it is done and openable.
+        ...teachable.indexed.map((entry) {
+          final (i, lesson) = entry;
           final isDone = done.contains(lesson.id);
-          final locked = !isDone && lesson.id != nextId;
+          final needsPro = i > 0 && !isPro;
+          final sequentialLocked = !isDone && lesson.id != nextId;
+          final locked = needsPro || sequentialLocked;
           return Padding(
             padding: const EdgeInsets.only(bottom: 10),
             child: _LessonTile(
               theme: theme,
               lesson: lesson,
               done: isDone,
-              recommended: lesson.id == nextId,
+              recommended: !needsPro && lesson.id == nextId,
               locked: locked,
-              onTap: locked
-                  ? () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                        content: Text('Finish the previous lesson to unlock this one.'),
-                      ))
-                  : () => Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => _LessonScreen(lesson: lesson)),
-                      ),
+              proLocked: needsPro,
+              onTap: needsPro
+                  ? () => openGoPro(context)
+                  : sequentialLocked
+                      ? () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                            content: Text('Finish the previous lesson to unlock this one.'),
+                          ))
+                      : () => Navigator.of(context).push(
+                            MaterialPageRoute(builder: (_) => _LessonScreen(lesson: lesson)),
+                          ),
             ),
           );
         }),
@@ -501,6 +606,10 @@ class _LessonTile extends StatelessWidget {
   final bool done;
   final bool recommended;
   final bool locked;
+
+  /// Locked specifically because the lesson is behind Pro (vs. still-sequential).
+  /// Shown enticingly — full opacity with a gold "Pro" pill rather than dimmed.
+  final bool proLocked;
   final VoidCallback? onTap;
   const _LessonTile({
     required this.theme,
@@ -508,6 +617,7 @@ class _LessonTile extends StatelessWidget {
     required this.done,
     required this.recommended,
     this.locked = false,
+    this.proLocked = false,
     required this.onTap,
   });
 
@@ -529,7 +639,7 @@ class _LessonTile extends StatelessWidget {
         child: Row(
           children: [
             Opacity(
-              opacity: locked ? 0.4 : 1,
+              opacity: (locked && !proLocked) ? 0.4 : 1,
               child: Container(
                 width: 40,
                 height: 40,
@@ -544,7 +654,7 @@ class _LessonTile extends StatelessWidget {
             const SizedBox(width: 13),
             Expanded(
               child: Opacity(
-                opacity: locked ? 0.4 : 1,
+                opacity: (locked && !proLocked) ? 0.4 : 1,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -569,6 +679,25 @@ class _LessonTile extends StatelessWidget {
   }
 
   Widget _trailing() {
+    if (proLocked) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: theme.gold.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: theme.gold, width: 1.2),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.lock, size: 12, color: theme.gold),
+            const SizedBox(width: 4),
+            Text('Pro',
+                style: TextStyle(color: theme.gold, fontSize: 12, fontWeight: FontWeight.bold)),
+          ],
+        ),
+      );
+    }
     if (locked) {
       return const Icon(Icons.lock_outline, color: AppTokens.textSecondary, size: 20);
     }
