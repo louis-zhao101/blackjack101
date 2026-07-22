@@ -204,15 +204,17 @@ class LandingController extends Notifier<bool> {
 final landingSeenProvider =
     NotifierProvider<LandingController, bool>(LandingController.new);
 
+/// The app's public web address — the custom domain, served by Firebase Hosting.
+/// Single source of truth for every user-facing link; change it here only.
+const String kAppBaseUrl = 'https://blackjack101.app';
+
 /// Canonical hosted address of the privacy policy, used for the in-app link on
 /// native platforms (where there's no same-origin `/privacy.html` to resolve).
-// Firebase Hosting subdomain; swap to a custom domain here when one is added.
-const String kPrivacyPolicyUrl = 'https://blackjack101-app.web.app/privacy.html';
+const String kPrivacyPolicyUrl = '$kAppBaseUrl/privacy.html';
 
 /// Public URL included in shared result cards / invites so recipients can open
 /// the (instantly playable) web app.
-// Firebase Hosting subdomain; swap to a custom domain here when one is added.
-const String kAppShareUrl = 'https://blackjack101-app.web.app';
+const String kAppShareUrl = kAppBaseUrl;
 
 /// Opens the privacy policy. On web the page ships alongside the app at the same
 /// origin, so a relative path resolves; on mobile it opens the hosted copy.
