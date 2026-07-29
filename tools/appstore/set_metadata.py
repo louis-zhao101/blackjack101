@@ -23,7 +23,7 @@ LOCALE = "en-US"
 
 NAME = "Blackjack 101 - Strategy"
 SUBTITLE = "Practice trainer & drills"
-KEYWORDS = "basic,card counting,21,casino,dealer,odds,cheat sheet,vegas,learn,split,hit,stand,bankroll,coach"
+KEYWORDS = "basic strategy,card counting,21,casino,dealer,odds,cheat sheet,vegas,split,double,drills,trainer"
 PROMO = ("Learn perfect basic strategy with quick lessons, unlimited practice, and "
          "instant feedback on every hand. It's a trainer — no real-money gambling, "
          "just pure strategy.")
@@ -47,9 +47,9 @@ TRACK
 • Unlimited stats history with Pro
 
 CUSTOMIZE
-• Hand-illustrated card decks, table themes, and chip sets
+• Hand-illustrated card decks and table themes
 
-Blackjack 101 is a training tool. There's no real-money gambling and no prizes — just you, the strategy, and steady improvement.
+Blackjack 101 is a training tool — there's no betting, no wagering, and no prizes. Just you, the strategy, and steady improvement.
 
 Play smarter. Start with Blackjack 101."""
 SUPPORT_URL = "https://blackjack101.app"
