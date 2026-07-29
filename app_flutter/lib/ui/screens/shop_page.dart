@@ -1262,14 +1262,14 @@ class _GoProBanner extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(isPremium ? 'Pro active' : 'Get everything with Pro',
+                Text(isPremium ? 'Lifetime active' : 'Unlock every cosmetic',
                     style: const TextStyle(
                         color: AppTokens.textPrimary, fontSize: 14, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 2),
                 Text(
                     isPremium
                         ? 'All decks & themes unlocked'
-                        : 'Every deck, back, theme & feature',
+                        : 'Every deck, back & theme — with Lifetime',
                     style: const TextStyle(color: AppTokens.textSecondary, fontSize: 12)),
               ],
             ),
