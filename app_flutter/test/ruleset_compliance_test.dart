@@ -28,91 +28,57 @@ List<Card> mkDeck(String p1, String d1, String p2, String d2,
 }
 
 /// Creates a betting-phase state ready for dealHand.
-GameState mkState(RuleSet rules, List<Card> deck, {int bet = 100}) =>
-    GameState(
+GameState mkState(RuleSet rules, List<Card> deck) => GameState(
       phase: GamePhase.betting,
       deck: deck,
       dealerCards: [],
       playerHands: [],
       activeHandIndex: 0,
-      pendingBet: bet,
-      bankroll: 1000,
       ruleSet: rules,
       message: '',
     );
 
 /// Shorthand: build state + deal hand.
 GameState deal(RuleSet rules, String p1, String d1, String p2, String d2,
-    [List<String> hits = const [], int bet = 100]) =>
-    dealHand(mkState(rules, mkDeck(p1, d1, p2, d2, hits), bet: bet));
+    [List<String> hits = const []]) =>
+    dealHand(mkState(rules, mkDeck(p1, d1, p2, d2, hits)));
 
 // ---------------------------------------------------------------------------
 
 void main() {
   // -------------------------------------------------------------------------
-  // 1. PAYOUTS
+  // 1. BLACKJACK DETECTION / RESULT (money-free: no payout math exists anymore;
+  //    blackjackPays is retained only as ruleset metadata — see variants_test
+  //    style coverage below via `blackjackPays` field checks).
   // -------------------------------------------------------------------------
-  group('payouts', () {
-    test('Vegas Strip: blackjack pays 3:2', () {
-      // Player: A + K = BJ. Dealer: 5 + 8 = 13 (no BJ).
-      final s = deal(vegasStrip, 'A', '5', 'K', '8');
-      expect(s.phase, GamePhase.complete);
-      expect(s.playerHands[0].result, HandResult.blackjack);
-      // Bet 100 → stake returned + 150 bonus = 250 total
-      expect(s.playerHands[0].payout, 250);
-      expect(s.bankroll, 1150);
+  group('blackjack result across rulesets', () {
+    for (final rules in rulePresets) {
+      test('${rules.name}: player natural vs non-natural dealer → blackjack result', () {
+        // Player: A + K = BJ. Dealer: 5 + 8 = 13 (no BJ).
+        final s = deal(rules, 'A', '5', 'K', '8');
+        expect(s.phase, GamePhase.complete, reason: rules.name);
+        expect(s.playerHands[0].result, HandResult.blackjack, reason: rules.name);
+      });
+    }
+
+    test('Vegas Strip ruleset metadata still reports 3:2', () {
+      expect(vegasStrip.blackjackPays, BlackjackPayout.threeToTwo);
     });
 
-    test('Vegas Strip H17: blackjack pays 3:2', () {
-      final s = deal(vegasStripH17, 'A', '5', 'K', '8');
-      expect(s.playerHands[0].result, HandResult.blackjack);
-      expect(s.playerHands[0].payout, 250);
+    test('Single Deck ruleset metadata still reports 6:5', () {
+      expect(singleDeck.blackjackPays, BlackjackPayout.sixToFive);
     });
 
-    test('Atlantic City: blackjack pays 3:2', () {
-      final s = deal(atlanticCity, 'A', '5', 'K', '8');
-      expect(s.playerHands[0].result, HandResult.blackjack);
-      expect(s.playerHands[0].payout, 250);
-    });
-
-    test('Single Deck: blackjack pays 6:5', () {
-      // 100 bet → 100 + floor(100 * 1.2) = 220
-      final s = deal(singleDeck, 'A', '5', 'K', '8');
-      expect(s.phase, GamePhase.complete);
-      expect(s.playerHands[0].result, HandResult.blackjack);
-      expect(s.playerHands[0].payout, 220);
-      expect(s.bankroll, 1120);
-    });
-
-    test('fractional 6:5 payout floors correctly (\$15 bet → \$18 payout)', () {
-      // $15 * 1.2 = 18.0 (exact) — covers floor behaviour
-      final s = deal(singleDeck, 'A', '5', 'K', '8', [], 15);
-      expect(s.playerHands[0].payout, 33); // 15 stake + 18 bonus
-    });
-
-    test('fractional 6:5 payout floors correctly (\$10 bet → \$22 payout)', () {
-      // $10 * 1.2 = 12 exact — no rounding needed
-      final s = deal(singleDeck, 'A', '5', 'K', '8', [], 10);
-      expect(s.playerHands[0].payout, 22);
-    });
-
-    test('player BJ vs dealer BJ → push (bet returned)', () {
+    test('player BJ vs dealer BJ → push', () {
       final s = deal(vegasStrip, 'A', 'A', 'K', 'K');
       expect(s.playerHands[0].result, HandResult.push);
-      expect(s.playerHands[0].payout, 100); // only stake returned
-      expect(s.bankroll, 1000);             // net zero
     });
 
     test('dealer BJ beats player non-BJ 20', () {
       // Player: K + Q = 20. Dealer: A + K = BJ.
-      // Player stands first (no auto-BJ detection for dealer here).
       var s = deal(vegasStrip, 'K', 'A', 'Q', 'K');
-      // Player has 20 in playerTurn, stands.
-      s = stand(s);
       expect(s.phase, GamePhase.complete);
       expect(s.playerHands[0].result, HandResult.lose);
-      expect(s.playerHands[0].payout, 0);
-      expect(s.bankroll, 900);
     });
   });
 
@@ -206,13 +172,12 @@ void main() {
       expect(canSurrender(s), true);
     });
 
-    test('Atlantic City: surrender returns half bet', () {
+    test('Atlantic City: surrender sets result and completes the hand', () {
       var s = deal(atlanticCity, '9', 'A', '7', '6');
       s = surrender(s);
       expect(s.phase, GamePhase.complete);
       expect(s.playerHands[0].result, HandResult.surrender);
-      expect(s.playerHands[0].payout, 50); // half of 100
-      expect(s.bankroll, 950);
+      expect(s.playerHands[0].surrendered, true);
     });
 
     test('Vegas Strip: surrender is not allowed', () {
@@ -251,13 +216,11 @@ void main() {
   // 3b. DEALER BLACKJACK — IMMEDIATE RESOLUTION (dealer peek)
   // -------------------------------------------------------------------------
   group('dealer blackjack ends the hand at deal', () {
-    test('dealer natural resolves immediately — player loses base bet, no turn', () {
+    test('dealer natural resolves immediately — player loses, no turn', () {
       // Player 9+8=17; dealer A up, K hole = blackjack.
       final s = deal(vegasStrip, '9', 'A', '8', 'K');
       expect(s.phase, GamePhase.complete);
       expect(s.playerHands[0].result, HandResult.lose);
-      expect(s.playerHands[0].payout, 0);
-      expect(s.bankroll, 900); // only the original 100 is lost
       expect(canDouble(s), false);
       expect(canSplit(s), false);
     });
@@ -276,14 +239,13 @@ void main() {
       final afterSplit = split(s); // no-op
       expect(afterSplit.playerHands.length, 1);
       final afterDouble = doubleDown(s); // no-op
-      expect(afterDouble.bankroll, 900); // no extra bet lost either way
+      expect(afterDouble.playerHands[0].doubled, false);
     });
 
     test('player blackjack vs dealer blackjack pushes at deal', () {
       final s = deal(vegasStrip, 'A', 'A', 'K', 'K'); // both naturals
       expect(s.phase, GamePhase.complete);
       expect(s.playerHands[0].result, HandResult.push);
-      expect(s.bankroll, 1000);
     });
 
     test('dealer 10 upcard without a natural still lets the player act', () {
@@ -291,11 +253,10 @@ void main() {
       expect(s.phase, GamePhase.playerTurn);
     });
 
-    test('6:5 game: dealer blackjack still only takes the base bet', () {
+    test('6:5 game: dealer blackjack still resolves as a loss (peek)', () {
       final s = deal(singleDeck, '9', 'A', '8', 'K');
       expect(s.phase, GamePhase.complete);
       expect(s.playerHands[0].result, HandResult.lose);
-      expect(s.bankroll, 900);
     });
   });
 
@@ -327,20 +288,20 @@ void main() {
     test('no-DAS: doubleDown() is a no-op on split hand', () {
       var s = deal(singleDeck, '8', '5', '8', 'K', ['3', '4']);
       s = split(s);
-      final before = s.bankroll;
+      final before = s;
       final after = doubleDown(s);
       // State unchanged — canDouble returned false, doubleDown returns early
-      expect(after.bankroll, before);
-      expect(after.playerHands.length, s.playerHands.length);
+      expect(after, same(before));
+      expect(after.playerHands[0].doubled, false);
     });
 
-    test('DAS: doubleDown deducts extra bet on split hand', () {
+    test('DAS: doubleDown marks the split hand doubled and draws one card', () {
       var s = deal(vegasStrip, '8', '5', '8', 'K', ['3', '4', '7']);
       s = split(s); // hand[0]=[8,3]=11
-      final bankrollBefore = s.bankroll;
+      final cardsBefore = s.playerHands[0].cards.length;
       s = doubleDown(s);
-      // Doubled bet deducted from bankroll
-      expect(s.bankroll, bankrollBefore - 100);
+      expect(s.playerHands[0].doubled, true);
+      expect(s.playerHands[0].cards.length, cardsBefore + 1);
     });
 
     test('non-split: canDouble true regardless of ruleset', () {
@@ -520,7 +481,6 @@ void main() {
       var s = deal(vegasStrip, '10', '2', 'K', '3', ['5']);
       s = hit(s); // 10+K=20, +5=25 bust
       expect(s.playerHands[0].result, HandResult.lose);
-      expect(s.playerHands[0].payout, 0);
     });
 
     test('dealer bust → player wins', () {
@@ -531,7 +491,6 @@ void main() {
       expect(s.phase, GamePhase.complete);
       expect(handValue(s.dealerCards).total, greaterThan(21));
       expect(s.playerHands[0].result, HandResult.win);
-      expect(s.playerHands[0].payout, 200); // 100 stake + 100 win
     });
 
     test('player wins with higher total', () {
@@ -547,8 +506,6 @@ void main() {
       expect(s.phase, GamePhase.complete);
       expect(handValue(s.dealerCards).total, 17);
       expect(s.playerHands[0].result, HandResult.push);
-      expect(s.playerHands[0].payout, 100); // bet returned
-      expect(s.bankroll, 1000); // net zero
     });
 
     test('player loses with lower total', () {
@@ -556,7 +513,6 @@ void main() {
       var s = deal(vegasStrip, '6', '10', '7', '8');
       s = stand(s);
       expect(s.playerHands[0].result, HandResult.lose);
-      expect(s.bankroll, 900);
     });
   });
 
@@ -565,16 +521,15 @@ void main() {
   // -------------------------------------------------------------------------
   group('blackjack detection', () {
     test('BJ only awarded on first 2 cards', () {
-      // Player: 3+8=11, hits K → 21 (3 cards). Not BJ — no 3:2 bonus.
+      // Player: 3+8=11, hits K → 21 (3 cards). Not a natural — regular win, not BJ.
       var s = deal(vegasStrip, '3', '5', '8', '9', ['K']);
       s = hit(s); // 11+K=21, auto-advance
       expect(s.phase, GamePhase.complete);
-      // Result should be win (1:1), not blackjack (3:2)
-      expect(s.playerHands[0].result, isNot(HandResult.blackjack));
-      expect(s.playerHands[0].payout, 200); // normal 1:1 win payout
+      // Result should be a plain win, not blackjack.
+      expect(s.playerHands[0].result, HandResult.win);
     });
 
-    test('split A+K is 21 but not BJ — pays 1:1, not 3:2', () {
+    test('split A+K is 21 but not BJ — resolved as a plain win', () {
       // Split aces: hand1 = [A, K] = 21 but it's a split hand → no BJ bonus
       // isBlackjack checks cards.length==2, but playerHands.length==1 check in _resolveHands
       var s = deal(vegasStrip, 'A', '5', 'A', '9', ['K', '7']);
@@ -666,13 +621,11 @@ void main() {
             reason: '${rules.name}: 20 should beat 18');
       });
 
-      test('${rules.name}: player busts, loses bet', () {
+      test('${rules.name}: player busts, loses', () {
         var s = deal(rules, '9', '5', 'K', '8', ['5']);
         s = hit(s); // 9+K=19, +5=24 bust
         expect(s.playerHands[0].result, HandResult.lose,
             reason: '${rules.name}: bust should lose');
-        expect(s.bankroll, lessThan(1000),
-            reason: '${rules.name}: bankroll should decrease on loss');
       });
 
       test('${rules.name}: dealer stand threshold is correct', () {

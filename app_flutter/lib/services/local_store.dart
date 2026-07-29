@@ -16,7 +16,6 @@ class LocalStore {
   static const _strategyCellsKey = 'bj101-strategy-cells';
   static const _cardBackKey = 'bj101-card-back';
   static const _cardDeckKey = 'bj101-card-deck';
-  static const _chipStyleKey = 'bj101-chip-style';
   static const _ownedKey = 'bj101-owned-products';
   static const _achievementsKey = 'bj101-achievements';
   static const _drillStatsKey = 'bj101-drill-stats';
@@ -151,10 +150,6 @@ class LocalStore {
 
   Future<void> saveCardDeckId(String id) => _prefs.setString(_cardDeckKey, id);
 
-  String? loadChipStyleId() => _prefs.getString(_chipStyleKey);
-
-  Future<void> saveChipStyleId(String id) => _prefs.setString(_chipStyleKey, id);
-
   // --- store entitlements (owned product ids) ---
 
   Set<String> loadOwnedProducts() => _prefs.getStringList(_ownedKey)?.toSet() ?? <String>{};
@@ -193,7 +188,6 @@ class LocalStore {
 
   ({
     RuleSet ruleSet,
-    int startingBankroll,
     bool hapticsEnabled,
     bool soundEnabled,
     Difficulty difficulty
@@ -203,20 +197,18 @@ class LocalStore {
     final map = jsonDecode(raw) as Map<String, dynamic>;
     return (
       ruleSet: RuleSet.fromJson(Map<String, dynamic>.from(map['ruleSet'] as Map)),
-      startingBankroll: (map['startingBankroll'] as num).toInt(),
       hapticsEnabled: (map['hapticsEnabled'] as bool?) ?? true,
       soundEnabled: (map['soundEnabled'] as bool?) ?? true,
       difficulty: difficultyFromId((map['difficulty'] as String?) ?? 'regular'),
     );
   }
 
-  Future<void> saveSettings(RuleSet ruleSet, int startingBankroll, bool hapticsEnabled,
+  Future<void> saveSettings(RuleSet ruleSet, bool hapticsEnabled,
       bool soundEnabled, Difficulty difficulty) {
     return _prefs.setString(
       _settingsKey,
       jsonEncode({
         'ruleSet': ruleSet.toJson(),
-        'startingBankroll': startingBankroll,
         'hapticsEnabled': hapticsEnabled,
         'soundEnabled': soundEnabled,
         'difficulty': difficultyId(difficulty),

@@ -11,9 +11,9 @@ enum ReferralRedeemOutcome { success, invalid, ownCode, already, error }
 /// Cloud persistence on Firestore, replacing the Supabase `sync.ts` layer.
 ///
 /// Data model:
-///   users/{uid}                       -> { bankroll, ownedProducts, achievements,
+///   users/{uid}                       -> { ownedProducts, achievements,
 ///                                           strategyCells, drill, learnProgress,
-///                                           appearance, cardBack, chipStyle, updatedAt }
+///                                           appearance, cardBack, updatedAt }
 ///   users/{uid}/sessions/{sessionId}  -> Session.toJson()
 class FirestoreSync {
   final FirebaseFirestore _db;
@@ -27,13 +27,6 @@ class FirestoreSync {
 
   Future<void> upsertSession(String uid, Session session) {
     return _sessionsCol(uid).doc(session.id).set(session.toJson());
-  }
-
-  Future<void> upsertProfile(String uid, int bankroll) {
-    return _userDoc(uid).set(
-      {'bankroll': bankroll, 'updatedAt': FieldValue.serverTimestamp()},
-      SetOptions(merge: true),
-    );
   }
 
   /// Mirrors the user's owned à la carte cosmetics into their profile so they
@@ -107,19 +100,17 @@ class FirestoreSync {
     );
   }
 
-  /// The user's selected cosmetics (table felt, card back, chip palette) so a
-  /// signed-in look follows them across devices. Only non-null fields are written.
+  /// The user's selected cosmetics (table felt, card back) so a signed-in look
+  /// follows them across devices. Only non-null fields are written.
   Future<void> upsertCosmeticSelection(
     String uid, {
     String? appearance,
     String? cardBack,
-    String? chipStyle,
   }) {
     return _userDoc(uid).set(
       {
         'appearance': ?appearance,
         'cardBack': ?cardBack,
-        'chipStyle': ?chipStyle,
         'updatedAt': FieldValue.serverTimestamp(),
       },
       SetOptions(merge: true),
@@ -128,22 +119,21 @@ class FirestoreSync {
 
   /// Live stream of the user's cosmetic selection from their profile doc, so a
   /// theme picked on one device follows them to the others without a restart.
-  /// De-duped so unrelated profile writes (bankroll, stats) don't re-emit.
-  Stream<({String? appearance, String? cardBack, String? chipStyle})> watchCosmeticSelection(
+  /// De-duped so unrelated profile writes (stats) don't re-emit.
+  Stream<({String? appearance, String? cardBack})> watchCosmeticSelection(
       String uid) {
     return _userDoc(uid).snapshots().map((snap) {
       final d = snap.data() ?? const <String, dynamic>{};
       return (
         appearance: d['appearance'] as String?,
         cardBack: d['cardBack'] as String?,
-        chipStyle: d['chipStyle'] as String?,
       );
     }).distinct();
   }
 
   /// Clears the user's stats history from the cloud: deletes every session and
-  /// wipes the strategy-cell heatmap, while leaving the profile (bankroll,
-  /// cosmetics, achievements) intact. Backs the "Clear stats history" action.
+  /// wipes the strategy-cell heatmap, while leaving the profile (cosmetics,
+  /// achievements) intact. Backs the "Clear stats history" action.
   Future<void> clearStatsHistory(String uid) async {
     final sessions = await _sessionsCol(uid).get();
     final batch = _db.batch();
@@ -273,7 +263,6 @@ class FirestoreSync {
 
   Future<
       ({
-        int? bankroll,
         List<Session> sessions,
         Set<String> ownedProducts,
         Set<String> achievements,
@@ -283,7 +272,6 @@ class FirestoreSync {
         Set<String> learnProgress,
         String? appearance,
         String? cardBack,
-        String? chipStyle,
       })> loadUserData(String uid) async {
     final profileFut = _userDoc(uid).get();
     final sessionsFut =
@@ -294,7 +282,6 @@ class FirestoreSync {
     final sessionsSnap = results[1] as QuerySnapshot<Map<String, dynamic>>;
     final data = profile.data() ?? const {};
 
-    final bankroll = data['bankroll'];
     final owned =
         (data['ownedProducts'] as List?)?.map((e) => e as String).toSet() ?? <String>{};
     final achievements =
@@ -327,7 +314,6 @@ class FirestoreSync {
     }
 
     return (
-      bankroll: bankroll == null ? null : (bankroll as num).toInt(),
       sessions: sessions,
       ownedProducts: owned,
       achievements: achievements,
@@ -336,7 +322,6 @@ class FirestoreSync {
       learnProgress: learnProgress,
       appearance: data['appearance'] as String?,
       cardBack: data['cardBack'] as String?,
-      chipStyle: data['chipStyle'] as String?,
     );
   }
 }

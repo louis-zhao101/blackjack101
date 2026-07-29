@@ -6,7 +6,6 @@ class AchievementInput {
   final int totalHands;
   final int bestCorrectStreak;
   final int worstWrongStreak;
-  final int lifetimePL;
   final int lessonsComplete;
   final int totalLessons;
   final bool gotBlackjack;
@@ -24,24 +23,21 @@ class AchievementInput {
   final int drillRecentCount;
 
   /// One-off "moment" flags: lost a hand played perfectly, won a hand misplayed,
-  /// emptied the bankroll, and whether Pro is unlocked.
+  /// and whether Pro is unlocked.
   final bool badBeat;
   final bool luckyWin;
-  final bool wentBroke;
   final bool lostToDealerBlackjack;
   final bool isPro;
 
-  /// Hands in the longest single session, longest run of consecutive wins by
-  /// outcome, and the biggest net win on a single hand.
+  /// Hands in the longest single session, and longest run of consecutive wins
+  /// by outcome.
   final int longestSession;
   final int bestWinStreak;
-  final int bestHandWin;
 
   const AchievementInput({
     required this.totalHands,
     required this.bestCorrectStreak,
     required this.worstWrongStreak,
-    required this.lifetimePL,
     required this.lessonsComplete,
     required this.totalLessons,
     required this.gotBlackjack,
@@ -56,12 +52,10 @@ class AchievementInput {
     required this.drillRecentCount,
     required this.badBeat,
     required this.luckyWin,
-    required this.wentBroke,
     required this.lostToDealerBlackjack,
     required this.isPro,
     required this.longestSession,
     required this.bestWinStreak,
-    required this.bestHandWin,
   });
 }
 
@@ -94,7 +88,7 @@ class AchievementStatus {
   double get fraction => target <= 0 ? 1 : (current / target).clamp(0.0, 1.0);
 }
 
-/// Ordered so the badge grid reads streaks → milestones → money → chart → misc.
+/// Ordered so the badge grid reads streaks → milestones → outcomes → chart → misc.
 final List<Achievement> kAchievements = [
   Achievement(
     id: 'hot_hand',
@@ -160,20 +154,6 @@ final List<Achievement> kAchievements = [
     progress: (i) => (i.longestSession, 50),
   ),
   Achievement(
-    id: 'in_the_black',
-    emoji: '💰',
-    title: 'In the Black',
-    description: 'Climb to +\$500 lifetime profit.',
-    progress: (i) => (i.lifetimePL > 0 ? i.lifetimePL : 0, 500),
-  ),
-  Achievement(
-    id: 'underwater',
-    emoji: '🌊',
-    title: 'Underwater',
-    description: 'Sink to −\$500 lifetime. The house always wins... sometimes.',
-    progress: (i) => (i.lifetimePL < 0 ? -i.lifetimePL : 0, 500),
-  ),
-  Achievement(
     id: 'natural',
     emoji: '♠️',
     title: 'Natural',
@@ -195,13 +175,6 @@ final List<Achievement> kAchievements = [
     progress: (i) => (i.bestWinStreak, 5),
   ),
   Achievement(
-    id: 'high_roller',
-    emoji: '💎',
-    title: 'High Roller',
-    description: 'Win \$250 or more on a single hand.',
-    progress: (i) => (i.bestHandWin, 250),
-  ),
-  Achievement(
     id: 'bad_beat',
     emoji: '😤',
     title: 'Bad Beat',
@@ -214,13 +187,6 @@ final List<Achievement> kAchievements = [
     title: 'Dumb Luck',
     description: 'Misplay a hand and win it anyway.',
     progress: (i) => (i.luckyWin ? 1 : 0, 1),
-  ),
-  Achievement(
-    id: 'tapped_out',
-    emoji: '💸',
-    title: 'Tapped Out',
-    description: 'Lose your entire bankroll. Time to top up.',
-    progress: (i) => (i.wentBroke ? 1 : 0, 1),
   ),
   Achievement(
     id: 'chart_explorer',

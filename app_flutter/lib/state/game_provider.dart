@@ -5,8 +5,6 @@ import '../engine/engine.dart' as eng;
 import '../engine/stats.dart';
 import '../engine/strategy.dart';
 import 'achievements_provider.dart';
-import 'app_providers.dart';
-import 'auth_provider.dart';
 import 'settings_provider.dart';
 import 'stats_provider.dart';
 
@@ -32,7 +30,6 @@ class LastHandInfo {
 class GameStoreState {
   final eng.GameState game;
   final LastHandInfo? lastHandInfo;
-  final int lastBet;
   final bool handHadMistake;
   final LastHandInfo? firstMistakeInfo;
   final bool hasDealtInSession;
@@ -44,7 +41,6 @@ class GameStoreState {
   const GameStoreState({
     required this.game,
     this.lastHandInfo,
-    this.lastBet = 0,
     this.handHadMistake = false,
     this.firstMistakeInfo,
     this.hasDealtInSession = false,
@@ -55,7 +51,6 @@ class GameStoreState {
     eng.GameState? game,
     LastHandInfo? lastHandInfo,
     bool clearLastHandInfo = false,
-    int? lastBet,
     bool? handHadMistake,
     LastHandInfo? firstMistakeInfo,
     bool clearFirstMistakeInfo = false,
@@ -65,7 +60,6 @@ class GameStoreState {
       GameStoreState(
         game: game ?? this.game,
         lastHandInfo: clearLastHandInfo ? null : (lastHandInfo ?? this.lastHandInfo),
-        lastBet: lastBet ?? this.lastBet,
         handHadMistake: handHadMistake ?? this.handHadMistake,
         firstMistakeInfo:
             clearFirstMistakeInfo ? null : (firstMistakeInfo ?? this.firstMistakeInfo),
@@ -95,19 +89,8 @@ class GameController extends Notifier<GameStoreState> {
   GameStoreState build() {
     final settings = ref.read(settingsProvider);
     return GameStoreState(
-      game: eng.createInitialState(
-        bankroll: settings.startingBankroll,
-        ruleSet: settings.ruleSet,
-      ),
+      game: eng.createInitialState(ruleSet: settings.ruleSet),
     );
-  }
-
-  void placeBetChip(int amount) {
-    state = state.copyWith(game: eng.addToBet(state.game, amount));
-  }
-
-  void clearBet() {
-    state = state.copyWith(game: eng.clearBet(state.game));
   }
 
   // Set when a resume wants to end the sitting but a hand is mid-play; the
@@ -133,7 +116,7 @@ class GameController extends Notifier<GameStoreState> {
       _rotatePending = true;
       return;
     }
-    ref.read(statsProvider.notifier).finishSession(state.game.bankroll);
+    ref.read(statsProvider.notifier).finishSession();
     // currentSession is now null; the next deal opens a fresh sitting.
   }
 
@@ -148,16 +131,16 @@ class GameController extends Notifier<GameStoreState> {
         now - current.hands.last.timestamp > kSittingIdleMs;
 
     if (current != null && current.hands.isNotEmpty && (_rotatePending || idle)) {
-      statsCtrl.finishSession(game.bankroll);
+      statsCtrl.finishSession();
       state = state.copyWith(
         handHadMistake: false,
         hasDealtInSession: false,
-        game: eng.createInitialState(bankroll: game.bankroll, ruleSet: settings.ruleSet),
+        game: eng.createInitialState(ruleSet: settings.ruleSet),
       );
     }
     _rotatePending = false;
     if (ref.read(statsProvider).currentSession == null) {
-      statsCtrl.startSession(game.bankroll, settings.ruleSet.id);
+      statsCtrl.startSession(settings.ruleSet.id);
     }
   }
 
@@ -165,14 +148,12 @@ class GameController extends Notifier<GameStoreState> {
     final game = state.game;
     _maybeRotateSession(game);
     final difficulty = ref.read(settingsProvider).difficulty;
-    final originalBet = game.pendingBet;
     state = state.copyWith(
-      game: eng.dealHand(game, difficulty: difficulty),
+      game: eng.dealHand(state.game, difficulty: difficulty),
       clearLastHandInfo: true,
       handHadMistake: false,
       hasDealtInSession: true,
       clearFirstMistakeInfo: true,
-      lastBet: originalBet,
       roundId: state.roundId + 1,
     );
     _maybeRecordDealtHand(state.game);
@@ -292,10 +273,8 @@ class GameController extends Notifier<GameStoreState> {
   }
 
   void nextHand() {
-    final next = eng.newHand(state.game);
-    final autobet = state.lastBet < next.bankroll ? state.lastBet : next.bankroll;
     state = state.copyWith(
-      game: autobet > 0 ? next.copyWith(pendingBet: autobet) : next,
+      game: eng.newHand(state.game),
       clearLastHandInfo: true,
       handHadMistake: false,
       clearFirstMistakeInfo: true,
@@ -304,18 +283,13 @@ class GameController extends Notifier<GameStoreState> {
 
   void forfeitHand() {
     final game = state.game;
-    final refund = game.playerHands.fold<int>(0, (sum, h) => sum + h.bet);
-    final newBankroll = game.bankroll + refund;
-    final autobet = state.lastBet < newBankroll ? state.lastBet : newBankroll;
     state = state.copyWith(
       game: game.copyWith(
         phase: eng.GamePhase.betting,
         dealerCards: const [],
         playerHands: const [],
         activeHandIndex: 0,
-        pendingBet: autobet,
-        bankroll: newBankroll,
-        message: 'Place your bet to begin.',
+        message: 'Tap Deal to start.',
       ),
       clearLastHandInfo: true,
       handHadMistake: false,
@@ -327,13 +301,9 @@ class GameController extends Notifier<GameStoreState> {
     final game = state.game;
     _maybeRotateSession(game);
     final difficulty = ref.read(settingsProvider).difficulty;
-    var next = eng.newHand(game);
-    final autobet = state.lastBet < next.bankroll ? state.lastBet : next.bankroll;
-    if (autobet > 0) {
-      next = eng.dealHand(next.copyWith(pendingBet: autobet), difficulty: difficulty);
-    }
+    final next = eng.newHand(state.game);
     state = state.copyWith(
-      game: next,
+      game: eng.dealHand(next, difficulty: difficulty),
       clearLastHandInfo: true,
       handHadMistake: false,
       clearFirstMistakeInfo: true,
@@ -343,34 +313,13 @@ class GameController extends Notifier<GameStoreState> {
     _maybeRecordDealtHand(state.game);
   }
 
-  void topUp(int amount) {
-    final newBankroll = state.game.bankroll + amount;
-    state = state.copyWith(game: state.game.copyWith(bankroll: newBankroll));
-    _syncBankroll(newBankroll);
-  }
-
-  /// Resets the live bankroll back to the configured starting amount, clearing
-  /// any pending bet so the next hand starts fresh.
-  void resetBankroll() {
-    final settings = ref.read(settingsProvider);
-    final game = eng.clearBet(state.game).copyWith(bankroll: settings.startingBankroll);
-    state = state.copyWith(game: game);
-    _syncBankroll(settings.startingBankroll);
-  }
-
-  void loadBankroll(int bankroll) {
-    state = state.copyWith(game: state.game.copyWith(bankroll: bankroll));
-  }
-
   void newSession() {
-    final game = state.game;
     final settings = ref.read(settingsProvider);
     final statsCtrl = ref.read(statsProvider.notifier);
-    statsCtrl.finishSession(game.bankroll);
-    statsCtrl.startSession(game.bankroll, settings.ruleSet.id);
-    _syncBankroll(game.bankroll);
+    statsCtrl.finishSession();
+    statsCtrl.startSession(settings.ruleSet.id);
     state = GameStoreState(
-      game: eng.createInitialState(bankroll: game.bankroll, ruleSet: settings.ruleSet),
+      game: eng.createInitialState(ruleSet: settings.ruleSet),
       hasDealtInSession: false,
     );
   }
@@ -417,9 +366,7 @@ class GameController extends Notifier<GameStoreState> {
               dealerUpcard: recordInfo.dealerUpcard,
               handType: recordInfo.handType,
               explanation: recordInfo.optimal.explanation,
-              betAmount: firstHand?.bet ?? 0,
               outcome: firstHand?.result ?? eng.HandResult.lose,
-              payout: firstHand?.payout ?? 0,
             ));
       }
     }
@@ -447,19 +394,10 @@ class GameController extends Notifier<GameStoreState> {
           dealerUpcard: game.dealerCards[0].rank,
           handType: hv.soft ? HandType.soft : HandType.hard,
           explanation: '',
-          betAmount: firstHand.bet,
           outcome: firstHand.result ?? eng.HandResult.lose,
-          payout: firstHand.payout,
           dealerBlackjack: isBlackjack(game.dealerCards),
         ));
     ref.read(achievementsProvider.notifier).evaluate();
-  }
-
-  void _syncBankroll(int bankroll) {
-    final uid = ref.read(authServiceProvider).currentUser?.uid;
-    if (uid != null) {
-      ref.read(syncQueueProvider.notifier).profile(uid, bankroll);
-    }
   }
 }
 

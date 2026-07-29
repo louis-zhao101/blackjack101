@@ -6,7 +6,7 @@ import 'package:blackjack101/engine/strategy.dart';
 
 const _now = 10000000;
 
-HandRecord _hand(int ts, {int bet = 10, int payout = 20}) => HandRecord(
+HandRecord _hand(int ts) => HandRecord(
       id: 'h$ts',
       timestamp: ts,
       playerAction: Action.stand,
@@ -17,9 +17,7 @@ HandRecord _hand(int ts, {int bet = 10, int payout = 20}) => HandRecord(
       dealerUpcard: '6',
       handType: HandType.hard,
       explanation: '',
-      betAmount: bet,
       outcome: HandResult.win,
-      payout: payout,
     );
 
 Session _sess({
@@ -28,15 +26,11 @@ Session _sess({
   required int start,
   int? end,
   List<HandRecord> hands = const [],
-  int startBank = 1000,
-  int? endBank,
 }) =>
     Session(
       id: id,
       startTime: start,
       endTime: end,
-      startBankroll: startBank,
-      endBankroll: endBank,
       hands: hands,
       ruleSetId: 'vegas-strip',
       deviceId: deviceId,
@@ -96,8 +90,7 @@ void main() {
           deviceId: 'me',
           start: _now - 5000,
           end: _now - 4000,
-          hands: [_hand(_now - 4500)],
-          endBank: 1100);
+          hands: [_hand(_now - 4500)]);
       final r = reconcileSessions([f], 'me', now: _now);
       expect(r.sessions.single.id, 'f');
       expect(r.current, isNull);
@@ -105,15 +98,19 @@ void main() {
     });
   });
 
-  test('finalizeSession derives end bankroll + time from the hands', () {
+  test('finalizeSession derives end time from the last hand', () {
     final s = _sess(
         id: 'e',
         deviceId: 'me',
         start: _now - 1000,
-        startBank: 1000,
-        hands: [_hand(_now - 800, bet: 50, payout: 100), _hand(_now - 400, bet: 50, payout: 0)]);
+        hands: [_hand(_now - 800), _hand(_now - 400)]);
     final f = finalizeSession(s);
-    expect(f.endBankroll, 1000); // (100-50) + (0-50) = 0
     expect(f.endTime, _now - 400);
+  });
+
+  test('finalizeSession falls back to startTime when there are no hands', () {
+    final s = _sess(id: 'g', deviceId: 'me', start: _now - 1000);
+    final f = finalizeSession(s);
+    expect(f.endTime, _now - 1000);
   });
 }

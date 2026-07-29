@@ -146,9 +146,6 @@ class AuthGate extends ConsumerWidget {
       if (sel.cardBack != null) {
         ref.read(cardBackProvider.notifier).setCardBack(sel.cardBack!, push: false);
       }
-      if (sel.chipStyle != null) {
-        ref.read(chipStyleProvider.notifier).setChipStyle(sel.chipStyle!, push: false);
-      }
     });
 
     // The splash owns its own dismissal: it deals a few cycles, then flies the
@@ -219,12 +216,6 @@ class AuthGate extends ConsumerWidget {
       }
     }
 
-    if (data.bankroll != null) {
-      ref.read(gameProvider.notifier).loadBankroll(data.bankroll!);
-    } else {
-      sync.profile(uid, ref.read(gameProvider).game.bankroll);
-    }
-
     if (data.ownedProducts.isNotEmpty) {
       ref.read(entitlementsProvider.notifier).mergeOwnedFromCloud(data.ownedProducts);
     } else {
@@ -277,14 +268,10 @@ class AuthGate extends ConsumerWidget {
     if (data.cardBack != null) {
       ref.read(cardBackProvider.notifier).setCardBack(data.cardBack!, push: false);
     }
-    if (data.chipStyle != null) {
-      ref.read(chipStyleProvider.notifier).setChipStyle(data.chipStyle!, push: false);
-    }
-    if (data.appearance == null && data.cardBack == null && data.chipStyle == null) {
+    if (data.appearance == null && data.cardBack == null) {
       sync.cosmeticSelection(uid,
           appearance: ref.read(tableThemeProvider).id,
-          cardBack: ref.read(cardBackProvider).id,
-          chipStyle: ref.read(chipStyleProvider).id);
+          cardBack: ref.read(cardBackProvider).id);
     }
 
     ref.read(achievementsProvider.notifier).evaluate();

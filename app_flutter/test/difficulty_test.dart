@@ -22,14 +22,12 @@ List<Card> mkDeck(String p1, String d1, String p2, String d2,
   ];
 }
 
-GameState mkState(RuleSet rules, List<Card> deck, {int bet = 100}) => GameState(
+GameState mkState(RuleSet rules, List<Card> deck) => GameState(
       phase: GamePhase.betting,
       deck: deck,
       dealerCards: [],
       playerHands: [],
       activeHandIndex: 0,
-      pendingBet: bet,
-      bankroll: 1000,
       ruleSet: rules,
       message: '',
     );
@@ -203,54 +201,47 @@ void main() {
   });
 
   // -------------------------------------------------------------------------
-  // D. PAYOUT / RESOLUTION INVARIANCE ACROSS DIFFICULTY
+  // D. RESOLUTION INVARIANCE ACROSS DIFFICULTY
   // -------------------------------------------------------------------------
-  group('payout math is identical regardless of difficulty', () {
+  group('resolution result is identical regardless of difficulty', () {
     // With a padded deck whose ranks won't satisfy most scenarios, arrangement
     // gracefully falls back to a natural deal — so the forced hand resolves
     // exactly as the Regular case. This proves difficulty never corrupts the
-    // resolution/bankroll path.
+    // resolution path.
     for (final diff in Difficulty.values) {
-      test('Vegas Strip 3:2 blackjack resolves the same ($diff)', () {
+      test('Vegas Strip blackjack resolves the same ($diff)', () {
         final s = dealHand(mkState(vegasStrip, mkDeck('A', '5', 'K', '8')),
             difficulty: diff, rng: Random(3));
         // If arrangement fired and changed the hand, skip — but with this padded
         // deck the needed ranks (A/K/5/8) drive a natural BJ deal regardless.
         if (isBlackjack(s.playerHands[0].cards)) {
           expect(s.playerHands[0].result, HandResult.blackjack);
-          expect(s.playerHands[0].payout, 250);
-          expect(s.bankroll, 1150);
         }
       });
 
-      test('Single Deck 6:5 blackjack resolves the same ($diff)', () {
+      test('Single Deck blackjack resolves the same ($diff)', () {
         final s = dealHand(mkState(singleDeck, mkDeck('A', '5', 'K', '8')),
             difficulty: diff, rng: Random(3));
         if (isBlackjack(s.playerHands[0].cards)) {
           expect(s.playerHands[0].result, HandResult.blackjack);
-          expect(s.playerHands[0].payout, 220);
-          expect(s.bankroll, 1120);
         }
       });
     }
 
-    test('a difficulty-arranged hand still resolves with correct bankroll math',
-        () {
+    test('a difficulty-arranged hand still resolves to a legal result', () {
       // Deal a challenging hand from a real shoe, then play it out by standing.
-      // Bankroll must equal start - bet + payout, with payout one of the legal
-      // values. This checks the arranged path doesn't break resolution.
+      // This checks the arranged path doesn't break resolution.
       for (var i = 0; i < 200; i++) {
-        var s = dealHand(mkState(vegasStrip, fullShoe(vegasStrip, i), bet: 100),
+        var s = dealHand(mkState(vegasStrip, fullShoe(vegasStrip, i)),
             difficulty: Difficulty.challenging, rng: Random(i));
         if (s.phase != GamePhase.playerTurn) continue;
-        final startBankrollAfterBet = s.bankroll; // already had bet deducted
         s = stand(s);
-        // Single hand, not doubled/split → payout ∈ {0, 100, 200}.
-        final payout = s.playerHands[0].payout;
-        expect([0, 100, 200], contains(payout),
-            reason: 'seed $i unexpected payout $payout');
-        expect(s.bankroll, startBankrollAfterBet + payout,
-            reason: 'seed $i bankroll mismatch');
+        // Single hand, not doubled/split, and never a natural under challenging
+        // arrangement (see the "never deals a natural blackjack" test above).
+        expect(
+            [HandResult.win, HandResult.lose, HandResult.push],
+            contains(s.playerHands[0].result),
+            reason: 'seed $i unexpected result ${s.playerHands[0].result}');
       }
     });
   });

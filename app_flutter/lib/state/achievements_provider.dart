@@ -6,7 +6,6 @@ import '../engine/stats.dart';
 import '../engine/strategy.dart';
 import 'app_providers.dart';
 import 'auth_provider.dart';
-import 'game_provider.dart';
 import 'learn_provider.dart';
 import 'stats_provider.dart';
 import 'store_provider.dart';
@@ -18,8 +17,6 @@ AchievementInput _snapshot(Ref ref) {
     if (stats.currentSession != null) stats.currentSession!,
   ];
   final allHands = sessions.expand((s) => s.hands).toList();
-  final lifetimePL =
-      sessions.fold<int>(0, (a, s) => a + summarizeSession(s).profitLoss);
   final flawless = sessions
       .any((s) => s.hands.length >= 10 && s.hands.every((h) => h.wasCorrect));
   final gotBlackjack = allHands.any((h) => h.outcome == HandResult.blackjack);
@@ -32,14 +29,11 @@ AchievementInput _snapshot(Ref ref) {
       .any((h) => h.wasCorrect && h.outcome == HandResult.lose && !h.dealerBlackjack);
   final luckyWin =
       allHands.any((h) => !h.wasCorrect && h.outcome == HandResult.win);
-  final wentBroke = ref.read(gameProvider).game.bankroll <= 0;
   final lostToDealerBlackjack =
       allHands.any((h) => h.dealerBlackjack && h.outcome == HandResult.lose);
   final longestSession =
       sessions.fold<int>(0, (m, s) => s.hands.length > m ? s.hands.length : m);
   final bestWinStreak = computeLongestWinStreak(allHands);
-  final bestHandWin =
-      allHands.fold<int>(0, (m, h) => (h.payout - h.betAmount) > m ? h.payout - h.betAmount : m);
 
   final drill = ref.read(drillStatsProvider);
 
@@ -47,7 +41,6 @@ AchievementInput _snapshot(Ref ref) {
     totalHands: allHands.length,
     bestCorrectStreak: computeLongestStreak(allHands),
     worstWrongStreak: computeLongestWrongStreak(allHands),
-    lifetimePL: lifetimePL,
     lessonsComplete: ref.read(learnProvider).length,
     totalLessons: kLearnLessonCount,
     gotBlackjack: gotBlackjack,
@@ -62,12 +55,10 @@ AchievementInput _snapshot(Ref ref) {
     drillRecentCount: drill.recentCount,
     badBeat: badBeat,
     luckyWin: luckyWin,
-    wentBroke: wentBroke,
     lostToDealerBlackjack: lostToDealerBlackjack,
     isPro: ref.read(proStatusProvider).isPro,
     longestSession: longestSession,
     bestWinStreak: bestWinStreak,
-    bestHandWin: bestHandWin,
   );
 }
 
@@ -136,7 +127,6 @@ final achievementStatusesProvider = Provider<List<AchievementStatus>>((ref) {
   ref.watch(drillStatsProvider);
   ref.watch(learnProvider);
   ref.watch(entitlementsProvider);
-  ref.watch(gameProvider);
   final earned = ref.watch(achievementsProvider);
   // Unlocking is permanent: an achievement already in the earned set stays
   // shown as complete even if the stats that earned it were later cleared. Live

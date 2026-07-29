@@ -11,7 +11,6 @@ import '../../state/store_provider.dart';
 import '../app_shell.dart' show InviteFriendsBanner, cosmeticGrid, CosmeticTile;
 import '../auth_screen.dart' show showSignInSheet;
 import '../theme/appearance.dart';
-import '../widgets/chip_widget.dart';
 import '../widgets/game_button.dart';
 import '../widgets/playing_card.dart';
 
@@ -306,7 +305,7 @@ class _GoProScreenState extends ConsumerState<GoProScreen> {
                     theme: theme,
                     icon: Icons.palette_outlined,
                     title: 'All cosmetics',
-                    subtitle: 'Every theme, card back, deck & chip',
+                    subtitle: 'Every theme, card back & deck',
                     lifetimeOnly: !isPremium,
                   ),
                 ],
@@ -548,7 +547,7 @@ class ShopScreen extends ConsumerStatefulWidget {
 class _ShopScreenState extends ConsumerState<ShopScreen> {
   int _tab = 0;
   int _dir = 1; // +1 moving to a later tab, -1 earlier — drives slide direction.
-  static const _labels = ['Themes', 'Cards', 'Chips', 'Decks'];
+  static const _labels = ['Themes', 'Cards', 'Decks'];
 
   @override
   Widget build(BuildContext context) {
@@ -661,29 +660,6 @@ class _ShopScreenState extends ConsumerState<ShopScreen> {
               onUse: () => ref.read(cardBackProvider.notifier).setCardBack(p.cosmeticId),
             ),
         ];
-      case 2:
-        final freeChips = chipStyleById(kFreeChipStyleId);
-        return [
-          _CosmeticRow(
-            kind: CosmeticKind.chipStyle,
-            cosmeticId: freeChips.id,
-            name: freeChips.name,
-            swatch: _chipSwatch(theme, freeChips),
-            swatchWidth: 84,
-            isActive: ref.watch(chipStyleProvider).id == freeChips.id,
-            onUse: () => ref.read(chipStyleProvider.notifier).setChipStyle(freeChips.id),
-          ),
-          for (final p in chipStyleProducts)
-            _CosmeticRow(
-              kind: p.kind,
-              cosmeticId: p.cosmeticId,
-              name: p.name,
-              swatch: _chipSwatch(theme, chipStyleById(p.cosmeticId)),
-              swatchWidth: 84,
-              isActive: ref.watch(chipStyleProvider).id == p.cosmeticId,
-              onUse: () => ref.read(chipStyleProvider.notifier).setChipStyle(p.cosmeticId),
-            ),
-        ];
       default:
         final freeDeck = cardDeckById(kFreeCardDeckId);
         return [
@@ -709,8 +685,8 @@ class _ShopScreenState extends ConsumerState<ShopScreen> {
   }
 }
 
-/// Segmented Themes / Cards / Chips selector shared by the shop tabs.
-/// Segmented control (Themes / Cards / Chips, etc.) with a gold selection pill
+/// Segmented Themes / Cards / Decks selector shared by the shop tabs.
+/// Segmented control (Themes / Cards / Decks, etc.) with a gold selection pill
 /// that slides between segments. Shared by the shop and the Customize screen.
 class AppSegmentedTabs extends ConsumerWidget {
   final List<String> labels;
@@ -837,8 +813,6 @@ void _applyCosmetic(WidgetRef ref, StoreProduct product) {
       ref.read(tableThemeProvider.notifier).setPreset(product.cosmeticId);
     case CosmeticKind.cardBack:
       ref.read(cardBackProvider.notifier).setCardBack(product.cosmeticId);
-    case CosmeticKind.chipStyle:
-      ref.read(chipStyleProvider.notifier).setChipStyle(product.cosmeticId);
     case CosmeticKind.deck:
       ref.read(cardDeckProvider.notifier).setCardDeck(product.cosmeticId);
     case CosmeticKind.bundle:
@@ -958,10 +932,6 @@ Widget _deckSwatch(AppearanceTheme active, CardDeck deck) => PlayingCardView(
       showShadow: false,
     );
 
-/// Sideways fan of all four denomination chips in [style] — shop swatch.
-Widget _chipSwatch(AppearanceTheme active, ChipStyle style) =>
-    ChipStripPreview(theme: active.copyWith(chipStyle: style), size: 30);
-
 /// Subtle status line shown under a cosmetic's name (e.g. "Owned", "Free").
 Widget _cosmeticTag(String label, AppearanceTheme t) => Text(label,
     style: TextStyle(
@@ -973,9 +943,9 @@ Widget _cosmeticTag(String label, AppearanceTheme t) => Text(label,
 /// "Owned" line shown once a cosmetic is unlocked. Shared with the Customize list.
 Widget ownedTag(AppearanceTheme t) => _cosmeticTag('Owned', t);
 
-/// Opens a large preview of a card back or chip style with an equip/unlock
-/// action. Card backs and chips are detail-rich, so seeing them full size
-/// before selecting matters more than for whole-table themes. Shared by the
+/// Opens a large preview of a card back or deck with an equip/unlock action.
+/// Card backs and decks are detail-rich, so seeing them full size before
+/// selecting matters more than for whole-table themes. Shared by the
 /// shop and the Customize screen; [cosmeticId] may be a free default with no
 /// [StoreProduct].
 Future<void> showCosmeticPreview(
@@ -1016,19 +986,6 @@ class _CosmeticPreviewDialog extends ConsumerWidget {
       isActive = theme.id == cosmeticId;
       equip = () => ref.read(tableThemeProvider.notifier).setPreset(cosmeticId);
       preview = _ThemePreview(theme: previewTheme);
-    } else if (kind == CosmeticKind.chipStyle) {
-      final previewTheme = theme.copyWith(chipStyle: chipStyleById(cosmeticId));
-      isActive = ref.watch(chipStyleProvider).id == cosmeticId;
-      equip = () => ref.read(chipStyleProvider.notifier).setChipStyle(cosmeticId);
-      preview = Wrap(
-        spacing: 16,
-        runSpacing: 16,
-        alignment: WrapAlignment.center,
-        children: [
-          for (final amount in const [5, 25, 100, 500])
-            PokerChipFace(amount: amount, theme: previewTheme, size: 62),
-        ],
-      );
     } else if (kind == CosmeticKind.deck) {
       isActive = ref.watch(cardDeckProvider).id == cosmeticId;
       equip = () => ref.read(cardDeckProvider.notifier).setCardDeck(cosmeticId);
@@ -1110,9 +1067,9 @@ class _CosmeticPreviewDialog extends ConsumerWidget {
   }
 }
 
-/// A mini table dressed in a theme: two dealt cards, a row of chips, and a gold
-/// accent bar over the theme's felt — so its felt, border, card, chip, and gold
-/// colors are all visible before applying or buying.
+/// A mini table dressed in a theme: two dealt cards and a gold accent bar over
+/// the theme's felt — so its felt, border, card, and gold colors are all
+/// visible before applying or buying.
 class _ThemePreview extends StatelessWidget {
   final AppearanceTheme theme;
   const _ThemePreview({required this.theme});
@@ -1729,14 +1686,13 @@ class _FeatureRow extends StatelessWidget {
   }
 }
 
-/// One purchasable cosmetic row (theme, card back, or chip style). [isActive]
+/// One purchasable cosmetic row (theme, card back, or deck). [isActive]
 /// and [onUse] are supplied by the caller so the same row serves all kinds.
 class _CosmeticRow extends ConsumerWidget {
   final CosmeticKind kind;
   final String cosmeticId;
   final String name;
   final Widget swatch;
-  final double swatchWidth;
   final bool isActive;
   final VoidCallback onUse;
   const _CosmeticRow({
@@ -1744,7 +1700,6 @@ class _CosmeticRow extends ConsumerWidget {
     required this.cosmeticId,
     required this.name,
     required this.swatch,
-    this.swatchWidth = 44,
     required this.isActive,
     required this.onUse,
   });
@@ -1754,14 +1709,13 @@ class _CosmeticRow extends ConsumerWidget {
     final active = ref.watch(appearanceProvider);
     final ent = ref.watch(entitlementsProvider);
     final unlocked = ent.isCosmeticUnlocked(cosmeticId);
-    // A free default (Classic Green, Royal Blue, Classic chips) has no product.
+    // A free default (Classic Green, Royal Blue) has no product.
     final product = productForCosmeticId(cosmeticId);
 
     // Every cosmetic opens a full-size preview on tap, where it's equipped or
     // bought — themes included, shown as a mini table dressed in the theme.
     final previewable = kind == CosmeticKind.theme ||
         kind == CosmeticKind.cardBack ||
-        kind == CosmeticKind.chipStyle ||
         kind == CosmeticKind.deck;
     final VoidCallback? onTap = previewable
         ? () => showCosmeticPreview(context, kind: kind, cosmeticId: cosmeticId, name: name)

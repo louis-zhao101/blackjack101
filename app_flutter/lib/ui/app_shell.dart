@@ -27,7 +27,6 @@ import 'screens/shop_page.dart';
 import 'screens/stats_page.dart';
 import '../engine/cards.dart' as bj;
 import 'theme/appearance.dart';
-import 'widgets/chip_widget.dart';
 import 'widgets/game_button.dart';
 import 'widgets/playing_card.dart';
 
@@ -578,7 +577,6 @@ class AccountPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = ref.watch(appearanceProvider);
     final settings = ref.watch(settingsProvider);
-    final bankroll = ref.watch(gameProvider).game.bankroll;
     final user = ref.watch(authStateProvider).value;
     final signedIn = user != null;
     final phone = user?.phoneNumber ?? '';
@@ -659,7 +657,7 @@ class AccountPage extends ConsumerWidget {
             _SettingRow(
               icon: Icons.palette_outlined,
               title: 'Customize',
-              subtitle: 'Table, cards & chips',
+              subtitle: 'Table & cards',
               onTap: () => Navigator.of(context).push(
                 MaterialPageRoute<void>(
                     fullscreenDialog: true, builder: (_) => const _CustomizeScreen()),
@@ -677,12 +675,6 @@ class AccountPage extends ConsumerWidget {
               subtitle: difficultyLabel(settings.difficulty),
               onTap: () =>
                   _showSheet(context, title: 'Difficulty', child: const _DifficultySheet()),
-            ),
-            _SettingRow(
-              icon: Icons.account_balance_wallet_outlined,
-              title: 'Bankroll',
-              subtitle: 'Start \$${settings.startingBankroll}  ·  Now \$$bankroll',
-              onTap: () => _showSheet(context, title: 'Bankroll', child: const _BankrollSheet()),
             ),
           ],
         ),
@@ -706,13 +698,13 @@ class AccountPage extends ConsumerWidget {
             _SettingRow(
               icon: Icons.volume_up_outlined,
               title: 'Sound effects',
-              subtitle: 'Cards, chips & outcome sounds',
+              subtitle: 'Cards & outcome sounds',
               trailing: Switch(
                 value: settings.soundEnabled,
                 activeThumbColor: theme.gold,
                 onChanged: (v) {
                   ref.read(settingsProvider.notifier).setSound(v);
-                  if (v) SoundService.instance.chipPlace();
+                  if (v) SoundService.instance.cardDeal();
                 },
               ),
             ),
@@ -1461,7 +1453,7 @@ class _CustomizeScreen extends StatefulWidget {
 class _CustomizeScreenState extends State<_CustomizeScreen> {
   int _tab = 0;
   int _dir = 1; // +1 moving to a later tab, -1 earlier — drives slide direction.
-  static const _labels = ['Table', 'Cards', 'Chips', 'Decks'];
+  static const _labels = ['Table', 'Cards', 'Decks'];
 
   @override
   Widget build(BuildContext context) {
@@ -1504,9 +1496,7 @@ class _CustomizeScreenState extends State<_CustomizeScreen> {
                     ? const _SkinSheet()
                     : _tab == 1
                         ? const _CardBackSheet()
-                        : _tab == 2
-                            ? const _ChipStyleSheet()
-                            : const _DeckSheet(),
+                        : const _DeckSheet(),
               ),
             ],
           ),
@@ -1579,34 +1569,6 @@ class _CardBackSheet extends ConsumerWidget {
               ownedLabel: product != null ? 'Owned' : 'Free',
               onTap: () => showCosmeticPreview(context,
                   kind: CosmeticKind.cardBack, cosmeticId: b.id, name: b.name),
-            );
-          }(),
-    ]);
-  }
-}
-
-class _ChipStyleSheet extends ConsumerWidget {
-  const _ChipStyleSheet();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final theme = ref.watch(appearanceProvider);
-    final ent = ref.watch(entitlementsProvider);
-    final selectedId = ref.watch(chipStyleProvider).id;
-    return cosmeticGrid([
-        for (final c in chipStylePresets)
-          () {
-            final unlocked = ent.isCosmeticUnlocked(c.id);
-            final product = productForCosmeticId(c.id);
-            return CosmeticTile(
-              theme: theme,
-              selected: c.id == selectedId,
-              preview: ChipStripPreview(theme: theme.copyWith(chipStyle: c), size: 28),
-              name: c.name,
-              priceLabel: unlocked ? null : livePriceLabel(ref, product),
-              ownedLabel: product != null ? 'Owned' : 'Free',
-              onTap: () => showCosmeticPreview(context,
-                  kind: CosmeticKind.chipStyle, cosmeticId: c.id, name: c.name),
             );
           }(),
     ]);
@@ -1762,74 +1724,3 @@ class _DifficultySheet extends ConsumerWidget {
   }
 }
 
-class _BankrollSheet extends ConsumerStatefulWidget {
-  const _BankrollSheet();
-
-  @override
-  ConsumerState<_BankrollSheet> createState() => _BankrollSheetState();
-}
-
-class _BankrollSheetState extends ConsumerState<_BankrollSheet> {
-  late final TextEditingController _ctrl =
-      TextEditingController(text: '${ref.read(settingsProvider).startingBankroll}');
-  bool _applyNow = true;
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  void _save() {
-    final fallback = ref.read(settingsProvider).startingBankroll;
-    final parsed = int.tryParse(_ctrl.text.trim()) ?? fallback;
-    ref.read(settingsProvider.notifier).setStartingBankroll(parsed.clamp(1, 1000000).toInt());
-    if (_applyNow) {
-      ref.read(gameProvider.notifier).resetBankroll();
-    }
-    Navigator.pop(context);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const Text('Starting bankroll',
-            style: TextStyle(color: AppTokens.textSecondary, fontSize: 13)),
-        const SizedBox(height: 8),
-        TextField(
-          controller: _ctrl,
-          keyboardType: TextInputType.number,
-          decoration: const InputDecoration(prefixText: '\$ ', border: OutlineInputBorder()),
-        ),
-        const SizedBox(height: 10),
-        Wrap(
-          spacing: 8,
-          children: [
-            for (final v in [500, 1000, 2500, 5000])
-              ActionChip(label: Text('\$$v'), onPressed: () => _ctrl.text = '$v'),
-          ],
-        ),
-        const SizedBox(height: 8),
-        CheckboxListTile(
-          value: _applyNow,
-          onChanged: (v) => setState(() => _applyNow = v ?? false),
-          controlAffinity: ListTileControlAffinity.leading,
-          contentPadding: EdgeInsets.zero,
-          dense: true,
-          title: const Text('Set my balance to this now',
-              style: TextStyle(color: AppTokens.textPrimary, fontSize: 14)),
-          subtitle: const Text('Otherwise this only changes future resets',
-              style: TextStyle(color: AppTokens.textSecondary, fontSize: 12)),
-        ),
-        const SizedBox(height: 8),
-        FilledButton(
-          onPressed: withHaptic(_save),
-          child: Text(_applyNow ? 'Save & reset balance' : 'Save starting bankroll'),
-        ),
-      ],
-    );
-  }
-}

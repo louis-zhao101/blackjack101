@@ -69,9 +69,6 @@ class SyncController extends Notifier<SyncStatus> {
   void session(String uid, Session s) =>
       _enqueue('session:${s.id}', () => _sync.upsertSession(uid, s));
 
-  void profile(String uid, int bankroll) =>
-      _enqueue('profile', () => _sync.upsertProfile(uid, bankroll));
-
   void ownedProducts(String uid, Set<String> ids) =>
       _enqueue('owned', () => _sync.upsertOwnedProducts(uid, ids));
 
@@ -102,11 +99,11 @@ class SyncController extends Notifier<SyncStatus> {
       _enqueue('learnProgress', () => _sync.upsertLearnProgress(uid, ids));
 
   void cosmeticSelection(String uid,
-          {String? appearance, String? cardBack, String? chipStyle}) =>
+          {String? appearance, String? cardBack}) =>
       _enqueue(
           'cosmeticSel',
           () => _sync.upsertCosmeticSelection(uid,
-              appearance: appearance, cardBack: cardBack, chipStyle: chipStyle));
+              appearance: appearance, cardBack: cardBack));
 
   /// Manually re-attempt a failed queue (e.g. the user tapped the indicator).
   void retry() {

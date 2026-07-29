@@ -17,7 +17,6 @@ void _pushCosmetics(Ref ref) {
         uid,
         appearance: store.loadAppearanceId(),
         cardBack: store.loadCardBackId(),
-        chipStyle: store.loadChipStyleId(),
       );
 }
 
@@ -60,24 +59,6 @@ class CardBackController extends Notifier<CardBack> {
 final cardBackProvider =
     NotifierProvider<CardBackController, CardBack>(CardBackController.new);
 
-/// The selected chip palette, sold independently of the table felt.
-class ChipStyleController extends Notifier<ChipStyle> {
-  @override
-  ChipStyle build() =>
-      chipStyleById(ref.read(localStoreProvider).loadChipStyleId() ?? kFreeChipStyleId);
-
-  void setChipStyle(String id, {bool push = true}) {
-    final next = chipStyleById(id);
-    if (next.id == state.id) return;
-    state = next;
-    ref.read(localStoreProvider).saveChipStyleId(state.id);
-    if (push) _pushCosmetics(ref);
-  }
-}
-
-final chipStyleProvider =
-    NotifierProvider<ChipStyleController, ChipStyle>(ChipStyleController.new);
-
 /// The selected card-face deck, sold independently of the table felt. The free
 /// default draws faces procedurally; a premium deck supplies image assets.
 class CardDeckController extends Notifier<CardDeck> {
@@ -97,14 +78,13 @@ final cardDeckProvider =
     NotifierProvider<CardDeckController, CardDeck>(CardDeckController.new);
 
 /// The active look every widget renders with: the selected table theme composed
-/// with the chosen card back and chip cosmetics. Read-only — change the pieces
-/// via [tableThemeProvider], [cardBackProvider], [chipStyleProvider].
+/// with the chosen card back and deck cosmetics. Read-only — change the pieces
+/// via [tableThemeProvider], [cardBackProvider], [cardDeckProvider].
 final appearanceProvider = Provider<AppearanceTheme>((ref) {
   final base = ref.watch(tableThemeProvider);
   final back = ref.watch(cardBackProvider);
-  final chips = ref.watch(chipStyleProvider);
   final deck = ref.watch(cardDeckProvider);
-  return base.copyWith(cardBack: back, chipStyle: chips, deck: deck);
+  return base.copyWith(cardBack: back, deck: deck);
 });
 
 /// Live cloud cosmetic selection for the signed-in user. A listener (see
@@ -112,7 +92,7 @@ final appearanceProvider = Provider<AppearanceTheme>((ref) {
 /// shows up on the others within a second. Empty (no emissions) while signed
 /// out; rebuilds automatically when the user changes.
 final cosmeticCloudProvider =
-    StreamProvider<({String? appearance, String? cardBack, String? chipStyle})>((ref) {
+    StreamProvider<({String? appearance, String? cardBack})>((ref) {
   final uid = ref.watch(authStateProvider).value?.uid;
   if (uid == null) return const Stream.empty();
   return ref.read(firestoreSyncProvider).watchCosmeticSelection(uid);

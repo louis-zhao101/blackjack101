@@ -155,17 +155,5 @@ String ruleSetDescription(RuleSet r) {
     r.doubleAfterSplit ? 'Double after split allowed' : 'No double after split',
     if (r.resplitAces) 'Re-split aces allowed',
     if (r.surrender == Surrender.late) 'Late surrender',
-    'Blackjack pays ${blackjackPayoutId(r.blackjackPays)}',
   ].join('\n');
-}
-
-double blackjackPayoutMultiplier(BlackjackPayout payout) {
-  switch (payout) {
-    case BlackjackPayout.threeToTwo:
-      return 1.5;
-    case BlackjackPayout.sixToFive:
-      return 1.2;
-    case BlackjackPayout.oneToOne:
-      return 1.0;
-  }
 }

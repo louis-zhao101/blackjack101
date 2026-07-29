@@ -49,10 +49,10 @@ class StatsController extends Notifier<StatsState> {
     return StatsState(sessions: sessions, currentSession: current);
   }
 
-  void startSession(int bankroll, String ruleSetId) {
+  void startSession(String ruleSetId) {
     final deviceId = ref.read(localStoreProvider).deviceId();
     _set(state.copyWith(
-        currentSession: createSession(bankroll, ruleSetId, deviceId: deviceId)));
+        currentSession: createSession(ruleSetId, deviceId: deviceId)));
   }
 
   void addHandRecord(HandRecord record) {
@@ -85,7 +85,7 @@ class StatsController extends Notifier<StatsState> {
         ));
   }
 
-  void finishSession(int endBankroll) {
+  void finishSession() {
     final current = state.currentSession;
     if (current == null) return;
     // A sitting that ended without a single hand isn't worth charting — drop it.
@@ -93,7 +93,7 @@ class StatsController extends Notifier<StatsState> {
       _set(state.copyWith(clearCurrent: true));
       return;
     }
-    final finished = endSession(current, endBankroll);
+    final finished = endSession(current);
     _set(StatsState(
       sessions: [finished, ...state.sessions].take(50).toList(),
       currentSession: null,
@@ -103,11 +103,11 @@ class StatsController extends Notifier<StatsState> {
     _maybeInviteSessionShare(finished);
   }
 
-  /// A well-played, profitable session is a genuine feel-good moment — a good
-  /// time to (gently, once) ask for a review.
+  /// A well-played session is a genuine feel-good moment — a good time to
+  /// (gently, once) ask for a review.
   void _maybeAskForReview(Session session) {
     final s = summarizeSession(session);
-    if (s.handsPlayed >= 10 && s.correctPct >= 80 && s.profitLoss >= 0) {
+    if (s.handsPlayed >= 10 && s.correctPct >= 80) {
       ref.read(reviewPromptProvider.notifier).maybePrompt();
     }
   }

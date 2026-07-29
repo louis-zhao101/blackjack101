@@ -8,13 +8,11 @@ import 'app_providers.dart';
 
 class SettingsState {
   final RuleSet ruleSet;
-  final int startingBankroll;
   final bool hapticsEnabled;
   final bool soundEnabled;
   final Difficulty difficulty;
   const SettingsState({
     required this.ruleSet,
-    required this.startingBankroll,
     this.hapticsEnabled = true,
     this.soundEnabled = true,
     this.difficulty = Difficulty.regular,
@@ -22,14 +20,12 @@ class SettingsState {
 
   SettingsState copyWith({
     RuleSet? ruleSet,
-    int? startingBankroll,
     bool? hapticsEnabled,
     bool? soundEnabled,
     Difficulty? difficulty,
   }) =>
       SettingsState(
         ruleSet: ruleSet ?? this.ruleSet,
-        startingBankroll: startingBankroll ?? this.startingBankroll,
         hapticsEnabled: hapticsEnabled ?? this.hapticsEnabled,
         soundEnabled: soundEnabled ?? this.soundEnabled,
         difficulty: difficulty ?? this.difficulty,
@@ -46,7 +42,6 @@ class SettingsController extends Notifier<SettingsState> {
     SoundService.instance.enabled = soundEnabled;
     return SettingsState(
       ruleSet: loaded?.ruleSet ?? vegasStrip,
-      startingBankroll: loaded?.startingBankroll ?? 1000,
       hapticsEnabled: hapticsEnabled,
       soundEnabled: soundEnabled,
       difficulty: loaded?.difficulty ?? Difficulty.regular,
@@ -63,11 +58,6 @@ class SettingsController extends Notifier<SettingsState> {
     _persist();
   }
 
-  void setStartingBankroll(int amount) {
-    state = state.copyWith(startingBankroll: amount);
-    _persist();
-  }
-
   void setHaptics(bool enabled) {
     setHapticsEnabled(enabled);
     state = state.copyWith(hapticsEnabled: enabled);
@@ -81,8 +71,8 @@ class SettingsController extends Notifier<SettingsState> {
   }
 
   void _persist() {
-    ref.read(localStoreProvider).saveSettings(state.ruleSet, state.startingBankroll,
-        state.hapticsEnabled, state.soundEnabled, state.difficulty);
+    ref.read(localStoreProvider).saveSettings(
+        state.ruleSet, state.hapticsEnabled, state.soundEnabled, state.difficulty);
   }
 }
 

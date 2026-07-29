@@ -5,26 +5,40 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../engine/cards.dart' as bj;
 import '../../engine/engine.dart' as eng;
-import '../../engine/variants.dart';
 import '../../services/sound_service.dart';
 import '../../state/app_providers.dart';
 import '../../state/appearance_provider.dart';
 import '../../state/game_provider.dart';
-import '../../state/settings_provider.dart';
 import '../../state/stats_provider.dart';
 import '../../state/store_provider.dart';
 import '../theme/appearance.dart';
-import '../widgets/bet_chip_stack.dart';
 import '../widgets/blackjack_hand.dart';
-import '../widgets/chip_widget.dart';
 import '../widgets/game_button.dart';
 import '../widgets/playing_card.dart';
 import 'shop_page.dart';
 
-const _chipDenoms = [5, 25, 100, 500];
-
 int _visibleCards(eng.GameState g) =>
     g.dealerCards.length + g.playerHands.fold<int>(0, (s, h) => s + h.cards.length);
+
+/// Net hand result across (possibly split) hands: +1 per win/blackjack, −1 per
+/// loss/surrender, 0 per push. Drives the outcome jingle and headline color.
+int _handScore(List<eng.PlayerHand> hands) {
+  var score = 0;
+  for (final h in hands) {
+    switch (h.result) {
+      case eng.HandResult.win:
+      case eng.HandResult.blackjack:
+        score++;
+      case eng.HandResult.lose:
+      case eng.HandResult.surrender:
+        score--;
+      case eng.HandResult.push:
+      case null:
+        break;
+    }
+  }
+  return score;
+}
 
 void _reactToGameChange(GameStoreState? prev, GameStoreState next) {
   final sound = SoundService.instance;
@@ -77,19 +91,19 @@ void _reactToGameChange(GameStoreState? prev, GameStoreState next) {
 
   // Outcome jingle when a hand resolves: either the phase just turned complete,
   // or a fresh deal landed straight on complete (a "Deal Again" blackjack goes
-  // complete -> complete). Reflects money won/lost, matching the headline —
-  // blackjack, then net win / loss / push.
+  // complete -> complete). Reflects the result, matching the headline —
+  // blackjack, then win / loss / push (tallied across split hands).
   final resolved = ng.phase == eng.GamePhase.complete &&
       (pg?.phase != eng.GamePhase.complete || next.roundId != prev?.roundId);
   if (resolved) {
     final hands = ng.playerHands;
-    final net = hands.fold<int>(0, (s, h) => s + h.payout - h.bet);
+    final score = _handScore(hands);
     final void Function() jingle;
     if (hands.any((h) => h.result == eng.HandResult.blackjack)) {
       jingle = sound.blackjack;
-    } else if (net > 0) {
+    } else if (score > 0) {
       jingle = sound.win;
-    } else if (net < 0) {
+    } else if (score < 0) {
       jingle = sound.lose;
     } else {
       jingle = sound.push;
@@ -143,10 +157,6 @@ class PlayPage extends ConsumerWidget {
     final theme = ref.watch(appearanceProvider);
     final store = ref.watch(gameProvider);
     final game = store.game;
-    // Before the first deal, show the pending ruleset's payout; after, use the locked game ruleset.
-    final effectivePayout = store.hasDealtInSession
-        ? game.ruleSet.blackjackPays
-        : ref.watch(settingsProvider).ruleSet.blackjackPays;
 
     return Column(
       children: [
@@ -159,12 +169,9 @@ class PlayPage extends ConsumerWidget {
                   : constraints.maxWidth < 900
                   ? 76.0
                   : 88.0;
-              final bet = game.phase == eng.GamePhase.betting
-                  ? game.pendingBet
-                  : game.playerHands.fold<int>(0, (s, h) => s + h.bet);
               // On wide desktop windows the felt stays full-bleed, but the
-              // corner deck and bet chip hug a centred band (matching the list
-              // pages' cap) instead of the far screen edges.
+              // corner deck hugs a centred band (matching the list pages' cap)
+              // instead of the far screen edges.
               const bandWidth = 900.0;
               final contentWidth = constraints.maxWidth - 32;
               final sideInset = math.max(0.0, (contentWidth - bandWidth) / 2);
@@ -221,7 +228,6 @@ class PlayPage extends ConsumerWidget {
                           theme: theme,
                           cardWidth: cardWidth,
                           roundId: store.roundId,
-                          payout: effectivePayout,
                         ),
                         Expanded(
                           child: Center(
@@ -255,22 +261,6 @@ class PlayPage extends ConsumerWidget {
                         ),
                       ],
                     ),
-                    if (bet > 0)
-                      Positioned(
-                        right: sideInset + 4,
-                        bottom: 8,
-                        child: BetChipStack(
-                          amount: bet,
-                          theme: theme,
-                          settle: game.phase == eng.GamePhase.complete
-                              ? (game.playerHands.fold<int>(
-                                          0, (s, h) => s + h.payout - h.bet) <
-                                      0
-                                  ? ChipSettle.toDealer
-                                  : ChipSettle.toPlayer)
-                              : null,
-                        ),
-                      ),
                   ],
                 ),
               );
@@ -290,10 +280,6 @@ class _StatsBar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final game = store.game;
-    final bet = game.phase == eng.GamePhase.betting
-        ? game.pendingBet
-        : game.playerHands.fold<int>(0, (sum, h) => sum + h.bet);
     // Accuracy mirrors the current session the Stats page shows — per-hand and
     // persisted — so the two views can never disagree (a fresh in-memory counter
     // would reset on relaunch while the session lives on).
@@ -312,44 +298,19 @@ class _StatsBar extends ConsumerWidget {
       width: double.infinity,
       color: theme.feltDark,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Row(
-        children: [
-          Expanded(
-            child: _item(
-              'BALANCE',
-              '\$${game.bankroll}',
-              theme.goldLight,
-              trailing: IconButton(
-                visualDensity: VisualDensity.compact,
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 30, minHeight: 28),
-                iconSize: 18,
-                icon: Icon(Icons.add_circle_outline, color: AppTokens.textSecondary),
-                tooltip: 'Add chips',
-                onPressed: withHaptic(() => _addChips(context, ref)),
-              ),
-            ),
-          ),
-          _divider(),
-          Expanded(child: _item('BET', '\$$bet', AppTokens.textPrimary)),
-          _divider(),
-          Expanded(
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: withHaptic(() => ref.read(navTabProvider.notifier).select(2)),
-              child: _item(
-                'ACCURACY',
-                hasPlays ? '$pct% ($correct/$total)' : '—',
-                hasPlays ? pctColor : AppTokens.textSecondary,
-              ),
-            ),
-          ),
-        ],
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: withHaptic(() => ref.read(navTabProvider.notifier).select(2)),
+        child: _item(
+          'SESSION ACCURACY',
+          hasPlays ? '$pct% ($correct/$total)' : '—',
+          hasPlays ? pctColor : AppTokens.textSecondary,
+        ),
       ),
     );
   }
 
-  Widget _item(String label, String value, Color color, {Widget? trailing}) => Column(
+  Widget _item(String label, String value, Color color) => Column(
     mainAxisSize: MainAxisSize.min,
     children: [
       Text(
@@ -364,78 +325,20 @@ class _StatsBar extends ConsumerWidget {
       const SizedBox(height: 3),
       SizedBox(
         height: 28,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Balances the trailing button so the value stays centered.
-            if (trailing != null) const SizedBox(width: 30),
-            Flexible(
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text(
-                  value,
-                  style: TextStyle(
-                    color: color,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            value,
+            style: TextStyle(
+              color: color,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
             ),
-            ?trailing,
-          ],
+          ),
         ),
       ),
     ],
   );
-
-  Widget _divider() => Container(
-    width: 1,
-    height: 32,
-    margin: const EdgeInsets.symmetric(horizontal: 8),
-    color: const Color(0x22FFFFFF),
-  );
-
-  void _addChips(BuildContext context, WidgetRef ref) {
-    final controller = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Add chips'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          keyboardType: TextInputType.number,
-          decoration: const InputDecoration(
-            prefixText: '\$ ',
-            hintText: 'Amount',
-          ),
-          onSubmitted: (_) => _submitChips(context, ref, controller.text),
-        ),
-        actions: [
-          TextButton(
-            onPressed: withHaptic(() => Navigator.pop(context)),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: withHaptic(
-              () => _submitChips(context, ref, controller.text),
-            ),
-            child: const Text('Add'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _submitChips(BuildContext context, WidgetRef ref, String text) {
-    final n = int.tryParse(text.trim());
-    if (n != null && n > 0) {
-      ref.read(gameProvider.notifier).topUp(n);
-    }
-    Navigator.pop(context);
-  }
 }
 
 class _DealerZone extends StatelessWidget {
@@ -443,13 +346,11 @@ class _DealerZone extends StatelessWidget {
   final AppearanceTheme theme;
   final double cardWidth;
   final int roundId;
-  final BlackjackPayout payout;
   const _DealerZone({
     required this.game,
     required this.theme,
     required this.cardWidth,
     required this.roundId,
-    required this.payout,
   });
 
   @override
@@ -464,21 +365,7 @@ class _DealerZone extends StatelessWidget {
             letterSpacing: 1.5,
           ),
         ),
-        const SizedBox(height: 2),
-        // House payout, printed subtly on the felt like a real table.
-        Text(
-          switch (payout) {
-            BlackjackPayout.sixToFive => 'BLACKJACK PAYS 6 TO 5',
-            BlackjackPayout.oneToOne => 'BLACKJACK PAYS 1 TO 1',
-            _ => 'BLACKJACK PAYS 3 TO 2',
-          },
-          style: TextStyle(
-            color: theme.gold.withValues(alpha: 0.35),
-            fontSize: 9,
-            letterSpacing: 2,
-          ),
-        ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 6),
         if (game.dealerCards.isNotEmpty)
           BlackjackHandView(
             cards: game.dealerCards,
@@ -692,29 +579,42 @@ class _TableCenter extends StatelessWidget {
       );
       final dealerBlackjack =
           game.dealerCards.length == 2 && bj.isBlackjack(game.dealerCards);
-      final net = game.playerHands.fold<int>(0, (s, h) => s + h.payout - h.bet);
+      final surrendered =
+          game.playerHands.any((h) => h.result == eng.HandResult.surrender);
+      final score = _handScore(game.playerHands);
+      final split = game.playerHands.length > 1;
       final color = hasBlackjack
           ? theme.goldLight
-          : net > 0
+          : score > 0
           ? const Color(0xFF6EE7B7)
-          : net < 0
+          : score < 0
           ? const Color(0xFFFC8181)
           : AppTokens.textSecondary;
       final String headline;
-      if (net > 0) {
-        headline = hasBlackjack ? 'Blackjack! +\$$net' : 'You won \$$net';
-      } else if (net < 0) {
-        headline = dealerBlackjack
-            ? 'Dealer Blackjack  -\$${-net}'
-            : 'You lost \$${-net}';
+      if (split) {
+        final wins = game.playerHands
+            .where((h) =>
+                h.result == eng.HandResult.win || h.result == eng.HandResult.blackjack)
+            .length;
+        final losses = game.playerHands
+            .where((h) =>
+                h.result == eng.HandResult.lose || h.result == eng.HandResult.surrender)
+            .length;
+        headline = score > 0
+            ? 'You win $wins of ${game.playerHands.length}'
+            : score < 0
+            ? 'You lose $losses of ${game.playerHands.length}'
+            : 'Split — even';
+      } else if (hasBlackjack) {
+        headline = 'Blackjack!';
+      } else if (surrendered) {
+        headline = 'Surrendered';
+      } else if (score > 0) {
+        headline = 'You win!';
+      } else if (score < 0) {
+        headline = dealerBlackjack ? 'Dealer Blackjack' : 'You lose';
       } else {
-        final allPush =
-            game.playerHands.every((h) => h.result == eng.HandResult.push);
-        headline = dealerBlackjack
-            ? 'Dealer Blackjack — push'
-            : allPush
-            ? 'Push — bet returned'
-            : 'Broke even';
+        headline = dealerBlackjack ? 'Dealer Blackjack — push' : 'Push';
       }
       return AppearIn(
         triggerKey: headline,
@@ -732,7 +632,7 @@ class _TableCenter extends StatelessWidget {
       );
     }
     // The welcome branding only greets an untouched table; once a hand has been
-    // played it stays out of the way. (The payout lives in the dealer zone now.)
+    // played it stays out of the way.
     if (!hasDealt) {
       return Text(
         'Blackjack 101',
@@ -819,8 +719,7 @@ class _Controls extends ConsumerWidget {
             child: KeyedSubtree(
               key: ValueKey(game.phase),
               child: switch (game.phase) {
-                eng.GamePhase.betting => _BetPanel(
-                  game: game,
+                eng.GamePhase.betting => _DealPanel(
                   theme: theme,
                   notifier: notifier,
                 ),
@@ -829,7 +728,6 @@ class _Controls extends ConsumerWidget {
                   theme: theme,
                 ),
                 eng.GamePhase.complete => _CompleteActions(
-                  game: game,
                   theme: theme,
                   notifier: notifier,
                 ),
@@ -843,79 +741,23 @@ class _Controls extends ConsumerWidget {
   }
 }
 
-class _BetPanel extends StatelessWidget {
-  final eng.GameState game;
+class _DealPanel extends StatelessWidget {
   final AppearanceTheme theme;
   final GameController notifier;
-  const _BetPanel({
-    required this.game,
+  const _DealPanel({
     required this.theme,
     required this.notifier,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Wrap(
-          spacing: 6,
-          children: [
-            for (final d in _chipDenoms)
-              ChipWidget(
-                amount: d,
-                theme: theme,
-                onTap: (game.pendingBet + d <= game.bankroll)
-                    ? () {
-                        SoundService.instance.chipPlace();
-                        notifier.placeBetChip(d);
-                      }
-                    : null,
-              ),
-          ],
-        ),
-        const SizedBox(height: 14),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            GameButton(
-              label: 'Clear',
-              theme: theme,
-              onPressed: game.pendingBet > 0 ? notifier.clearBet : null,
-            ),
-            SizedBox(
-              width: 88,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text(
-                    'BET',
-                    style: TextStyle(
-                      color: AppTokens.textSecondary,
-                      fontSize: 10,
-                      letterSpacing: 1,
-                    ),
-                  ),
-                  Text(
-                    '\$${game.pendingBet}',
-                    style: TextStyle(
-                      color: theme.goldLight,
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            GameButton(
-              label: 'Deal',
-              theme: theme,
-              variant: GameBtn.gold,
-              onPressed: game.pendingBet >= 1 ? notifier.deal : null,
-            ),
-          ],
-        ),
-      ],
+    return Center(
+      child: GameButton(
+        label: 'Deal',
+        theme: theme,
+        variant: GameBtn.gold,
+        onPressed: notifier.deal,
+      ),
     );
   }
 }
@@ -988,7 +830,7 @@ class _ActionBar extends StatelessWidget {
             () => _confirmAction(
               context,
               title: 'Forfeit this hand?',
-              message: 'Your current bet is returned and the hand ends.',
+              message: 'The current hand ends without being scored.',
               confirmLabel: 'Forfeit',
               onConfirm: notifier.forfeitHand,
             ),
@@ -1004,11 +846,9 @@ class _ActionBar extends StatelessWidget {
 }
 
 class _CompleteActions extends StatelessWidget {
-  final eng.GameState game;
   final AppearanceTheme theme;
   final GameController notifier;
   const _CompleteActions({
-    required this.game,
     required this.theme,
     required this.notifier,
   });
@@ -1038,46 +878,14 @@ class _CompleteActions extends StatelessWidget {
       ),
     );
 
-    if (game.bankroll < 1) {
-      return Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Text(
-            'Out of chips!',
-            style: TextStyle(color: AppTokens.textPrimary, fontSize: 16),
-          ),
-          const SizedBox(height: 8),
-          GameButton(
-            label: 'Add \$500',
-            theme: theme,
-            variant: GameBtn.gold,
-            onPressed: () => notifier.topUp(500),
-          ),
-          const SizedBox(height: 6),
-          newSessionButton,
-        ],
-      );
-    }
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Wrap(
-          spacing: 12,
-          runSpacing: 10,
-          alignment: WrapAlignment.center,
-          children: [
-            GameButton(
-              label: 'Deal Again',
-              theme: theme,
-              variant: GameBtn.gold,
-              onPressed: notifier.rebetAndDeal,
-            ),
-            GameButton(
-              label: 'Change Bet',
-              theme: theme,
-              onPressed: notifier.nextHand,
-            ),
-          ],
+        GameButton(
+          label: 'Deal Again',
+          theme: theme,
+          variant: GameBtn.gold,
+          onPressed: notifier.rebetAndDeal,
         ),
         const SizedBox(height: 6),
         newSessionButton,

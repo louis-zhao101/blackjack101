@@ -86,7 +86,6 @@ class StatsPage extends ConsumerWidget {
     final totalHands = allHands.length;
     final overallAccuracy =
         totalHands > 0 ? (allHands.where((h) => h.wasCorrect).length / totalHands * 100).round() : 0;
-    final totalPL = summaries.fold<int>(0, (a, s) => a + s.profitLoss);
     final bestStreak = computeLongestStreak(allHands);
     final eligible = summaries.where((s) => s.handsPlayed >= 5).map((s) => s.correctPct);
     final bestSession = eligible.isEmpty ? 0.0 : eligible.reduce((a, b) => a > b ? a : b);
@@ -136,12 +135,6 @@ class StatsPage extends ConsumerWidget {
               label: 'Best streak',
               value: '$bestStreak',
               valueColor: bestStreak >= 10 ? _good : (bestStreak >= 5 ? _ok : null),
-            ),
-            _StatRow(
-              icon: Icons.account_balance_wallet_outlined,
-              label: 'Total P&L',
-              value: '${totalPL >= 0 ? '+' : ''}\$$totalPL',
-              valueColor: totalPL >= 0 ? _good : _warn,
             ),
             _StatRow(icon: Icons.history, label: 'Sessions', value: '${stats.sessions.length}'),
             if (bestSession > 0)
@@ -769,11 +762,8 @@ class _SessionTile extends StatelessWidget {
                         color: AppTokens.textPrimary, fontSize: 14, fontWeight: FontWeight.w600)),
               const Spacer(),
               Text(
-                '${s.profitLoss >= 0 ? '+' : ''}\$${s.profitLoss}',
-                style: TextStyle(
-                    color: s.profitLoss >= 0 ? _good : _warn,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14),
+                '${s.correctPct.toStringAsFixed(0)}%',
+                style: TextStyle(color: accColor, fontWeight: FontWeight.bold, fontSize: 14),
               ),
             ],
           ),
@@ -783,7 +773,7 @@ class _SessionTile extends StatelessWidget {
               Text('${s.handsPlayed} hands',
                   style: const TextStyle(color: AppTokens.textSecondary, fontSize: 12)),
               const Text('  ·  ', style: TextStyle(color: AppTokens.textSecondary, fontSize: 12)),
-              Text('${s.correctCount}/${s.handsPlayed} · ${s.correctPct.toStringAsFixed(0)}%',
+              Text('${s.correctCount}/${s.handsPlayed} correct',
                   style: TextStyle(color: accColor, fontSize: 12, fontWeight: FontWeight.w600)),
               if (s.longestStreak >= 10)
                 Text('  🔥${s.longestStreak}',

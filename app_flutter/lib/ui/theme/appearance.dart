@@ -36,9 +36,6 @@ class AppearanceTheme {
   // Card-face deck (null = procedural default faces drawn by PlayingCardView).
   final CardDeck? deck;
 
-  // Chips by denomination → (gradient inner, gradient outer).
-  final Map<int, (Color, Color)> chipColors;
-
   const AppearanceTheme({
     required this.id,
     required this.name,
@@ -57,13 +54,12 @@ class AppearanceTheme {
     this.cardBackAccent = const Color(0x14FFFFFF),
     this.cardBackAsset,
     this.deck,
-    required this.chipColors,
   });
 
-  /// Overlays a [CardBack] and/or [ChipStyle] cosmetic onto this table theme.
-  /// Card backs and chips are sold independently of the felt, so the active
+  /// Overlays a [CardBack] and/or card [deck] cosmetic onto this table theme.
+  /// Card backs and decks are sold independently of the felt, so the active
   /// look is the selected table theme composed with the chosen cosmetics.
-  AppearanceTheme copyWith({CardBack? cardBack, ChipStyle? chipStyle, CardDeck? deck}) =>
+  AppearanceTheme copyWith({CardBack? cardBack, CardDeck? deck}) =>
       AppearanceTheme(
         id: id,
         name: name,
@@ -82,7 +78,6 @@ class AppearanceTheme {
         cardBackAccent: cardBack?.accent ?? cardBackAccent,
         cardBackAsset: cardBack != null ? cardBack.asset : cardBackAsset,
         deck: deck ?? this.deck,
-        chipColors: chipStyle?.colors ?? chipColors,
       );
 
   Gradient get feltGradient => RadialGradient(
@@ -92,9 +87,6 @@ class AppearanceTheme {
         stops: const [0.0, 0.5, 1.0],
       );
 
-  /// Chip color pair for a denomination, falling back to the 500 chip.
-  (Color, Color) chipColor(int amount) =>
-      chipColors[amount] ?? chipColors[500] ?? (cardBlack, feltDark);
 }
 
 /// Default skin — matches the current blackjack101-web site tokens.
@@ -113,12 +105,6 @@ const AppearanceTheme classicGreen = AppearanceTheme(
   cardBlack: Color(0xFF1A1A1A),
   cardBackColor: Color(0xFF1E40AF),
   cardBackPattern: CardBackPattern.diagonalHatch,
-  chipColors: {
-    5: (Color(0xFFE74C3C), Color(0xFFC0392B)),
-    25: (Color(0xFF3498DB), Color(0xFF2980B9)),
-    100: (Color(0xFF2ECC71), Color(0xFF27AE60)),
-    500: (Color(0xFF2C2C2C), Color(0xFF1A1A1A)),
-  },
 );
 
 const AppearanceTheme midnightBlue = AppearanceTheme(
@@ -136,12 +122,6 @@ const AppearanceTheme midnightBlue = AppearanceTheme(
   cardBlack: Color(0xFF1A1A1A),
   cardBackColor: Color(0xFF7C1D1D),
   cardBackPattern: CardBackPattern.diagonalHatch,
-  chipColors: {
-    5: (Color(0xFFE74C3C), Color(0xFFC0392B)),
-    25: (Color(0xFF5DADE2), Color(0xFF2E86C1)),
-    100: (Color(0xFF58D68D), Color(0xFF239B56)),
-    500: (Color(0xFF2C2C2C), Color(0xFF0E0E0E)),
-  },
 );
 
 const AppearanceTheme crimson = AppearanceTheme(
@@ -159,12 +139,6 @@ const AppearanceTheme crimson = AppearanceTheme(
   cardBlack: Color(0xFF1A1A1A),
   cardBackColor: Color(0xFF14263F),
   cardBackPattern: CardBackPattern.diagonalHatch,
-  chipColors: {
-    5: (Color(0xFFE74C3C), Color(0xFFC0392B)),
-    25: (Color(0xFF3498DB), Color(0xFF2980B9)),
-    100: (Color(0xFF2ECC71), Color(0xFF27AE60)),
-    500: (Color(0xFF2C2C2C), Color(0xFF1A1A1A)),
-  },
 );
 
 const AppearanceTheme obsidian = AppearanceTheme(
@@ -182,12 +156,6 @@ const AppearanceTheme obsidian = AppearanceTheme(
   cardBlack: Color(0xFF1A1A1A),
   cardBackColor: Color(0xFF2E2E36),
   cardBackPattern: CardBackPattern.solid,
-  chipColors: {
-    5: (Color(0xFFE74C3C), Color(0xFFC0392B)),
-    25: (Color(0xFF3498DB), Color(0xFF2980B9)),
-    100: (Color(0xFF2ECC71), Color(0xFF27AE60)),
-    500: (Color(0xFFD4A843), Color(0xFFB8862A)),
-  },
 );
 
 const AppearanceTheme slate = AppearanceTheme(
@@ -205,12 +173,6 @@ const AppearanceTheme slate = AppearanceTheme(
   cardBlack: Color(0xFF1A1A1A),
   cardBackColor: Color(0xFF2A3340),
   cardBackPattern: CardBackPattern.diagonalHatch,
-  chipColors: {
-    5: (Color(0xFFE74C3C), Color(0xFFC0392B)),
-    25: (Color(0xFF5B8FB0), Color(0xFF447296)),
-    100: (Color(0xFF2ECC71), Color(0xFF27AE60)),
-    500: (Color(0xFF2C2C2C), Color(0xFF1A1A1A)),
-  },
 );
 
 const List<AppearanceTheme> appearancePresets = [
@@ -469,130 +431,6 @@ const String kFreeCardDeckId = 'deck-classic';
 
 CardDeck cardDeckById(String id) =>
     cardDeckPresets.firstWhere((d) => d.id == id, orElse: () => cardDeckClassic);
-
-// ---------------------------------------------------------------------------
-// Chip styles — the denomination palette, sold independently.
-// ---------------------------------------------------------------------------
-
-@immutable
-class ChipStyle {
-  final String id;
-  final String name;
-  final Map<int, (Color, Color)> colors;
-  const ChipStyle({required this.id, required this.name, required this.colors});
-
-  /// Representative swatch color for shop/picker rows (the $25 chip).
-  Color get swatch => colors[25]?.$1 ?? colors.values.first.$1;
-}
-
-const ChipStyle chipStyleClassic = ChipStyle(
-  id: 'chips-classic',
-  name: 'Classic',
-  colors: {
-    5: (Color(0xFFE74C3C), Color(0xFFC0392B)),
-    25: (Color(0xFF3498DB), Color(0xFF2980B9)),
-    100: (Color(0xFF2ECC71), Color(0xFF27AE60)),
-    500: (Color(0xFF2C2C2C), Color(0xFF1A1A1A)),
-  },
-);
-const ChipStyle chipStyleMonochrome = ChipStyle(
-  id: 'chips-monochrome',
-  name: 'Ivory & Onyx',
-  colors: {
-    5: (Color(0xFFE8E4DA), Color(0xFFB8B2A4)),
-    25: (Color(0xFF9AA0A6), Color(0xFF6B7177)),
-    100: (Color(0xFF4A4F55), Color(0xFF2E3236)),
-    500: (Color(0xFF1C1C1C), Color(0xFF0A0A0A)),
-  },
-);
-const ChipStyle chipStyleSunset = ChipStyle(
-  id: 'chips-sunset',
-  name: 'Sunset',
-  colors: {
-    5: (Color(0xFFFFD166), Color(0xFFE0A82E)),
-    25: (Color(0xFFFF9E64), Color(0xFFE2682B)),
-    100: (Color(0xFFEF476F), Color(0xFFC42E54)),
-    500: (Color(0xFF6D2E46), Color(0xFF45172B)),
-  },
-);
-
-// Deck-matched chip palettes. Each set is built from its deck's *signature*
-// colors rather than the generic red/blue/green/black denomination split, so it
-// reads as the theme (denominations are cohesive/tonal — they don't need high
-// contrast between them; the painted value already tells them apart). Rendered
-// by the same vector chip painter as the styles above (which derives the
-// cream/onyx rim, and gold detailing on the dark $500 chip).
-const ChipStyle chipStyleIlluminated = ChipStyle(
-  id: 'chips-illuminated',
-  name: 'Illuminated',
-  // Manuscript: ultramarine + gold-leaf + vermilion on vellum.
-  colors: {
-    5: (Color(0xFFAE3826), Color(0xFF862A1D)),   // vermilion
-    25: (Color(0xFF2A468C), Color(0xFF1D3369)),  // ultramarine
-    100: (Color(0xFFC4982F), Color(0xFF987526)), // gold leaf
-    500: (Color(0xFF141C42), Color(0xFF0C122E)), // gilded navy
-  },
-);
-const ChipStyle chipStyleUkiyoe = ChipStyle(
-  id: 'chips-ukiyoe',
-  name: 'Ukiyo-e',
-  // Woodblock: prussian indigo forward, with soft vermilion + mustard ochre.
-  colors: {
-    5: (Color(0xFFBC4636), Color(0xFF8F3529)),   // soft vermilion
-    25: (Color(0xFFC4913C), Color(0xFF99712C)),  // mustard ochre
-    100: (Color(0xFF284668), Color(0xFF1A3049)), // prussian indigo
-    500: (Color(0xFF16273C), Color(0xFF0D1826)), // deep indigo
-  },
-);
-const ChipStyle chipStyleGreek = ChipStyle(
-  id: 'chips-greek',
-  name: 'Greek Vase',
-  // Attic pottery: warm terracotta/ochre/sienna against black glaze.
-  colors: {
-    5: (Color(0xFFC05C30), Color(0xFF954525)),   // terracotta
-    25: (Color(0xFFC2984E), Color(0xFF96733A)),  // ochre clay
-    100: (Color(0xFF8C3820), Color(0xFF642817)), // sienna
-    500: (Color(0xFF1F1D18), Color(0xFF10100C)), // black glaze
-  },
-);
-const ChipStyle chipStyleEgyptian = ChipStyle(
-  id: 'chips-egyptian',
-  name: 'Egyptian',
-  // Tomb treasure: gold, turquoise faience, lapis, onyx.
-  colors: {
-    5: (Color(0xFFCB9E3A), Color(0xFFA07B2A)),   // golden amber
-    25: (Color(0xFF2C8A82), Color(0xFF1E6660)),  // turquoise faience
-    100: (Color(0xFF25407A), Color(0xFF19305C)), // lapis
-    500: (Color(0xFF1B1813), Color(0xFF0D0B08)), // onyx
-  },
-);
-const ChipStyle chipStyleGyotaku = ChipStyle(
-  id: 'chips-gyotaku',
-  name: 'Gyotaku',
-  // Muted fish-print: sumi ink + celadon + indigo + a vermilion seal.
-  colors: {
-    5: (Color(0xFFAE443A), Color(0xFF85332B)),   // seal vermilion
-    25: (Color(0xFF7A8E74), Color(0xFF5B6C57)),  // celadon sage
-    100: (Color(0xFF354E68), Color(0xFF24384D)), // muted indigo
-    500: (Color(0xFF1D1D1A), Color(0xFF0E0E0C)), // sumi ink
-  },
-);
-
-const List<ChipStyle> chipStylePresets = [
-  chipStyleClassic,
-  chipStyleMonochrome,
-  chipStyleSunset,
-  chipStyleIlluminated,
-  chipStyleUkiyoe,
-  chipStyleGreek,
-  chipStyleEgyptian,
-  chipStyleGyotaku,
-];
-
-const String kFreeChipStyleId = 'chips-classic';
-
-ChipStyle chipStyleById(String id) =>
-    chipStylePresets.firstWhere((c) => c.id == id, orElse: () => chipStyleClassic);
 
 /// Builds a [ThemeData] from the active skin so Material surfaces — dialogs,
 /// popup menus, buttons, text fields — all match the table. Rebuilt whenever

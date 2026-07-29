@@ -24,11 +24,11 @@ const String kLifetimeAppStoreProductId = 'blackjack_pro_lifetime';
 const String kLifetimePrice = '\$34.99';
 
 /// The category of cosmetic a [StoreProduct] unlocks.
-enum CosmeticKind { lifetime, theme, cardBack, chipStyle, deck, bundle }
+enum CosmeticKind { lifetime, theme, cardBack, deck, bundle }
 
 /// A non-consumable product for sale. [cosmeticId] links to the appearance id it
-/// unlocks (an [AppearanceTheme], [CardBack], or [ChipStyle]); the lifetime
-/// unlock uses an empty [cosmeticId] and grants everything.
+/// unlocks (an [AppearanceTheme] or [CardBack]); the lifetime unlock uses an
+/// empty [cosmeticId] and grants everything.
 ///
 /// [id] is the store product identifier — keep these in sync with the products
 /// configured in App Store Connect / Play Console / RevenueCat.
@@ -193,50 +193,6 @@ const List<StoreProduct> storeProducts = [
       cosmeticId: 'back-audubon',
       name: 'Audubon',
       priceLabel: _cosmeticPrice),
-  // Chip styles.
-  StoreProduct(
-      id: 'chips_monochrome',
-      kind: CosmeticKind.chipStyle,
-      cosmeticId: 'chips-monochrome',
-      name: 'Ivory & Onyx',
-      priceLabel: _cosmeticPrice),
-  StoreProduct(
-      id: 'chips_sunset',
-      kind: CosmeticKind.chipStyle,
-      cosmeticId: 'chips-sunset',
-      name: 'Sunset',
-      priceLabel: _cosmeticPrice),
-  // Deck-matched chip palettes.
-  StoreProduct(
-      id: 'chips_illuminated',
-      kind: CosmeticKind.chipStyle,
-      cosmeticId: 'chips-illuminated',
-      name: 'Illuminated',
-      priceLabel: _cosmeticPrice),
-  StoreProduct(
-      id: 'chips_ukiyoe',
-      kind: CosmeticKind.chipStyle,
-      cosmeticId: 'chips-ukiyoe',
-      name: 'Ukiyo-e',
-      priceLabel: _cosmeticPrice),
-  StoreProduct(
-      id: 'chips_greek',
-      kind: CosmeticKind.chipStyle,
-      cosmeticId: 'chips-greek',
-      name: 'Greek Vase',
-      priceLabel: _cosmeticPrice),
-  StoreProduct(
-      id: 'chips_egyptian',
-      kind: CosmeticKind.chipStyle,
-      cosmeticId: 'chips-egyptian',
-      name: 'Egyptian',
-      priceLabel: _cosmeticPrice),
-  StoreProduct(
-      id: 'chips_gyotaku',
-      kind: CosmeticKind.chipStyle,
-      cosmeticId: 'chips-gyotaku',
-      name: 'Gyotaku',
-      priceLabel: _cosmeticPrice),
   // Card-face decks (Classic is the free default, intentionally not listed).
   StoreProduct(
       id: 'deck_illuminated',
@@ -345,9 +301,6 @@ List<StoreProduct> get themeProducts => _ofKind(CosmeticKind.theme);
 /// Card backs sold individually, in catalog order.
 List<StoreProduct> get cardBackProducts => _ofKind(CosmeticKind.cardBack);
 
-/// Chip styles sold individually, in catalog order.
-List<StoreProduct> get chipStyleProducts => _ofKind(CosmeticKind.chipStyle);
-
 /// Card-face decks sold individually, in catalog order.
 List<StoreProduct> get deckProducts => _ofKind(CosmeticKind.deck);
 
@@ -451,11 +404,10 @@ class EntitlementsState {
   bool get isPremium => owned.contains(kLifetimeProductId);
 
   /// A cosmetic is unlocked if it's one of the free defaults, Pro is owned, or
-  /// the player bought it individually. Works for themes, card backs, and chips.
+  /// the player bought it individually. Works for themes, card backs, and decks.
   bool isCosmeticUnlocked(String cosmeticId) {
     if (cosmeticId == kFreeThemeId ||
         cosmeticId == kFreeCardBackId ||
-        cosmeticId == kFreeChipStyleId ||
         cosmeticId == kFreeCardDeckId) {
       return true;
     }

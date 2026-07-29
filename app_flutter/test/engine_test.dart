@@ -92,36 +92,27 @@ void main() {
     test('starts in betting', () {
       final s = createInitialState();
       expect(s.phase, GamePhase.betting);
-      expect(s.bankroll, 1000);
-      expect(s.pendingBet, 0);
     });
-    test('setBet / addToBet / clearBet', () {
-      expect(setBet(createInitialState(), 50).pendingBet, 50);
-      var s = createInitialState();
-      s = addToBet(s, 25);
-      s = addToBet(s, 25);
-      expect(s.pendingBet, 50);
-      expect(clearBet(setBet(createInitialState(), 100)).pendingBet, 0);
-    });
-    test('bet cannot exceed bankroll', () {
-      expect(setBet(createInitialState(bankroll: 100), 200).pendingBet, 0);
-    });
-    test('does not deal without a bet', () {
-      expect(dealHand(createInitialState()).phase, GamePhase.betting);
+    test('does not deal outside the betting phase', () {
+      final s = createInitialState();
+      final dealt = dealHand(s);
+      // dealt is now playerTurn or complete; dealing again should be a no-op.
+      final redealt = dealHand(dealt);
+      expect(redealt, same(dealt));
     });
 
     GameState getPlayerTurnState() {
-      var s = setBet(createInitialState(), 50);
+      var s = createInitialState();
       for (var i = 0; i < 50; i++) {
         final dealt = dealHand(s);
         if (dealt.phase == GamePhase.playerTurn) return dealt;
-        s = setBet(newHand(dealt), 50);
+        s = newHand(dealt);
       }
       throw StateError('Could not reach playerTurn');
     }
 
     test('deal yields playerTurn or complete', () {
-      final s = dealHand(setBet(createInitialState(), 50));
+      final s = dealHand(createInitialState());
       expect([GamePhase.playerTurn, GamePhase.complete].contains(s.phase), true);
     });
     test('deal deals 2+2 with hole card down', () {
@@ -129,10 +120,6 @@ void main() {
       expect(s.playerHands[0].cards.length, 2);
       expect(s.dealerCards.length, 2);
       expect(s.dealerCards[1].faceDown, true);
-    });
-    test('deal deducts bet', () {
-      final s = dealHand(setBet(createInitialState(bankroll: 1000), 50));
-      expect(s.bankroll <= 1000, true);
     });
     test('stand completes hand', () {
       expect(stand(getPlayerTurnState()).phase, GamePhase.complete);
@@ -144,7 +131,7 @@ void main() {
       expect(canSurrender(getPlayerTurnState()), false);
     });
     test('newHand resets after complete', () {
-      var s = dealHand(setBet(createInitialState(), 50));
+      var s = dealHand(createInitialState());
       if (s.phase == GamePhase.playerTurn) s = stand(s);
       expect(s.phase, GamePhase.complete);
       final next = newHand(s);
@@ -237,17 +224,13 @@ void main() {
           dealerUpcard: '10',
           handType: HandType.hard,
           explanation: 'e',
-          betAmount: 10,
           outcome: HandResult.lose,
-          payout: 0,
         );
 
     Session sessionWith(List<HandRecord> hands) => Session(
           id: 's',
           startTime: 0,
           endTime: 1,
-          startBankroll: 1000,
-          endBankroll: 1100,
           hands: hands,
           ruleSetId: 'vegas-strip',
         );
@@ -271,7 +254,6 @@ void main() {
       expect(sum.handsPlayed, 2);
       expect(sum.correctCount, 1);
       expect(sum.correctPct, 50.0);
-      expect(sum.profitLoss, 100);
       expect(sum.isLive, false);
     });
 
@@ -293,7 +275,7 @@ void main() {
       final back = Session.fromJson(s.toJson());
       expect(back.hands.length, 1);
       expect(back.hands[0].optimalAction, Action.hit);
-      expect(back.startBankroll, 1000);
+      expect(back.ruleSetId, 'vegas-strip');
     });
   });
 }

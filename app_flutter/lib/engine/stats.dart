@@ -41,9 +41,7 @@ class HandRecord {
   final String dealerUpcard;
   final HandType handType;
   final String explanation;
-  final int betAmount;
   final HandResult outcome;
-  final int payout;
 
   /// True when the dealer had a blackjack on this hand — only set on hands that
   /// resolve at deal time. Drives the "House Always Wins" achievement.
@@ -60,9 +58,7 @@ class HandRecord {
     required this.dealerUpcard,
     required this.handType,
     required this.explanation,
-    required this.betAmount,
     required this.outcome,
-    required this.payout,
     this.dealerBlackjack = false,
   });
 
@@ -77,9 +73,7 @@ class HandRecord {
         'dealerUpcard': dealerUpcard,
         'handType': handType.name,
         'explanation': explanation,
-        'betAmount': betAmount,
         'outcome': handResultId(outcome),
-        'payout': payout,
         if (dealerBlackjack) 'dealerBlackjack': true,
       };
 
@@ -94,9 +88,7 @@ class HandRecord {
         dealerUpcard: j['dealerUpcard'] as String,
         handType: HandType.values.byName(j['handType'] as String),
         explanation: j['explanation'] as String? ?? '',
-        betAmount: (j['betAmount'] as num).toInt(),
         outcome: handResultFromId(j['outcome'] as String),
-        payout: (j['payout'] as num).toInt(),
         dealerBlackjack: j['dealerBlackjack'] as bool? ?? false,
       );
 }
@@ -105,8 +97,6 @@ class Session {
   final String id;
   final int startTime;
   final int? endTime;
-  final int startBankroll;
-  final int? endBankroll;
   final List<HandRecord> hands;
   final String ruleSetId;
 
@@ -118,8 +108,6 @@ class Session {
     required this.id,
     required this.startTime,
     required this.endTime,
-    required this.startBankroll,
-    required this.endBankroll,
     required this.hands,
     required this.ruleSetId,
     this.deviceId,
@@ -128,7 +116,6 @@ class Session {
   Session copyWith({
     int? endTime,
     bool clearEndTime = false,
-    int? endBankroll,
     List<HandRecord>? hands,
     String? deviceId,
   }) =>
@@ -136,8 +123,6 @@ class Session {
         id: id,
         startTime: startTime,
         endTime: clearEndTime ? null : (endTime ?? this.endTime),
-        startBankroll: startBankroll,
-        endBankroll: endBankroll ?? this.endBankroll,
         hands: hands ?? this.hands,
         ruleSetId: ruleSetId,
         deviceId: deviceId ?? this.deviceId,
@@ -147,8 +132,6 @@ class Session {
         'id': id,
         'startTime': startTime,
         'endTime': endTime,
-        'startBankroll': startBankroll,
-        'endBankroll': endBankroll,
         'hands': hands.map((h) => h.toJson()).toList(),
         'ruleSetId': ruleSetId,
         'deviceId': deviceId,
@@ -158,8 +141,6 @@ class Session {
         id: j['id'] as String,
         startTime: (j['startTime'] as num).toInt(),
         endTime: j['endTime'] == null ? null : (j['endTime'] as num).toInt(),
-        startBankroll: (j['startBankroll'] as num).toInt(),
-        endBankroll: j['endBankroll'] == null ? null : (j['endBankroll'] as num).toInt(),
         hands: ((j['hands'] as List?) ?? [])
             .map((h) => HandRecord.fromJson(Map<String, dynamic>.from(h as Map)))
             .toList(),
@@ -174,7 +155,6 @@ class SessionSummary {
   final int handsPlayed;
   final int correctCount;
   final double correctPct;
-  final int profitLoss;
   final String ruleSetId;
   final int longestStreak;
   final bool isLive;
@@ -185,7 +165,6 @@ class SessionSummary {
     required this.handsPlayed,
     required this.correctCount,
     required this.correctPct,
-    required this.profitLoss,
     required this.ruleSetId,
     required this.longestStreak,
     required this.isLive,
@@ -220,14 +199,12 @@ class MistakeCategory {
   const MistakeCategory(this.label, this.count);
 }
 
-Session createSession(int startBankroll, String ruleSetId,
+Session createSession(String ruleSetId,
     {String? deviceId, int? now, Random? rng}) {
   return Session(
     id: _uuid(rng),
     startTime: now ?? DateTime.now().millisecondsSinceEpoch,
     endTime: null,
-    startBankroll: startBankroll,
-    endBankroll: null,
     hands: const [],
     ruleSetId: ruleSetId,
     deviceId: deviceId,
@@ -239,12 +216,10 @@ Session createSession(int startBankroll, String ruleSetId,
 const int kSittingIdleMs = 15 * 60 * 1000;
 
 /// Closes out a live session: end time is its last hand (when the sitting really
-/// stopped, not "now"), and the ending bankroll is derived from the hands.
+/// stopped, not "now").
 Session finalizeSession(Session s) {
   final endMs = s.hands.isEmpty ? s.startTime : s.hands.last.timestamp;
-  final endBank = s.endBankroll ??
-      s.startBankroll + s.hands.fold<int>(0, (a, h) => a + h.payout - h.betAmount);
-  return s.copyWith(endTime: endMs, endBankroll: endBank);
+  return s.copyWith(endTime: endMs);
 }
 
 /// Reconciles a pooled set of sessions (e.g. from the cloud, across devices) for
@@ -292,17 +267,14 @@ Session recordHand(Session session, HandRecord record, {int? now, Random? rng}) 
     dealerUpcard: record.dealerUpcard,
     handType: record.handType,
     explanation: record.explanation,
-    betAmount: record.betAmount,
     outcome: record.outcome,
-    payout: record.payout,
     dealerBlackjack: record.dealerBlackjack,
   );
   return session.copyWith(hands: [...session.hands, hand]);
 }
 
-Session endSession(Session session, int endBankroll, {int? now}) {
-  return session.copyWith(
-      endTime: now ?? DateTime.now().millisecondsSinceEpoch, endBankroll: endBankroll);
+Session endSession(Session session, {int? now}) {
+  return session.copyWith(endTime: now ?? DateTime.now().millisecondsSinceEpoch);
 }
 
 int computeLongestStreak(List<HandRecord> hands) {
@@ -351,7 +323,6 @@ SessionSummary summarizeSession(Session session) {
   final hands = session.hands;
   final correctCount = hands.where((h) => h.wasCorrect).length;
   final correctPct = hands.isNotEmpty ? (correctCount / hands.length) * 100 : 0.0;
-  final endBankroll = session.endBankroll ?? session.startBankroll;
 
   return SessionSummary(
     id: session.id,
@@ -359,7 +330,6 @@ SessionSummary summarizeSession(Session session) {
     handsPlayed: hands.length,
     correctCount: correctCount,
     correctPct: (correctPct * 10).round() / 10,
-    profitLoss: endBankroll - session.startBankroll,
     ruleSetId: session.ruleSetId,
     longestStreak: computeLongestStreak(hands),
     isLive: session.endTime == null,

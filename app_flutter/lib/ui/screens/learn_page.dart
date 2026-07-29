@@ -98,7 +98,6 @@ class _Lesson {
 
 List<_Step> _basics(RuleSet rs) {
   final surr = rs.surrender != Surrender.none;
-  final bjWin = (10 * blackjackPayoutMultiplier(rs.blackjackPays)).round();
   return [
     _Step(
       heading: 'The goal',
@@ -120,20 +119,21 @@ List<_Step> _basics(RuleSet rs) {
     _Step(
       heading: 'How a hand plays out',
       body:
-          "1. You place a bet.\n2. You get two cards face up; the dealer gets one up (the 'upcard') and one hidden.\n3. You act — take cards until you stand or bust.\n4. The dealer reveals the hidden card and must draw to 17 or more.\n5. Closest to 21 without busting wins. A tie is a 'push' and your bet comes back.",
+          "1. You get two cards face up; the dealer gets one up (the 'upcard') and one hidden.\n2. You act — take cards until you stand or bust.\n3. The dealer reveals the hidden card and must draw to 17 or more.\n4. Closest to 21 without busting wins. A tie is a 'push' — no one wins.",
     ),
     _Step(
       heading: 'Your moves',
       body:
-          '• Hit — take another card.\n• Stand — keep your total, end your turn.\n• Double — double your bet and take exactly one more card.\n• Split — matching cards become two separate hands.'
-          '${surr ? '\n• Surrender — give up the hand, get half your bet back.' : ''}',
+          '• Hit — take another card.\n• Stand — keep your total, end your turn.\n• Double — commit to exactly one more card, then stand.\n• Split — matching cards become two separate hands.'
+          '${surr ? '\n• Surrender — give up the hand early.' : ''}',
       takeaway: 'Knowing when to use each move is the whole game — the next lessons teach it.',
     ),
     _Step(
-      heading: 'Payouts',
+      heading: 'Winning the hand',
       body:
-          'Win: pays 1:1 — bet \$10, win \$10.\nBlackjack: pays ${blackjackPayoutId(rs.blackjackPays)} — bet \$10, win \$$bjWin.\nPush (tie): your bet is returned.'
-          '${surr ? '\nSurrender: half your bet back.' : ''}',
+          "Beat the dealer's total without busting and you win. Match it and it's a push — a tie, no one wins. Go over 21 and you bust and lose."
+          '\nA blackjack — an Ace with a 10-value card on your first two cards — is the strongest hand and beats any ordinary 21.'
+          '${surr ? '\nSurrender lets you bow out of a bad hand early instead of playing it out.' : ''}',
     ),
   ];
 }
@@ -884,11 +884,11 @@ const _glossary = [
   ('Hard hand', 'A hand with no ace, or an ace counted as 1. Example: 10+7 = hard 17.'),
   ('Soft hand', 'A hand containing an ace counted as 11. Example: A+7 = soft 18.'),
   ('Bust', 'When your hand total exceeds 21 — an automatic loss.'),
-  ('Blackjack', 'An ace plus any 10-value card on the first two cards — the strongest hand, and it pays a bonus.'),
-  ('Double down', 'Double your bet after the first two cards and receive exactly one more card.'),
+  ('Blackjack', 'An ace plus any 10-value card on the first two cards — the strongest hand.'),
+  ('Double down', 'Commit to exactly one more card after your first two, then stand.'),
   ('Split', 'When your first two cards are the same value, split them into two separate hands.'),
-  ('Surrender', 'Fold your hand and recover half your bet. Only on the first two cards (late surrender).'),
-  ('Push', 'A tie — both player and dealer have the same total. Your bet is returned.'),
+  ('Surrender', 'Give up the hand early. Only on the first two cards (late surrender).'),
+  ('Push', 'A tie — both player and dealer have the same total. No one wins.'),
   ('Basic strategy', 'The mathematically optimal decision for every player hand vs every dealer upcard.'),
   ('House edge', "The casino's mathematical advantage. With perfect basic strategy, ~0.5% on 6-deck."),
   ('Shoe', 'The device holding multiple decks. A 6-deck shoe holds 312 cards.'),
@@ -1286,7 +1286,7 @@ final List<_DrillSet> _drillSets = [
   _DrillSet(
     id: 'double',
     title: 'Doubling Down',
-    subtitle: 'When to press your bet',
+    subtitle: 'When to double down',
     icon: Icons.trending_up,
     pool: () => [..._hardPool(8, 11), ..._softPool(13, 18)],
   ),
@@ -1462,7 +1462,7 @@ class _DrillTile extends StatelessWidget {
 
 /// Runs a drill as an endless stream: sample a hand, answer one decision, see
 /// feedback, deal the next — forever. A running streak / accuracy is tracked.
-/// Isolated from the real game: no deck, bankroll, or session stats are touched.
+/// Isolated from the real game: no deck or session stats are touched.
 class _DrillRunner extends ConsumerStatefulWidget {
   final _DrillSet drill;
   const _DrillRunner({required this.drill});

@@ -40,8 +40,8 @@ class WebLandingPage extends ConsumerWidget {
     ),
     (
       '🎯',
-      'Play money only',
-      'A pure trainer — no real-money gambling, no wagering, no cash prizes.',
+      'No gambling',
+      'A pure strategy trainer — no betting, no wagering, no cash prizes. Just the cards and the correct play.',
     ),
   ];
 
