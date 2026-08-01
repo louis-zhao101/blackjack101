@@ -51,7 +51,13 @@ CUSTOMIZE
 
 Blackjack 101 is a training tool — there's no betting, no wagering, and no prizes. Just you, the strategy, and steady improvement.
 
-Play smarter. Start with Blackjack 101."""
+Play smarter. Start with Blackjack 101.
+
+———
+Blackjack 101 Pro is an auto-renewable subscription (monthly or yearly). Payment is charged to your Apple ID at purchase. It renews automatically unless turned off at least 24 hours before the period ends; manage or cancel anytime in your App Store account settings.
+
+Terms of Use (EULA): https://www.apple.com/legal/internet-services/itunes/dev/stdeula/
+Privacy Policy: https://blackjack101.app/privacy.html"""
 SUPPORT_URL = "https://blackjack101.app"
 MARKETING_URL = "https://blackjack101.app"
 PRIVACY_URL = "https://blackjack101.app/privacy.html"
