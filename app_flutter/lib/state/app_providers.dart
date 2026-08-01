@@ -221,6 +221,17 @@ Future<void> openPrivacyPolicy() async {
       webOnlyWindowName: '_self', mode: LaunchMode.externalApplication);
 }
 
+/// Apple's standard Terms of Use (EULA) — the subscription paywall links to this
+/// to satisfy App Review guideline 3.1.2 (functional Terms of Use in the binary).
+const String kTermsOfUseUrl =
+    'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/';
+
+/// Opens the Terms of Use (EULA).
+Future<void> openTermsOfUse() async {
+  await launchUrl(Uri.parse(kTermsOfUseUrl),
+      webOnlyWindowName: '_blank', mode: LaunchMode.externalApplication);
+}
+
 /// True once startup work is done — the initial Firebase load finished, or the
 /// user is a guest with nothing to load. The splash watches this to know when it
 /// may begin its exit; visual timing (minimum deal cycles) is owned by the

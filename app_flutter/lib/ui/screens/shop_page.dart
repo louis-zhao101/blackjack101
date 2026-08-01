@@ -5,6 +5,7 @@ import 'package:purchases_flutter/purchases_flutter.dart' show Offering, Package
 
 import '../../engine/cards.dart' as bj;
 import '../../services/purchases_service.dart';
+import '../../state/app_providers.dart' show openTermsOfUse, openPrivacyPolicy;
 import '../../state/appearance_provider.dart';
 import '../../state/auth_provider.dart';
 import '../../state/store_provider.dart';
@@ -329,8 +330,41 @@ class _GoProScreenState extends ConsumerState<GoProScreen> {
               ),
             ),
             const _PolicyNote(oneTime: false),
+            const _LegalLinks(),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Functional Terms of Use (EULA) + Privacy Policy links, required on the
+/// subscription paywall by App Review guideline 3.1.2.
+class _LegalLinks extends StatelessWidget {
+  const _LegalLinks();
+
+  @override
+  Widget build(BuildContext context) {
+    Widget link(String label, Future<void> Function() onTap) => TextButton(
+          onPressed: withHaptic(() => onTap()),
+          style: TextButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            minimumSize: Size.zero,
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            foregroundColor: AppTokens.textSecondary,
+            textStyle: const TextStyle(fontSize: 12, decoration: TextDecoration.underline),
+          ),
+          child: Text(label),
+        );
+    return Padding(
+      padding: const EdgeInsets.only(top: 2),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          link('Terms of Use (EULA)', openTermsOfUse),
+          const Text('·', style: TextStyle(color: AppTokens.textSecondary, fontSize: 12)),
+          link('Privacy Policy', openPrivacyPolicy),
+        ],
       ),
     );
   }
