@@ -1,10 +1,6 @@
-import 'dart:async';
-
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:in_app_review/in_app_review.dart';
 
 import '../../engine/cards.dart' as bj;
 import '../../services/sound_service.dart';
@@ -14,15 +10,12 @@ import '../theme/appearance.dart';
 import '../widgets/blackjack_hand.dart';
 import '../widgets/game_button.dart';
 
-enum _Page { playHand, stats, review }
+enum _Page { playHand, stats }
 
-// The review ask is store-only; the web build ends on the stats page.
-const _pages = kIsWeb
-    ? [_Page.playHand, _Page.stats]
-    : [_Page.playHand, _Page.stats, _Page.review];
+const _pages = [_Page.playHand, _Page.stats];
 
-/// First-run onboarding: play a rigged winning hand, see what gets tracked, then
-/// (on store builds) a heartfelt ask to rate the app. Cannot be skipped.
+/// First-run onboarding: play a rigged winning hand, then see what gets tracked.
+/// Cannot be skipped.
 class OnboardingPage extends ConsumerStatefulWidget {
   const OnboardingPage({super.key});
 
@@ -45,15 +38,8 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
   ];
   bool _won = false;
 
-  // --- Review page gate (store builds only) ---
-  static const _proceedDelay = Duration(seconds: 2);
-  bool _reviewTapped = false;
-  bool _canProceed = false;
-  Timer? _proceedTimer;
-
   @override
   void dispose() {
-    _proceedTimer?.cancel();
     _controller.dispose();
     super.dispose();
   }
@@ -87,21 +73,6 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
         _won = true;
       });
     });
-  }
-
-  void _leaveReview() {
-    setState(() => _reviewTapped = true);
-    _requestReview();
-    _proceedTimer = Timer(_proceedDelay, () {
-      if (mounted) setState(() => _canProceed = true);
-    });
-  }
-
-  Future<void> _requestReview() async {
-    try {
-      final review = InAppReview.instance;
-      if (await review.isAvailable()) await review.requestReview();
-    } catch (_) {}
   }
 
   @override
@@ -153,13 +124,11 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
       theme: theme,
     ),
     _Page.stats => _StatsPreviewView(theme: theme),
-    _Page.review => const _ReviewView(),
   };
 
   Widget _cta(AppearanceTheme theme) {
     String label;
-    VoidCallback? onPressed;
-    Widget? leading;
+    VoidCallback onPressed;
 
     switch (_page) {
       case _Page.playHand:
@@ -173,25 +142,6 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
       case _Page.stats:
         label = _isLast ? 'Get Started' : 'Next';
         onPressed = _isLast ? _complete : _next;
-      case _Page.review:
-        if (!_reviewTapped) {
-          label = 'Leave a review';
-          onPressed = _leaveReview;
-        } else if (_canProceed) {
-          label = "I've left a review";
-          onPressed = _complete;
-        } else {
-          label = 'Thanks for the support';
-          onPressed = null;
-          leading = SizedBox(
-            width: 16,
-            height: 16,
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-              color: theme.feltDark,
-            ),
-          );
-        }
     }
 
     return FilledButton(
@@ -204,19 +154,13 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
           borderRadius: BorderRadius.circular(AppTokens.radiusLg),
         ),
       ),
-      onPressed: onPressed == null ? null : withHaptic(onPressed),
+      onPressed: withHaptic(onPressed),
       child: AnimatedSwitcher(
         duration: const Duration(milliseconds: 250),
-        child: Row(
+        child: Text(
+          label,
           key: ValueKey(label),
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (leading != null) ...[leading, const SizedBox(width: 10)],
-            Text(
-              label,
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-            ),
-          ],
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
         ),
       ),
     );
@@ -400,60 +344,6 @@ class _StatsPreviewView extends StatelessWidget {
             style: TextStyle(
               color: AppTokens.textSecondary,
               fontSize: 15,
-              height: 1.5,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Page 3 — the review ask (store builds only).
-class _ReviewView extends ConsumerWidget {
-  const _ReviewView();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final theme = ref.watch(appearanceProvider);
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 32),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            width: 128,
-            height: 128,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: theme.gold.withValues(alpha: 0.14),
-              border: Border.all(
-                color: theme.gold.withValues(alpha: 0.5),
-                width: 1.5,
-              ),
-            ),
-            child: Icon(Icons.favorite, size: 60, color: theme.goldLight),
-          ),
-          const SizedBox(height: 40),
-          const Text(
-            "We're a small team",
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: AppTokens.textPrimary,
-              fontSize: 26,
-              fontWeight: FontWeight.w800,
-              height: 1.15,
-            ),
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            'Blackjack 101 is built by a tiny group of developers. If it helps '
-            'your game, a quick review would mean the world — and helps others '
-            'find us.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: AppTokens.textSecondary,
-              fontSize: 16,
               height: 1.5,
             ),
           ),
