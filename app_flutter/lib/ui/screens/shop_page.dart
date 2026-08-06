@@ -10,7 +10,6 @@ import '../../state/appearance_provider.dart';
 import '../../state/auth_provider.dart';
 import '../../state/store_provider.dart';
 import '../app_shell.dart' show InviteFriendsBanner, cosmeticGrid, CosmeticTile;
-import '../auth_screen.dart' show showSignInSheet;
 import '../theme/appearance.dart';
 import '../widgets/game_button.dart';
 import '../widgets/playing_card.dart';
@@ -124,8 +123,9 @@ class _GoProScreenState extends ConsumerState<GoProScreen> {
 
   Future<void> _subscribe(Package package) async {
     if (_purchasing) return;
-    if (!await _ensureSignedIn(context, ref)) return;
-    if (!mounted) return;
+    // No sign-in gate: subscriptions may be purchased as a guest (App Review
+    // 5.1.1(v)). RevenueCat ties the purchase to the anonymous/App Store account;
+    // signing in later (from Account) aliases it to sync across devices.
     final messenger = ScaffoldMessenger.of(context);
     setState(() => _purchasing = true);
     try {
@@ -810,22 +810,14 @@ class _PolicyNote extends StatelessWidget {
   }
 }
 
-/// Purchases must tie to a signed-in account so entitlements sync across devices
-/// and survive reinstall. Returns true if signed in, prompting the sign-in sheet
-/// first if not (false if the user dismisses it without signing in).
-Future<bool> _ensureSignedIn(BuildContext context, WidgetRef ref) async {
-  if (ref.read(authServiceProvider).currentUser != null) return true;
-  await showSignInSheet(context);
-  return ref.read(authServiceProvider).currentUser != null;
-}
-
 Future<void> _buy(BuildContext context, WidgetRef ref, StoreProduct product) async {
   if (_purchasesMobileOnly) {
     _notifyMobileOnly(context);
     return;
   }
-  if (!await _ensureSignedIn(context, ref)) return;
-  if (!context.mounted) return;
+  // No sign-in gate: cosmetics aren't account-based, so requiring registration
+  // to buy them violates App Review 5.1.1(v). Entitlements persist locally and
+  // sync to the cloud if/when the user chooses to sign in.
   final messenger = ScaffoldMessenger.of(context);
   final result = await ref.read(entitlementsProvider.notifier).purchase(product);
   if (result == PurchaseResult.success) {
